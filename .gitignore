@@ -1,0 +1,17 @@
+# Per-machine state — points at the campaign active on this machine.
+# Each user/machine sets their own active campaign.
+campaigns/active.md
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor scratch
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Build artifacts (release plugin packaging)
+dist/
