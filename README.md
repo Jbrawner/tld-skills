@@ -2,7 +2,7 @@
 
 A set of Claude Code skills for test-led development. Drives a project through small tickets with hard stops between phases, drift detection, side quests in isolated worktrees, and step-boundary gate checks.
 
-This is the v0 snapshot. The full philosophy section, install instructions, getting-started walkthrough, compatibility matrix, and worked example land in Step 7 of the v0.1.0 ticket plan. See `docs/EXECUTION_PLAYBOOK.md` for the work-in-progress.
+This is the v0 snapshot. The full philosophy section, install instructions, getting-started walkthrough, compatibility matrix, and worked example land later in the v0.1.0 ticket plan. See [CONTRIBUTING.md](CONTRIBUTING.md) for the test-led development philosophy, hard-stop rules, and canonical shared-block definitions.
 
 ## Status
 
