@@ -85,7 +85,7 @@ Only one option gets the marker. Never mark `/tld-side-quest`. Do not add a "Why
 Skills no longer parse a playbook. Structure and runtime state live in two places and nowhere else:
 
 1. **Linear** — authoritative for milestone list (sorted by `sortOrder`), per-milestone metadata (purpose, scope, exit criteria), the ordered ticket sequence within each milestone (the `## Order` section of the milestone description), and every ticket's status (Todo / In Progress / Done / Canceled).
-2. **`.tld/campaign.md`** — a per-repo file holding only static local config: which Linear project to talk to, what test commands to run, where the stack lives, and how commits should be formatted. No milestone list. No Active section. No ticket-order cache.
+2. **`.tld/campaign.md`** — a per-repo file holding only static local config: which issue tracker and project to talk to, what test commands to run, where the stack lives, and how commits should be formatted. No milestone list. No Active section. No ticket-order cache.
 
 The rest of this section defines the exact contract both sides must meet.
 
@@ -94,14 +94,13 @@ The rest of this section defines the exact contract both sides must meet.
 Four sections, in this order:
 
 ```markdown
-# Campaign: {Project Name}
+# Campaign: {Project name}
 
 ## Project
-- Name: {human-readable project name}
-- Issue tracker: Linear
-- Team: {Linear team name}
+- Issue tracker: {tracker}
+- Project name: {Project name}
+- Team: {Team}
 - Ticket prefix: {PREFIX}
-- Linear project: {Linear project name or slug}
 
 ## Test Commands
 - Backend: {command to run backend tests}
@@ -201,9 +200,9 @@ If the file does not exist, stop and output:
   "No campaign found in this repo. Run /campaign-init to scaffold one."
   Do not proceed. Do not attempt to resolve project config from any other source.
 Parse the four sections: Project, Test Commands, Stack, Commit format.
-If any required field in Project (Name, Team, Ticket prefix, Linear project) is missing, stop and output:
+If any required field in Project (Issue tracker, Project name, Team, Ticket prefix) is missing, stop and output:
   "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
-The Linear team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
+The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 ```
 
 ### Canonical paste-block: Resolve next ticket
@@ -246,11 +245,10 @@ This is the real campaign file for the Adventure Skills repo itself:
 # Campaign: Adventure Skills
 
 ## Project
-- Name: Adventure Skills
 - Issue tracker: Linear
+- Project name: Adventure Skills
 - Team: 2ndFoundry
 - Ticket prefix: 2ND
-- Linear project: Adventure Skills
 
 ## Test Commands
 - Backend: cd backend && npm run test:run
