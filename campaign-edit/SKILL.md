@@ -66,8 +66,17 @@ If there are more than 4 fields (there are 11), present them in two AskUserQuest
 ### 5. Collect the new value
 
 Use AskUserQuestion for the new value:
-- For enum fields (Issue tracker): present the valid options
-- For free-text fields: present an open-ended question
+- For free-text fields: present an open-ended question.
+- For the **Issue tracker** field specifically, present the same enum `/campaign-init` uses, in this order (AskUserQuestion automatically adds "Other" for free-text):
+  - **Linear (Recommended)** — the framework was built against Linear MCP and ships with wired tooling.
+  - **Jira** — schema accepts it; downstream skills will need adaptation.
+  - **GitHub Issues** — schema accepts it; downstream skills will need adaptation.
+
+  If the user picks anything other than `Linear`, print this advisory verbatim and then use AskUserQuestion to confirm before writing:
+
+  > **Heads up:** The skills framework was built against Linear MCP. Other trackers are accepted in the schema but downstream TLD skills call Linear tools by name and will need manual adaptation. See LIMITATIONS.md.
+
+  Do not block the edit. If the user confirms, proceed to write. If they decline, abort the edit and return to step 4 so they can pick a different field (or stop).
 
 Show the current value in the question text so the user has context.
 

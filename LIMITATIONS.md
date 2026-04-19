@@ -2,13 +2,15 @@
 
 Adventure Skills v0.1.0 is alpha software. It was built by dogfooding the framework on a single private project ("mAIn Character") and then extracted for open-source release. Many assumptions that were invisible during dogfooding are surfaced here so you can decide whether the framework fits your project before you adopt it.
 
-## Issue tracker: Linear-only
+## Issue tracker: Linear primary, others on your own
 
-Every TLD skill reads from and writes to Linear directly via MCP. Tickets, milestones, statuses, and the `## Order` section that drives ticket sequencing all live in Linear.
+Linear is the only tracker the v0.1 skills are wired to call. `/campaign-init` accepts Linear, Jira, GitHub Issues, and Other as the issue tracker, and `/campaign-edit` will not stop you from changing the field to any of those values — but the schema accepting a tracker name is not the same thing as the framework supporting it.
 
-There is no abstraction layer. Skills call `get_issue`, `save_issue`, `get_milestone`, `list_issues`, etc. by name. If your team uses GitHub Issues, Jira, Linear, Shortcut, or any other tracker, the skills will not work as written.
+Downstream TLD skills call Linear MCP tools by name (`list_issues`, `get_issue`, `save_issue`, `get_milestone`, `list_milestones`, `list_issue_labels`, `create_issue_label`). Every skill that reads or writes ticket state — `/tld-setup`, `/tld-next`, `/tld-run-test`, `/tld-gate`, `/tld-ticket`, `/tld-save-point`, `/tld-dashboard`, `/campaign-init`'s label bootstrap — will fail on non-Linear configs until adapter work lands.
 
-Multi-tracker support is deferred to v0.2.
+If you pick Jira, GitHub Issues, or anything else, `/campaign-init` writes the file successfully and prints an advisory, but you are on your own for the rest of the pipeline until per-tracker adapters exist. See 2ND-207 (M6: Documentation) for the adapter-interface contract ticket.
+
+Multi-tracker support is deferred to a future release.
 
 ## Test runner: Vitest or Jest assumed
 
