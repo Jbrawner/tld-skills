@@ -6,7 +6,7 @@ Adventure Skills v0.1.0 is alpha software. It was built by dogfooding the framew
 
 Linear is the only tracker the v0.1 skills are wired to call. `/campaign-init` accepts Linear, Jira, GitHub Issues, and Other as the issue tracker, and `/campaign-edit` will not stop you from changing the field to any of those values — but the schema accepting a tracker name is not the same thing as the framework supporting it.
 
-Downstream TLD skills call Linear MCP tools by name (`list_issues`, `get_issue`, `save_issue`, `get_milestone`, `list_milestones`, `list_issue_labels`, `create_issue_label`). Every skill that reads or writes ticket state — `/tld-setup`, `/tld-next`, `/tld-run-test`, `/tld-gate`, `/tld-ticket`, `/tld-save-point`, `/tld-dashboard`, `/campaign-init`'s label bootstrap — will fail on non-Linear configs until adapter work lands.
+Downstream TLD skills call Linear MCP tools by name (`list_issues`, `get_issue`, `save_issue`, `get_milestone`, `list_milestones`, `list_issue_labels`, `create_issue_label`). Every skill that reads or writes ticket state — `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-commit`, `/tld-next`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-ticket`, `/tld-save-point`, `/tld-dashboard`, `/campaign-init`'s label bootstrap — will fail on non-Linear configs until adapter work lands.
 
 If you pick Jira, GitHub Issues, or anything else, `/campaign-init` writes the file successfully and prints an advisory, but you are on your own for the rest of the pipeline until per-tracker adapters exist. See 2ND-207 (M6: Documentation) for the adapter-interface contract ticket.
 
