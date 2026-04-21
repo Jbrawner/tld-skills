@@ -10,10 +10,17 @@ First open-source release. Extracts the TLD (Test-Led Development) skills framew
 
 - TLD skill family: `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-align`, `/tld-audit`, `/tld-commit`, `/tld-next`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-save-point`, `/tld-dashboard`, `/tld-ticket`, `/tld-help`.
 - Campaign skill family for per-repo project configuration: `/campaign-init`, `/campaign-edit`, `/campaign-show`, `/campaign-test`, `/campaign-remove`.
-- Planning skill family for creating Linear structure: `/campaign-plan`, `/milestone-create`, `/milestone-sync`.
 - Milestone-driven architecture — Linear is the sole source of truth for milestones, ticket order (via the `## Order` section in each milestone description), and ticket status. The local `.tld/campaign.md` file holds only static project config.
 - `CONTRIBUTING.md` with the canonical text of the four shared blocks (Numbered shortcut recognition, Milestone completion check, Recommendation hint, Manual-QA classification) plus the Campaign File + Milestone Contract, Local DB Safety Check, and Canonical Approval Keyword set.
 - `LIMITATIONS.md` documenting known constraints (Linear-only, Vitest/Jest assumed, Supabase local at 127.0.0.1:54321 assumed, alpha + dogfooding caveats).
+
+### Removed
+
+- `/campaign-switch` skill — obsolete under the per-repo campaign model (one campaign per repo, nothing to switch between). Tracked in 2ND-232.
+
+### Planned (not yet in this release)
+
+- Planning skill family for creating Linear structure: `/campaign-plan`, `/milestone-create`, `/milestone-sync`. Tracked in M4 (2ND-229, 2ND-230, 2ND-228; parent 2ND-225).
 
 ### Known limitations
 
