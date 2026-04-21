@@ -53,6 +53,12 @@ Print the following reference card exactly as shown. Do not add commentary or ex
 | `/tld-gate` | Full regression at step boundaries | When `/tld-next` says a step is complete |
 | `/tld-side-quest` | Small fix in an isolated worktree | Polish, minor fix, or config tweak |
 
+### Campaign Config
+
+| Skill | What it does | When to use |
+|-------|-------------|-------------|
+| `/campaign-test` | Pre-flight connection check for the campaign | Before `/tld-setup`; after `/campaign-init` |
+
 ### Standard Flow
 
 ```
