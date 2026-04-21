@@ -1,99 +1,85 @@
 ---
 name: campaign-show
 description: |
-  Display the currently active campaign's fields and list all other campaigns. Use this skill whenever the user
-  says "campaign-show", "campaign show", "show campaign", "what campaign am I on", "list campaigns",
-  "view campaign", "current project", or wants to see the active project configuration. This is a read-only
-  view and does not modify any files.
+  Display this repo's `.tld/campaign.md` configuration — all four sections (Project, Test Commands, Stack,
+  Commit format) — plus an optional Linear snapshot showing milestone names and progress. Use this skill
+  whenever the user says "campaign-show", "campaign show", "show campaign", "what campaign am I on",
+  "view campaign", "current project", or wants to see the per-repo project configuration. Read-only;
+  does not modify any files.
 ---
 
 # Campaign Show
 
-You are displaying the current campaign configuration. This skill is **read-only**. No files are modified.
+You are displaying the per-repo campaign configuration at `{cwd}/.tld/campaign.md`. This skill is **read-only**. No files are modified.
 
 ## Process
 
-### 1. Check for campaigns directory
+### 1. Load project config
 
-Check if `~/.claude/skills/campaigns/` exists. If not, tell the user:
+Read `.tld/campaign.md` from the current repo root.
+If the file does not exist, stop and output:
+  "No campaign found in this repo. Run `/campaign-init` to scaffold one."
+  Do not proceed. Do not attempt to resolve project config from any other source.
+Parse the four sections: Project, Test Commands, Stack, Commit format.
 
-> No campaigns exist yet. Run `/campaign-define` to create your first one.
+### 2. Display the four sections
 
-Stop.
-
-### 2. Read the active pointer
-
-Read `~/.claude/skills/campaigns/active.md`. If the file is missing or empty (no campaign name), tell the user:
-
-> No active campaign is set. Run `/campaign-define` to create one, or `/campaign-switch` if campaigns already exist.
-
-Stop.
-
-### 3. Load the active campaign file
-
-Load `~/.claude/skills/campaigns/{active-name}.md`. If the file does not exist but `active.md` points at it, flag the inconsistency:
-
-> The active pointer references `{name}` but no file exists at `~/.claude/skills/campaigns/{name}.md`. Run `/campaign-switch` to pick a valid campaign or `/campaign-define` to recreate it.
-
-Stop.
-
-Parse the schema fields from the file (project name, issue tracker, team slug, ticket prefix, playbook path, backend directory, frontend directory, database, changelog path, commit pattern, co-author).
-
-### 4. List other campaigns
-
-List all other `*.md` files in `~/.claude/skills/campaigns/` excluding `active.md` and the currently active campaign's file. Use the filename minus `.md` as the display name for each.
-
-### 5. Output
-
-Present the information in a clear format:
+Print the parsed values in this format. Render any blank field as `(blank)`:
 
 ```
-## Active Campaign: {project name}
+## Campaign: {Project name}
 
 ### Project
-- Name: {name}
 - Issue tracker: {tracker}
-- Team slug: {slug}
+- Project name: {Project name}
+- Team: {Team}
 - Ticket prefix: {prefix}
 
-### Playbook
-- Path: {path}
+### Test Commands
+- Backend: {backend}
+- Frontend: {frontend}
+- Full: {full}
 
 ### Stack
-- Backend directory: {backend}
-- Frontend directory: {frontend}
+- Backend directory: {backend dir}
+- Frontend directory: {frontend dir}
 - Database: {database}
 - Changelog path: {changelog}
 
 ### Commit format
 - Pattern: {pattern}
-- Co-author: {co-author or "(none)"}
-
-## Other Campaigns
-- {name-1}
-- {name-2}
+- Co-author: {co-author}
 ```
 
-If there are no other campaigns, say `(no other campaigns)` under the **Other Campaigns** heading.
+### 3. Linear snapshot (optional, best-effort)
+
+If **Issue tracker** is not `Linear`, skip this step silently. Do not print a snapshot block, do not print a "skipped" note.
+
+If **Issue tracker** is `Linear`, call `list_milestones` with `project: {Project name}` (from the Project section you just parsed).
+
+- On success, print a `### Linear snapshot` block listing `{milestone name} — {progress}%` for each milestone, one per line. If `list_milestones` returns zero milestones, print `(no milestones yet)` under the heading.
+- On any failure (Linear unreachable, project not found, auth error, etc.), do NOT hard-fail the skill. Print `### Linear snapshot` followed by a single line: `Linear snapshot unavailable: {short reason}`. Move on.
+
+The snapshot is read-through from Linear; nothing is cached locally and nothing is written back to the file.
 
 ### Numbered shortcut recognition
 
 When you present the "What's next?" options at the end of your output, the user may respond with just a number (e.g., "1"). If the user's next message is a bare number matching one of the options you presented, treat it as if they typed the corresponding slash command and invoke that skill immediately.
 
-### 6. Present options
+### 4. Present options
 
 ---
 
 **What's next?**
 
-> **1.** /campaign-edit — edit a field in the active campaign
+> **1.** /campaign-edit — edit a field in the campaign
 >    Best for: update a value that's out of date
 
-> **2.** /campaign-switch — change which campaign is active
->    Best for: switch to a different project
+> **2.** /tld-setup — jump into the next ticket
+>    Best for: config looks right, back to work
 
-> **3.** /campaign-define — create a new campaign
->    Best for: setting up an additional project config
+> **3.** /campaign-init — scaffold a campaign in another repo
+>    Best for: setting up a different project
 
 Type **1**, **2**, or **3** to proceed.
 
