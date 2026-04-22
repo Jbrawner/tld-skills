@@ -44,6 +44,7 @@ Print the following reference card exactly as shown. Do not add commentary or ex
 
 | Skill | What it does | When to use |
 |-------|-------------|-------------|
+| `/campaign-plan` | Full planning — scope, phases, and tickets, all created in Linear | Starting a new project from scratch |
 | `/tld-ticket` | Creates standardized Linear tickets (feature, bug, QA, polish) | When work needs to be tracked |
 
 ### Boundaries + Side Channel
