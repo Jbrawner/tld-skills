@@ -21,13 +21,13 @@ If any required field in Project (Issue tracker, Project name, Team, Ticket pref
   "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
 The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 
-### 2. SAFETY: Local database only
+### 2. Local DB safety check
 
-**This is checked BEFORE any test run or destructive operation. Stop everything if it fails.**
+**Run the local-DB safety check before any test command or destructive database operation.**
 
-Read `Stack.Database` from the campaign file — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
+Read `Stack.Database` from `.tld/campaign.md` — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
 
-Then verify the live database connection also points at local:
+Verify the live database connection also points at local:
 1. Scan the repo for database URL references (Supabase config, `.env*`, `SUPABASE_URL`, `DATABASE_URL`, or equivalent for this project's stack).
 2. If any reference names a non-local host (anything that is not `127.0.0.1` or `localhost`), **HARD ABORT immediately**:
 
@@ -38,7 +38,7 @@ Found: [the URL/host that's not local]
 Location: [where you found it]
 Campaign Stack.Database: [value from campaign.md]
 
-This gate check runs destructive operations (e.g., db reset, seed).
+This skill runs tests or destructive operations against the database.
 Refusing to proceed against a non-local database.
 
 Fix: Ensure the configured database URL points at local (matches Stack.Database).

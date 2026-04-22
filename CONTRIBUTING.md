@@ -227,6 +227,35 @@ If Linear is unreachable at any step, stop and output:
   Do not fall back to cached state; there is none.
 ```
 
+### Canonical paste-block: Local DB safety check
+
+Every skill that runs test commands or destructive database operations embeds this block verbatim after Load project config (and, where relevant, after Resolve current ticket / Resolve test command). It aborts the skill if the configured database URL is not a loopback address. The block body must be byte-identical across every embedder — if you change the wording here, update every SKILL.md that embeds it.
+
+````
+**Run the local-DB safety check before any test command or destructive database operation.**
+
+Read `Stack.Database` from `.tld/campaign.md` — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
+
+Verify the live database connection also points at local:
+1. Scan the repo for database URL references (Supabase config, `.env*`, `SUPABASE_URL`, `DATABASE_URL`, or equivalent for this project's stack).
+2. If any reference names a non-local host (anything that is not `127.0.0.1` or `localhost`), **HARD ABORT immediately**:
+
+```
+🛑 ABORT: Non-local database detected.
+
+Found: [the URL/host that's not local]
+Location: [where you found it]
+Campaign Stack.Database: [value from campaign.md]
+
+This skill runs tests or destructive operations against the database.
+Refusing to proceed against a non-local database.
+
+Fix: Ensure the configured database URL points at local (matches Stack.Database).
+```
+
+Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
+````
+
 ### Error handling: Linear unreachable
 
 There is no offline mode. If a Linear call fails (network error, auth failure, rate limit, 5xx), the skill surfaces the error and exits. Skills must not proceed against stale cached state — the campaign file has no ticket-order or status cache by design, so there is nothing to fall back to.

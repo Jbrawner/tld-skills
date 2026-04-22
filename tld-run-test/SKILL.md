@@ -59,6 +59,31 @@ If the Full command is also empty, stop and output:
 
 Use the resolved command for any test run in this skill. Do not invent commands or read any playbook file.
 
+### 1c. Local DB safety check
+
+**Run the local-DB safety check before any test command or destructive database operation.**
+
+Read `Stack.Database` from `.tld/campaign.md` — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
+
+Verify the live database connection also points at local:
+1. Scan the repo for database URL references (Supabase config, `.env*`, `SUPABASE_URL`, `DATABASE_URL`, or equivalent for this project's stack).
+2. If any reference names a non-local host (anything that is not `127.0.0.1` or `localhost`), **HARD ABORT immediately**:
+
+```
+🛑 ABORT: Non-local database detected.
+
+Found: [the URL/host that's not local]
+Location: [where you found it]
+Campaign Stack.Database: [value from campaign.md]
+
+This skill runs tests or destructive operations against the database.
+Refusing to proceed against a non-local database.
+
+Fix: Ensure the configured database URL points at local (matches Stack.Database).
+```
+
+Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
+
 ### 1.5. Detect ticket type
 
 Classify the active ticket to determine which path to take.

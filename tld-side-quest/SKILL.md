@@ -65,6 +65,33 @@ Build a file manifest:
 - Pattern/reference files to follow (existing code style)
 - Test files that cover the affected area (if any exist)
 
+### 2a. Local DB safety check
+
+**Run the local-DB safety check before any test command or destructive database operation.**
+
+Read `Stack.Database` from `.tld/campaign.md` — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
+
+Verify the live database connection also points at local:
+1. Scan the repo for database URL references (Supabase config, `.env*`, `SUPABASE_URL`, `DATABASE_URL`, or equivalent for this project's stack).
+2. If any reference names a non-local host (anything that is not `127.0.0.1` or `localhost`), **HARD ABORT immediately**:
+
+```
+🛑 ABORT: Non-local database detected.
+
+Found: [the URL/host that's not local]
+Location: [where you found it]
+Campaign Stack.Database: [value from campaign.md]
+
+This skill runs tests or destructive operations against the database.
+Refusing to proceed against a non-local database.
+
+Fix: Ensure the configured database URL points at local (matches Stack.Database).
+```
+
+Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
+
+The subagent will run tests inside its worktree; gating here ensures the parent has confirmed a local target before any test command fires downstream.
+
 ### 3. Spawn the implementation subagent
 
 Launch a subagent with `isolation: "worktree"` so it gets its own copy of the repo. Give it a complete brief:

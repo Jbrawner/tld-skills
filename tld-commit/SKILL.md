@@ -57,6 +57,31 @@ If Linear is unreachable at any step, stop and output:
   "Cannot reach Linear — aborting. No offline mode."
 Do not fall back to cached state; there is none.
 
+### 2a. Local DB safety check
+
+**Run the local-DB safety check before any test command or destructive database operation.**
+
+Read `Stack.Database` from `.tld/campaign.md` — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
+
+Verify the live database connection also points at local:
+1. Scan the repo for database URL references (Supabase config, `.env*`, `SUPABASE_URL`, `DATABASE_URL`, or equivalent for this project's stack).
+2. If any reference names a non-local host (anything that is not `127.0.0.1` or `localhost`), **HARD ABORT immediately**:
+
+```
+🛑 ABORT: Non-local database detected.
+
+Found: [the URL/host that's not local]
+Location: [where you found it]
+Campaign Stack.Database: [value from campaign.md]
+
+This skill runs tests or destructive operations against the database.
+Refusing to proceed against a non-local database.
+
+Fix: Ensure the configured database URL points at local (matches Stack.Database).
+```
+
+Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
+
 ### 3. Re-run tests
 
 Since the codebase may have changed (side quest, manual edits), re-run tests to make sure everything still passes.
