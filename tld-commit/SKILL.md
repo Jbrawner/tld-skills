@@ -22,7 +22,18 @@ You are picking up a pending commit. The user was at (or past) the tld-run-test 
 
 ## Process
 
-### 1. Identify the pending work
+### 1. Load project config
+
+Read `.tld/campaign.md` from the current repo root.
+If the file does not exist, stop and output:
+  "No campaign found in this repo. Run /campaign-init to scaffold one."
+  Do not proceed. Do not attempt to resolve project config from any other source.
+Parse the four sections: Project, Test Commands, Stack, Commit format.
+If any required field in Project (Issue tracker, Project name, Team, Ticket prefix) is missing, stop and output:
+  "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
+The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
+
+### 1a. Identify the pending work
 
 Check for uncommitted changes:
 - `git status` to see staged/unstaged files
@@ -30,25 +41,47 @@ Check for uncommitted changes:
 
 If there are no uncommitted changes, stop: "No pending changes found. Nothing to commit."
 
-### 2. Identify the ticket
+### 2. Resolve current ticket
 
-Figure out which ticket these changes belong to:
+Query Linear for issues in the configured project with status = "In Progress".
 
-1. Check Linear for In Progress tickets in the mAIn Character project (team: 2ndFoundry) via `list_issues`
-2. Cross-reference the modified files against the ticket's "Files to Create/Modify"
-3. If multiple In Progress tickets exist, check which one matches the file changes
+**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
 
-If you can't determine the ticket, ask the user: "Which ticket are these changes for?"
+**Case B — zero In-Progress tickets:** Stop and output:
+  "No In-Progress ticket found. Run /tld-setup to pick one up."
+Do not guess, do not walk milestones — that is /tld-setup's job.
 
-Use `get_issue` to pull the full ticket details (title, description, AC).
+**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
+
+If Linear is unreachable at any step, stop and output:
+  "Cannot reach Linear — aborting. No offline mode."
+Do not fall back to cached state; there is none.
 
 ### 3. Re-run tests
 
-Since the codebase may have changed (side quest, manual edits), re-run the test command from the playbook step to make sure everything still passes.
+Since the codebase may have changed (side quest, manual edits), re-run tests to make sure everything still passes.
 
-Read `docs/EXECUTION_PLAYBOOK.md` to find the test command for the current step.
+**Resolve the test command:**
 
-Run the tests. Capture full output.
+Determine the affected directory scope:
+1. Collect the union of:
+   a. Files listed in the ticket's "Files to Create/Modify" section.
+   b. Uncommitted paths from `git diff --name-only` and `git diff --name-only --cached`.
+2. Classify the scope against campaign Stack paths:
+   - All affected paths under `Stack.Backend directory` → backend-only.
+   - All affected paths under `Stack.Frontend directory` → frontend-only.
+   - Mixed, neither, or empty → both/unsure.
+
+Pick the command from campaign Test Commands:
+  - backend-only → Backend command.
+  - frontend-only → Frontend command.
+  - both/unsure → Full command.
+
+If the chosen command is empty, fall back to the Full command.
+If the Full command is also empty, stop and output:
+  "No test command defined in .tld/campaign.md Test Commands. Run /campaign-edit to set one."
+
+Run the resolved command. Capture full output.
 
 **If tests fail:**
 
@@ -139,12 +172,15 @@ Report:
 - Commit hash
 - Files committed
 
-**Step completion check:** Before presenting options, check if this was the last ticket in its playbook step:
-1. Read `docs/EXECUTION_PLAYBOOK.md` to find the step containing the current ticket
-2. List all tickets in that step (playbook order)
-3. Use `list_issues` to query Linear for each ticket's status
-4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
-5. If every ticket in the step is Done, append the 4th option below. Otherwise present only the first 3.
+**Milestone completion check:** Before presenting options, check if this was the last ticket in its milestone:
+1. Call `get_milestone` on the current ticket's `projectMilestone.id` (captured in step 2).
+2. Parse the `## Order` section using the unanchored regex algorithm:
+   - Find the `^## Order\s*$` line.
+   - Capture following lines until the next `^## ` header or end-of-description.
+   - For each line, take the first regex match of `({prefix}-\d+)` — Do NOT anchor on `^\d+\.\s+` (Linear's auto-link rewrite breaks that).
+3. For each ticket ID in Order, look up its status via `list_issues` or `get_issue`.
+4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next).
+5. If every ticket in the milestone Order is Done or Canceled, append the 4th option below. Otherwise present only the first 3.
 
 Then present the options:
 
@@ -161,8 +197,8 @@ Then present the options:
 > **3.** /tld-dashboard — review progress before deciding
 >    Best for: want to see where this ticket lands in the overall plan
 
-> **4.** /tld-gate — run step boundary gate now
->    Best for: this was the last ticket in the step; ready for step validation
->    *(only shown when every ticket in the current step is Done)*
+> **4.** /tld-gate — run milestone-boundary gate now
+>    Best for: this was the last ticket in the milestone; ready for milestone validation
+>    *(only shown when every ticket in the current milestone is Done or Canceled)*
 
 Type **1**, **2**, **3**, or **4** to proceed.

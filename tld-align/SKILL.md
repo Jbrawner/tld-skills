@@ -16,16 +16,65 @@ The default action is always to fix the implementation. Tests should only change
 
 ## Process
 
-### 1. Load failure context
+### 1. Load context
+
+**1a. Load project config.**
+
+Read `.tld/campaign.md` from the current repo root.
+If the file does not exist, stop and output:
+  "No campaign found in this repo. Run /campaign-init to scaffold one."
+  Do not proceed. Do not attempt to resolve project config from any other source.
+Parse the four sections: Project, Test Commands, Stack, Commit format.
+If any required field in Project (Issue tracker, Project name, Team, Ticket prefix) is missing, stop and output:
+  "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
+The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
+
+**1b. Load failure output.**
 
 Check the conversation history for the `/tld-run-test` failure output. It contains:
 - Which tests failed (and their error messages)
 - Or which drift issues were found
 - An analysis of whether the issue is in implementation, tests, or AC interpretation
 
-Also get the ticket context from the conversation (from `/tld-setup` output) or pull fresh from Linear + playbook if needed.
-
 If there's no failure context in the conversation, stop and tell the user: "No failure output found. Run `/tld-run-test` first."
+
+**1c. Resolve current ticket.**
+
+Query Linear for issues in the configured project with status = "In Progress".
+
+**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
+
+**Case B — zero In-Progress tickets:** Stop and output:
+  "No In-Progress ticket found. Run /tld-setup to pick one up."
+Do not guess, do not walk milestones — that is /tld-setup's job.
+
+**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
+
+If Linear is unreachable at any step, stop and output:
+  "Cannot reach Linear — aborting. No offline mode."
+Do not fall back to cached state; there is none.
+
+**1d. Resolve test command.**
+
+Determine the affected directory scope:
+1. Collect the union of:
+   a. Files listed in the ticket's "Files to Create/Modify" section.
+   b. Uncommitted paths from `git diff --name-only` and `git diff --name-only --cached`.
+2. Classify the scope against campaign Stack paths:
+   - All affected paths under `Stack.Backend directory` → backend-only.
+   - All affected paths under `Stack.Frontend directory` → frontend-only.
+   - Mixed, neither, or empty → both/unsure.
+
+Pick the command from campaign Test Commands:
+  - backend-only → Backend command.
+  - frontend-only → Frontend command.
+  - both/unsure → Full command.
+
+If the chosen command is empty, fall back to the Full command.
+If the Full command is also empty, stop and output:
+  "No test command defined in .tld/campaign.md Test Commands. Run /campaign-edit to set one."
+
+Use the resolved command for any test run in this skill. Do not invent commands or read any playbook file.
 
 ### 2. Diagnose
 
@@ -88,7 +137,7 @@ Do NOT:
 
 ### 4. Pre-verify
 
-After making fixes, run the test command from the playbook step locally to check if things look better. This isn't the official verification (that's `/tld-run-test`), just a sanity check.
+After making fixes, run the resolved test command from step 1d locally to check if things look better. This isn't the official verification (that's `/tld-run-test`), just a sanity check.
 
 If your fix didn't resolve the failure, diagnose further. Don't just keep making changes blindly — understand why the fix didn't work.
 
