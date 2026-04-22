@@ -32,6 +32,17 @@ The user provides one of:
 
 ## Process
 
+### 0. Load project config
+
+Read `.tld/campaign.md` from the current repo root.
+If the file does not exist, stop and output:
+  "No campaign found in this repo. Run /campaign-init to scaffold one."
+  Do not proceed. Do not attempt to resolve project config from any other source.
+Parse the four sections: Project, Test Commands, Stack, Commit format.
+If any required field in Project (Issue tracker, Project name, Team, Ticket prefix) is missing, stop and output:
+  "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
+The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
+
 ### 1. Get or create the ticket
 
 **If ticket ID provided:**
@@ -39,7 +50,7 @@ The user provides one of:
 - Extract title, description, acceptance criteria
 
 **If only a description provided:**
-- Create a ticket in Linear via `save_issue` on the mAIn Character project (team: 2ndFoundry)
+- Create a ticket in Linear via `save_issue`, passing `project` = campaign `Project.Project name` and `team` = campaign `Project.Team`
 - Use a clear title and the user's description as the body
 - Label it with "side-quest" if that label exists (check via `list_issue_labels` first; if it doesn't exist, skip the label — don't create one)
 
@@ -53,6 +64,33 @@ Build a file manifest:
 - Files to modify (with brief note on what changes)
 - Pattern/reference files to follow (existing code style)
 - Test files that cover the affected area (if any exist)
+
+### 2a. Local DB safety check
+
+**Run the local-DB safety check before any test command or destructive database operation.**
+
+Read `Stack.Database` from `.tld/campaign.md` — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
+
+Verify the live database connection also points at local:
+1. Scan the repo for database URL references (Supabase config, `.env*`, `SUPABASE_URL`, `DATABASE_URL`, or equivalent for this project's stack).
+2. If any reference names a non-local host (anything that is not `127.0.0.1` or `localhost`), **HARD ABORT immediately**:
+
+```
+🛑 ABORT: Non-local database detected.
+
+Found: [the URL/host that's not local]
+Location: [where you found it]
+Campaign Stack.Database: [value from campaign.md]
+
+This skill runs tests or destructive operations against the database.
+Refusing to proceed against a non-local database.
+
+Fix: Ensure the configured database URL points at local (matches Stack.Database).
+```
+
+Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
+
+The subagent will run tests inside its worktree; gating here ensures the parent has confirmed a local target before any test command fires downstream.
 
 ### 3. Spawn the implementation subagent
 
@@ -139,8 +177,8 @@ This is the hard gate. Do nothing until the user responds.
 Only after explicit user approval:
 
 - From the worktree, stage only the relevant files: `git add [specific files]`
-- Commit with message format: `fix(2ND-XXX): [ticket title] — side quest`
-  - Use `fix()` for bug fixes, `chore()` for polish/cleanup, `feat()` for small features
+- Build the commit message from campaign `Commit format.Pattern` (e.g., `feat(PREFIX-XXX): title`), substituting the ticket ID and title. Append ` — side quest` to the title. Choose the commit type based on the work: `fix()` for bug fixes, `chore()` for polish/cleanup, `feat()` for small features — override the pattern's type when the default doesn't fit.
+- Append the `Co-author` trailer from campaign `Commit format.Co-author` (via HEREDOC, preserving the full `Co-Authored-By:` line).
 - Merge the worktree branch back into the working branch
 - Clean up the worktree
 - Mark the ticket **Done** in Linear via `save_issue`
@@ -232,7 +270,7 @@ Type **1**, **2**, or **3** to proceed.
 > **2.** Start another /tld-side-quest
 >    Best for: keep doing small isolated fixes
 
-> **3.** /tld-dashboard — see overall playbook progress
+> **3.** /tld-dashboard — see overall milestone progress
 >    Best for: want the big picture before deciding what to do next
 
 Type **1**, **2**, or **3** to proceed.

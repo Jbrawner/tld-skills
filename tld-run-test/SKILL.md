@@ -10,17 +10,79 @@ You are independently verifying the current ticket's implementation. Your job is
 
 ## Process
 
-### 1. Load context
+### 1. Load project config
 
-Get the active ticket context. There is no TLD_ACTIVE.md file. Instead:
+Read `.tld/campaign.md` from the current repo root.
+If the file does not exist, stop and output:
+  "No campaign found in this repo. Run /campaign-init to scaffold one."
+  Do not proceed. Do not attempt to resolve project config from any other source.
+Parse the four sections: Project, Test Commands, Stack, Commit format.
+If any required field in Project (Issue tracker, Project name, Team, Ticket prefix) is missing, stop and output:
+  "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
+The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 
-1. Check the conversation history for the `/tld-setup` output. It contains the ticket ID, AC, test command, files to modify, and pattern references.
-2. If the conversation doesn't have setup context (e.g., after a `/compact`), pull it fresh:
-   - Read `docs/EXECUTION_PLAYBOOK.md` to find the current step and ticket
-   - Use `get_issue` from Linear to pull the ticket description and AC
-   - The compact prompt should contain the active ticket ID
+### 1a. Resolve current ticket
 
-If you cannot determine the active ticket, stop and tell the user to run `/tld-setup` first.
+Query Linear for issues in the configured project with status = "In Progress".
+
+**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
+
+**Case B — zero In-Progress tickets:** Stop and output:
+  "No In-Progress ticket found. Run /tld-setup to pick one up."
+Do not guess, do not walk milestones — that is /tld-setup's job.
+
+**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
+
+If Linear is unreachable at any step, stop and output:
+  "Cannot reach Linear — aborting. No offline mode."
+Do not fall back to cached state; there is none.
+
+### 1b. Resolve test command
+
+Determine the affected directory scope:
+1. Collect the union of:
+   a. Files listed in the ticket's "Files to Create/Modify" section.
+   b. Uncommitted paths from `git diff --name-only` and `git diff --name-only --cached`.
+2. Classify the scope against campaign Stack paths:
+   - All affected paths under `Stack.Backend directory` → backend-only.
+   - All affected paths under `Stack.Frontend directory` → frontend-only.
+   - Mixed, neither, or empty → both/unsure.
+
+Pick the command from campaign Test Commands:
+  - backend-only → Backend command.
+  - frontend-only → Frontend command.
+  - both/unsure → Full command.
+
+If the chosen command is empty, fall back to the Full command.
+If the Full command is also empty, stop and output:
+  "No test command defined in .tld/campaign.md Test Commands. Run /campaign-edit to set one."
+
+Use the resolved command for any test run in this skill. Do not invent commands or read any playbook file.
+
+### 1c. Local DB safety check
+
+**Run the local-DB safety check before any test command or destructive database operation.**
+
+Read `Stack.Database` from `.tld/campaign.md` — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
+
+Verify the live database connection also points at local:
+1. Scan the repo for database URL references (Supabase config, `.env*`, `SUPABASE_URL`, `DATABASE_URL`, or equivalent for this project's stack).
+2. If any reference names a non-local host (anything that is not `127.0.0.1` or `localhost`), **HARD ABORT immediately**:
+
+```
+🛑 ABORT: Non-local database detected.
+
+Found: [the URL/host that's not local]
+Location: [where you found it]
+Campaign Stack.Database: [value from campaign.md]
+
+This skill runs tests or destructive operations against the database.
+Refusing to proceed against a non-local database.
+
+Fix: Ensure the configured database URL points at local (matches Stack.Database).
+```
+
+Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
 
 ### 1.5. Detect ticket type
 
@@ -40,7 +102,7 @@ Classify the active ticket to determine which path to take.
 
 ### 2. Run the test command
 
-Run the exact test command from the playbook step. Do not modify or skip any tests.
+Run the resolved test command from step 1b. Do not modify or skip any tests.
 
 Capture the full output.
 
@@ -69,7 +131,7 @@ If tests pass, run a drift check. This catches cases where tests pass but the im
 - Flag any AC items that don't have clear test coverage
 
 **Pattern conformance check:**
-- Compare the implementation against the pattern references from the playbook step
+- Compare the implementation against the pattern references from the ticket
 - Flag significant deviations from established patterns (different naming conventions, different error handling approach, different file structure)
 
 **If drift is detected:** Do NOT commit. Report the drift findings directly in the conversation with specific fix actions for each issue.
@@ -194,12 +256,15 @@ Report:
 - Drift check results (clean)
 - Commit hash
 
-**Step completion check:** Before presenting options, check if this was the last ticket in its playbook step:
-1. Read `docs/EXECUTION_PLAYBOOK.md` to find the step containing the current ticket
-2. List all tickets in that step (playbook order)
-3. Use `list_issues` to query Linear for each ticket's status
-4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
-5. If every ticket in the step is Done, append the 4th option below. Otherwise present only the first 3.
+**Milestone completion check:** Before presenting options, check if this was the last ticket in its milestone:
+1. Call `get_milestone` on the current ticket's `projectMilestone.id` (captured in step 1a).
+2. Parse the `## Order` section using the unanchored regex algorithm:
+   - Find the `^## Order\s*$` line.
+   - Capture following lines until the next `^## ` header or end-of-description.
+   - For each line, take the first regex match of `({prefix}-\d+)` — Do NOT anchor on `^\d+\.\s+` (Linear's auto-link rewrite breaks that).
+3. For each ticket ID in Order, look up its status via `list_issues` or `get_issue`.
+4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next).
+5. If every ticket in the milestone Order is Done or Canceled, append the 4th option below. Otherwise present only the first 3.
 
 Then present the options block:
 
@@ -216,9 +281,9 @@ Then present the options block:
 > **3.** /tld-dashboard — review progress before deciding
 >    Best for: want to see where this ticket lands in the overall plan
 
-> **4.** /tld-gate — run step boundary gate now
->    Best for: this was the last ticket in the step; ready for step validation
->    *(only shown when every ticket in the current step is Done)*
+> **4.** /tld-gate — run milestone-boundary gate now
+>    Best for: this was the last ticket in the milestone; ready for milestone validation
+>    *(only shown when every ticket in the current milestone is Done or Canceled)*
 
 Type **1**, **2**, **3**, or **4** to proceed.
 
@@ -228,7 +293,7 @@ Report:
 - Manual QA items confirmed
 - No changes to commit (manual-QA ticket)
 
-**Step completion check:** Before presenting options, check if this was the last ticket in its playbook step (same logic as the code-ticket branch above: read playbook, list step tickets, query Linear, treat current ticket as Done). If every ticket in the step is Done, append the 4th option below.
+**Milestone completion check:** Before presenting options, check if this was the last ticket in its milestone (same logic as the code-ticket branch above: `get_milestone`, parse the `## Order` section with the unanchored `({prefix}-\d+)` regex, query Linear for each ticket's status, treat the current ticket as Done). If every ticket in the milestone Order is Done or Canceled, append the 4th option below.
 
 Then present the options block:
 
@@ -245,9 +310,9 @@ Then present the options block:
 > **3.** /tld-dashboard — review progress before deciding
 >    Best for: want to see where this ticket lands in the overall plan
 
-> **4.** /tld-gate — run step boundary gate now
->    Best for: this was the last ticket in the step; ready for step validation
->    *(only shown when every ticket in the current step is Done)*
+> **4.** /tld-gate — run milestone-boundary gate now
+>    Best for: this was the last ticket in the milestone; ready for milestone validation
+>    *(only shown when every ticket in the current milestone is Done or Canceled)*
 
 Type **1**, **2**, **3**, or **4** to proceed.
 

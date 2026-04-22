@@ -1,68 +1,98 @@
 ---
 name: tld-setup
 description: |
-  Set up the next TLD (Test-Led Development) ticket for implementation. Use this skill whenever the user says "tld-setup", "tld setup", "set up next ticket", or wants to start working on the next ticket in the execution playbook. This skill finds the next ticket, pulls it from Linear, marks it In Progress, loads relevant files, and outputs the full context needed before writing tests. Always use this before starting any new ticket work.
+  Set up the next TLD (Test-Led Development) ticket for implementation. Use this skill whenever the user says "tld-setup", "tld setup", "set up next ticket", or wants to start working on the next ticket. This skill finds the next ticket, pulls it from Linear, marks it In Progress, loads relevant files, and outputs the full context needed before writing tests. Always use this before starting any new ticket work.
 ---
 
 # TLD Setup
 
-You are preparing the next ticket for test-led development. Your job is to identify the right ticket, pull its full context, and give the user everything they need to review before running `/tld-write-tests` or `/tld-auto`.
+You are preparing the next ticket for test-led development. Your job is to identify the right ticket, pull its full context from Linear, and give the user everything they need to review before running `/tld-write-tests` or `/tld-auto`.
 
 ## Inputs
 
 The user may provide:
-- A specific ticket ID (e.g., `2ND-149`) — use that ticket directly
-- A playbook path — use it instead of the default
-- Nothing — find the next ticket automatically
+- A specific ticket ID (e.g., `2ND-149`) — Mode A: use that ticket directly
+- Nothing — Mode B: find the next ticket automatically from Linear milestones
 
-Default playbook location: `docs/EXECUTION_PLAYBOOK.md` (relative to repo root).
+Structure and order come from Linear. Local project config comes from `.tld/campaign.md`. There is no playbook file.
 
 ## Process
 
-### 1. Determine the current ticket
+### 1. Load project config
 
-**If a ticket ID was provided:** Use that ticket directly. Skip to step 2.
+Read `.tld/campaign.md` from the current repo root.
+If the file does not exist, stop and output:
+  "No campaign found in this repo. Run /campaign-init to scaffold one."
+  Do not proceed. Do not attempt to resolve project config from any other source.
+Parse the four sections: Project, Test Commands, Stack, Commit format.
+If any required field in Project (Issue tracker, Project name, Team, Ticket prefix) is missing, stop and output:
+  "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
+The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 
-**If no ticket ID:** Find the next ticket to work on:
-1. Read the playbook (`docs/EXECUTION_PLAYBOOK.md`)
-2. Query Linear for tickets in the mAIn Character project (team: 2ndFoundry). Use `list_issues` to get current statuses.
-3. Walk the playbook steps in order. Find the first step that is not fully Done.
-4. Within that step, find the first ticket (in the listed order) that is not Done.
-5. That's your ticket.
+### 2. Determine the target ticket
 
-If all tickets in the playbook are Done, say so and stop.
+**Mode A — explicit ticket ID provided:**
 
-### 2. Pull ticket details from Linear
+Validate the ID matches the `{prefix}-\d+` pattern from the campaign. If not, stop and ask the user to re-run with a valid ID.
 
-Use `get_issue` with the ticket identifier (e.g., `2ND-149`). Extract:
+Call `get_issue` on the ID with `includeRelations: true`. If the ticket is already Done or Canceled, warn and ask whether to proceed anyway. If In Progress, proceed (the user is resuming). Capture `projectMilestone` for context.
+
+Skip to step 4.
+
+**Mode B — no ticket ID:**
+
+1. Call `list_milestones` for the configured Linear project, sorted by `sortOrder` ascending.
+2. If the result is empty, stop and output:
+     "No milestones in project '{project name}' — run /campaign-plan or /milestone-create to create one."
+3. Walk the milestones in order. For each milestone:
+   a. Call `get_milestone` to read its description.
+   b. Parse the `## Order` section using the algorithm in step 3.
+   c. If the `## Order` section is missing or yields zero ticket IDs, stop and output:
+        "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it."
+   d. For each ticket ID in the parsed Order, look up its status (batched `list_issues` or per-ticket `get_issue`).
+   e. Return the first ticket whose status is **neither Done NOR Canceled**. Both statuses count as "already resolved" — skip both.
+4. If every ticket in every milestone is Done or Canceled, stop and output:
+     "All tickets in all milestones are resolved. Nothing to do."
+
+### 3. Parse the `## Order` section
+
+Use this algorithm on the milestone description:
+
+1. Find the line matching `^## Order\s*$`.
+2. Capture every following line until the next `^## ` header or end-of-description.
+3. Within that block, scan line-by-line. For each line, take the first regex match of `({prefix}-\d+)` (unanchored — do NOT anchor on `^\d+\.\s+` because Linear rewrites `1. PREFIX-XXX` to `1. [PREFIX-XXX](url)`, breaking any anchor that assumes the ID immediately follows the list marker).
+4. The resulting list, in line order, is the ticket sequence.
+
+The `{prefix}` comes from the Ticket prefix field of the campaign file — it is not hardcoded.
+
+### 4. Pull ticket details
+
+Use `get_issue` with `includeRelations: true` on the target ticket. Extract:
 - Title
 - Full description
 - Acceptance criteria
-- Dependencies (blockedBy relations)
-- Any test commands or file references mentioned
+- Dependencies (`blockedBy` relations)
+- Milestone (`projectMilestone`)
+- Any test commands or file references mentioned in the description
 
-### 3. Check dependencies
+### 5. Check dependencies
 
-For each dependency listed in the ticket:
-- Query its status via `get_issue`
-- If any dependency is NOT Done, stop and report: "Blocked — [dependency ticket] is not Done yet."
+For each blocker in `blockedBy`:
+- Check its status.
+- If any blocker is NOT Done or Canceled, stop and report:
+    "Blocked — {blocker-id} is {status}. Resolve it first."
 
-### 4. Mark In Progress
+### 6. Mark In Progress
 
-Use `save_issue` to set the ticket's state to "In Progress".
+If the ticket's current status is Todo or Backlog, call `save_issue` to set `state` to "In Progress".
+If it is already In Progress, leave it alone (user is resuming).
+Never write to `.tld/campaign.md` at any point — this skill does not touch the campaign file.
 
-### 5. Load relevant files
+### 7. Load pattern references
 
-Read the playbook entry for this step to find:
-- "Context to give Claude Code" — load those files
-- Test command for this step
-- Any P2 fixes mentioned that should be done before starting
+Read any files explicitly referenced in the ticket description (pattern refs, existing tests, source files being ported). Use the Test Commands and Stack sections of the campaign file for test-command hints — these values come from campaign, not the ticket.
 
-Also read any files explicitly referenced in the ticket description (e.g., existing test files as patterns, source files being ported).
-
-### 5.5. Classify ticket type
-
-Before presenting options, determine the ticket type. This controls which "What's next?" block to present.
+### 8. Classify ticket type
 
 **Manual-QA ticket** — classify as this if ANY of:
 - Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end", "manual verification"
@@ -71,9 +101,9 @@ Before presenting options, determine the ticket type. This controls which "What'
 
 **Code ticket** — everything else (the default).
 
-Record the classification. Use it in step 6 to pick the right options block.
+Record the classification. Use it in step 10 to pick the right options block.
 
-### 5.6. Recommendation hint (CODE tickets only)
+### 9. Recommendation hint (CODE tickets only)
 
 Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recommended)** in the output block.
 
@@ -89,47 +119,46 @@ Only one option gets the marker. Never mark `/tld-side-quest`. Do not add a "Why
 
 When you present the "What's next?" options at the end of your output, the user may respond with just a number (e.g., "1" or "2"). If the user's next message is a bare number matching one of the options you presented, treat it as if they typed the corresponding slash command and invoke that skill immediately.
 
-### 6. Output
+### 10. Output
 
 Present the full ticket context directly in the conversation. Structure your output as:
 
 ```
-## Active Ticket: [TICKET-ID]
+## Active Ticket: {TICKET-ID}
 
-**Title:** [ticket title]
-**Step:** [playbook step number and name]
+**Title:** {ticket title}
+**Milestone:** {milestone name}
 
 ### Description
-[full ticket description from Linear]
+{full ticket description from Linear}
 
 ### Acceptance Criteria
-[extracted AC items as a checklist]
+{extracted AC items as a checklist}
 
 ### Test Command
-[from playbook step]
+{from campaign.md Test Commands section, matched to the ticket's stack/scope}
 
 ### Files to Create/Modify
-[extracted from ticket description]
+{extracted from ticket description}
 
 ### Pattern References
-[files loaded as context, with brief note on why each matters]
+{files loaded as context, with brief note on why each matters}
 
 ### Dependencies
-[list with status — all should be Done]
+{list with status — all should be Done or Canceled}
 
 ### Notes
-[any P2 fixes, gotchas, or special instructions from the playbook]
+{any gotchas or special instructions from the ticket description}
 ```
 
 Then tell the user:
-- Which ticket was selected and why (position in playbook)
+- Which ticket was selected and why (position in milestone Order, or "you specified it" for Mode A)
 - Summary of what it involves
-- Any P2 fixes to handle first
-- Dependencies confirmed Done
+- Dependencies confirmed clear
 
-Then present the options block based on the ticket type classification from step 5.5.
+Then present the options block based on the ticket type classification from step 8.
 
-**If ticket is a CODE ticket, present:** (apply the `(Recommended)` marker from step 5.6 to option 1 OR option 2, never both)
+**If ticket is a CODE ticket, present:** (apply the `(Recommended)` marker from step 9 to option 1 OR option 2, never both)
 
 ---
 

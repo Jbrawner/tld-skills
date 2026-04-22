@@ -16,17 +16,54 @@ The individual TLD skills (`/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/
 
 ### Phase 1: RED — Write Failing Tests
 
-#### 1.1 Load context
+#### 1.1 Load project config
 
-Get the active ticket context. There is no TLD_ACTIVE.md file. Instead:
+Read `.tld/campaign.md` from the current repo root.
+If the file does not exist, stop and output:
+  "No campaign found in this repo. Run /campaign-init to scaffold one."
+  Do not proceed. Do not attempt to resolve project config from any other source.
+Parse the four sections: Project, Test Commands, Stack, Commit format.
+If any required field in Project (Issue tracker, Project name, Team, Ticket prefix) is missing, stop and output:
+  "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
+The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 
-1. Check the conversation history for the `/tld-setup` output. It contains the ticket ID, AC, test command, files to modify, and pattern references.
-2. If the conversation doesn't have setup context (e.g., after a `/compact`), pull it fresh:
-   - Read `docs/EXECUTION_PLAYBOOK.md` to find the current step and ticket
-   - Use `get_issue` from Linear to pull the ticket description and AC
-   - The compact prompt should contain the active ticket ID
+#### 1.2 Resolve current ticket
 
-If you cannot determine the active ticket, stop and tell the user to run `/tld-setup` first.
+Query Linear for issues in the configured project with status = "In Progress".
+
+**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / pattern refs / `projectMilestone`.
+
+**Case B — zero In-Progress tickets:** Stop and output:
+  "No In-Progress ticket found. Run /tld-setup to pick one up."
+Do not guess, do not walk milestones — that is /tld-setup's job.
+
+**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
+
+If Linear is unreachable at any step, stop and output:
+  "Cannot reach Linear — aborting. No offline mode."
+Do not fall back to cached state; there is none.
+
+#### 1.3 Resolve test command
+
+Determine the affected directory scope:
+1. Collect the union of:
+   a. Files listed in the ticket's "Files to Create/Modify" section.
+   b. Uncommitted paths from `git diff --name-only` and `git diff --name-only --cached`.
+2. Classify the scope against campaign Stack paths:
+   - All affected paths under `Stack.Backend directory` → backend-only.
+   - All affected paths under `Stack.Frontend directory` → frontend-only.
+   - Mixed, neither, or empty → both/unsure.
+
+Pick the command from campaign Test Commands:
+  - backend-only → Backend command.
+  - frontend-only → Frontend command.
+  - both/unsure → Full command.
+
+If the chosen command is empty, fall back to the Full command.
+If the Full command is also empty, stop and output:
+  "No test command defined in .tld/campaign.md Test Commands. Run /campaign-edit to set one."
+
+Use the resolved command for any test run in this skill. Do not invent commands or read any playbook file.
 
 #### 1.1.5 Detect ticket type
 
@@ -63,7 +100,7 @@ For each acceptance criterion, write test cases that verify it:
 
 #### 1.4 Run tests to confirm RED
 
-Run the test command from the playbook step. Every new test should fail. This confirms:
+Run the resolved test command from §1.3. Every new test should fail. This confirms:
 - Tests are actually being picked up by the runner
 - Tests are testing something real (not accidentally passing)
 - The test assertions are correctly written (failing for the right reason)
@@ -118,9 +155,28 @@ Write the implementation code to make all tests pass:
 
 #### 2.3 Run tests to confirm GREEN
 
-Run the test command from the playbook step. All tests should pass.
+Run the resolved test command from §1.3. All tests should pass.
 
-**If some tests fail:** Read the failure output. Fix the implementation (NOT the tests). Run again. Repeat until green. Up to 3 attempts. If still failing after 3 attempts, stop and report failures to the user, suggest running `/tld-align`.
+**If some tests fail:** Read the failure output. Fix the implementation (NOT the tests). Run again. Repeat until green. **Hard cap: 3 attempts** (inherited from /tld-build per 2ND-218).
+
+**If tests still fail after the 3rd attempt, STOP.** Do NOT silently proceed to audit, drift, or commit. Report the failures inline, then present:
+
+---
+
+**What's next?**
+
+> **1.** /tld-align — auto-fix the implementation to match tests
+>    Best for: failures look like small implementation gaps
+
+> **2.** Fix manually, then run /tld-run-test
+>    Best for: complex failures you want to debug yourself
+
+> **3.** /tld-side-quest — bail to something else and come back
+>    Best for: need a detour to understand the issue
+
+Type **1**, **2**, or **3** to proceed.
+
+**HARD STOP. Do NOT continue past the retry cap without explicit user approval.** Wait for a numeric choice or an equivalent command.
 
 ---
 
@@ -133,16 +189,47 @@ Before running drift check and verification, run the same checks as `/tld-audit`
 - Check for input validation gaps
 - Check for data exposure (SELECT *, leaked internals, verbose errors)
 
-If any HIGH severity findings are detected, report them inline and **STOP**. Present:
+Sort findings by severity (HIGH → MEDIUM → LOW) and report inline in the same table format standalone `/tld-audit` uses (# | Severity | Check | File | Finding | Fix).
+
+**If any HIGH severity findings exist, STOP.** Do NOT continue to drift or commit. Present:
+
+---
 
 **What's next?**
 
 > **1.** Fix the findings above, then resume with `/tld-run-test`
-> **2.** Skip audit fixes, continue to verify (not recommended)
+>    Best for: standard flow after finding issues
 
-Type **1** or **2** to proceed.
+> **2.** /tld-side-quest — address findings in a separate ticket
+>    Best for: findings are out of scope for this ticket
 
-If only MEDIUM/LOW or no findings, note them in the output and continue to Phase 3.
+> **3.** Skip audit fixes, continue to verify (not recommended)
+>    Best for: you disagree with the audit and accept the risk
+
+Type **1**, **2**, or **3** to proceed.
+
+**HARD STOP. Do NOT proceed past HIGH findings without explicit user approval.**
+
+**If MEDIUM findings exist (but no HIGH), STOP and surface them for explicit acknowledgement** — matching standalone `/tld-audit`'s behavior. tld-auto must not silently swallow MEDIUM findings. Present:
+
+---
+
+**What's next?**
+
+> **1.** Acknowledge the MEDIUM findings and continue to Phase 3 (drift + commit)
+>    Best for: findings are understood and acceptable for this ticket
+
+> **2.** /tld-side-quest — handle a quick fix first
+>    Best for: medium finding worth fixing inline
+
+> **3.** Fix manually, then run /tld-run-test
+>    Best for: you want to address the finding before committing
+
+Type **1**, **2**, or **3** to proceed.
+
+**HARD STOP. Do NOT proceed past MEDIUM findings without explicit user acknowledgement.**
+
+**If only LOW or no findings**, note them in the output and continue to Phase 3 without a gate.
 
 ---
 
@@ -265,10 +352,20 @@ Use `save_issue` to set the ticket's state to "Done" in Linear.
 
 #### 4.5 Determine what's next
 
-Read `docs/EXECUTION_PLAYBOOK.md`. Find the current step and ticket position.
+Do NOT read any playbook file. Runtime state lives in Linear. From the current ticket's `projectMilestone` (captured in §1.2):
 
-- **More tickets in step:** Identify next ticket ID
-- **Last ticket in step:** Next action is `/tld-gate`
+1. Call `get_milestone` on that milestone's ID.
+2. Parse the `## Order` section using the canonical unanchored algorithm:
+   - Find the line matching `^## Order\s*$`.
+   - Capture every following line until the next `^## ` header or end-of-description.
+   - Within that block, scan line-by-line and take the first regex match of `({prefix}-\d+)` (unanchored, where `{prefix}` is the ticket prefix from campaign Project).
+3. The resulting list in line order is the milestone's ticket sequence.
+
+Walk the Order from the current ticket's position forward. For each subsequent entry, look up its status via Linear. **Pick the first ticket whose status is `Todo`.** Skip `Done`, `Canceled`, and `In Progress` — those are not next-up candidates.
+
+- **Next Todo ticket found** → next action is `/tld-setup {next-id}`.
+- **No next Todo in this milestone's Order** (every subsequent entry is Done, Canceled, or In Progress) → next action is `/tld-gate` (milestone boundary gate).
+- **Order section malformed or missing** → stop and output the same error `/tld-setup` uses: "Milestone's Order section is missing or malformed. Run /milestone-sync to regenerate." Do not attempt to guess.
 
 ### Numbered shortcut recognition
 
@@ -287,29 +384,29 @@ Report the full run summary:
 - **Verify:** All tests pass, no drift
 - **Commit:** [hash]
 - **Linear:** Marked Done
-- **Step progress:** [X] of [Y] tickets done in Step [N]
+- **Milestone progress:** [X] of [Y] tickets done in milestone [name]
 
 ### Next
 [next ticket ID or /tld-gate]
 ```
 
-Context is saved in Linear and the playbook. The recommended flow is to clear this conversation's stale context and start the next action fresh.
+Context is saved in Linear. The recommended flow is to clear this conversation's stale context and start the next action fresh.
 
-Then present the options. Use Phase 4.5's step-completion result: if the next action is `/tld-gate` (i.e., this was the last ticket in the step), option 1's command becomes `/tld-gate` instead of `/tld-setup [next-ticket-ID]`.
+Then present the options. Use Phase 4.5's milestone-Order walk: if the next action is `/tld-gate` (i.e., no next Todo in this milestone's Order), option 1's command becomes `/tld-gate` instead of `/tld-setup [next-ticket-ID]`.
 
 ---
 
 **What's next?**
 
 > **1.** Start next action with clean context (Recommended)
->    Best for: standard flow, clean slate for the next step
+>    Best for: standard flow, clean slate for the next ticket or milestone boundary
 >    Step 1: type `/clear` · Step 2: run the command below
 
 ```
 /tld-setup [next-ticket-ID]
 ```
 
-*(If this was the last ticket in the step, use `/tld-gate` as the command instead.)*
+*(If no next Todo remains in the milestone's Order, use `/tld-gate` as the command instead.)*
 
 > **2.** /tld-dashboard — review overall progress first
 >    Best for: want the big picture before deciding

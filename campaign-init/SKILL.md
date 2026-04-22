@@ -68,7 +68,7 @@ AskUserQuestion for each; all blank-allowed:
 
 ### 5. Collect the Commit format section
 
-- **Pattern** — non-empty (re-ask if empty). Hint: substitute the user's actual prefix into a sample like `feat({PREFIX}-XXX): title`, so if they entered `2ND` as the prefix, the hint reads `feat(2ND-XXX): title`.
+- **Pattern** — non-empty (re-ask if empty). Hint: substitute the user's actual prefix into a sample like `feat/({PREFIX}-XXX): title`, so if they entered `2ND` as the prefix, the hint reads `feat/(2ND-XXX): title`.
 - **Co-author** — blank-allowed. Example: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
 
 ### 6. Bootstrap workspace labels (Linear only)
