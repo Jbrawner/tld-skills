@@ -46,6 +46,7 @@ Print the following reference card exactly as shown. Do not add commentary or ex
 |-------|-------------|-------------|
 | `/campaign-plan` | Full planning — scope, phases, and tickets, all created in Linear | Starting a new project from scratch |
 | `/milestone-create` | Creates a single Linear milestone (with optional tickets + Order) | Adding one phase without the full /campaign-plan flow |
+| `/milestone-sync` | Authors `## Order` sections on existing Linear milestones missing them | When /tld-setup fails because Order is missing or malformed |
 | `/tld-ticket` | Creates standardized Linear tickets (feature, bug, QA, polish) | When work needs to be tracked |
 
 ### Boundaries + Side Channel
