@@ -32,6 +32,17 @@ The user provides one of:
 
 ## Process
 
+### 0. Load project config
+
+Read `.tld/campaign.md` from the current repo root.
+If the file does not exist, stop and output:
+  "No campaign found in this repo. Run /campaign-init to scaffold one."
+  Do not proceed. Do not attempt to resolve project config from any other source.
+Parse the four sections: Project, Test Commands, Stack, Commit format.
+If any required field in Project (Issue tracker, Project name, Team, Ticket prefix) is missing, stop and output:
+  "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
+The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
+
 ### 1. Get or create the ticket
 
 **If ticket ID provided:**
@@ -39,7 +50,7 @@ The user provides one of:
 - Extract title, description, acceptance criteria
 
 **If only a description provided:**
-- Create a ticket in Linear via `save_issue` on the mAIn Character project (team: 2ndFoundry)
+- Create a ticket in Linear via `save_issue`, passing `project` = campaign `Project.Project name` and `team` = campaign `Project.Team`
 - Use a clear title and the user's description as the body
 - Label it with "side-quest" if that label exists (check via `list_issue_labels` first; if it doesn't exist, skip the label — don't create one)
 
@@ -139,8 +150,8 @@ This is the hard gate. Do nothing until the user responds.
 Only after explicit user approval:
 
 - From the worktree, stage only the relevant files: `git add [specific files]`
-- Commit with message format: `fix(2ND-XXX): [ticket title] — side quest`
-  - Use `fix()` for bug fixes, `chore()` for polish/cleanup, `feat()` for small features
+- Build the commit message from campaign `Commit format.Pattern` (e.g., `feat(PREFIX-XXX): title`), substituting the ticket ID and title. Append ` — side quest` to the title. Choose the commit type based on the work: `fix()` for bug fixes, `chore()` for polish/cleanup, `feat()` for small features — override the pattern's type when the default doesn't fit.
+- Append the `Co-author` trailer from campaign `Commit format.Co-author` (via HEREDOC, preserving the full `Co-Authored-By:` line).
 - Merge the worktree branch back into the working branch
 - Clean up the worktree
 - Mark the ticket **Done** in Linear via `save_issue`
@@ -232,7 +243,7 @@ Type **1**, **2**, or **3** to proceed.
 > **2.** Start another /tld-side-quest
 >    Best for: keep doing small isolated fixes
 
-> **3.** /tld-dashboard — see overall playbook progress
+> **3.** /tld-dashboard — see overall milestone progress
 >    Best for: want the big picture before deciding what to do next
 
 Type **1**, **2**, or **3** to proceed.
