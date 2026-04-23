@@ -30,9 +30,9 @@ If a skill's output does not end with a hard-stop directive and a "What's next?"
 
 ### The no-drift rule
 
-Four blocks of prose appear verbatim across multiple skills because the same logic has to run in several places (setup, verification, automated pipeline). **The canonical versions of these blocks live in this file.** If you need to change the wording or logic of a shared block:
+Several blocks of prose appear verbatim across multiple skills because the same logic has to run in several places (setup, verification, automated pipeline). **The canonical versions of these blocks live in [STANDARDS.md](STANDARDS.md).** If you need to change the wording or logic of a shared block:
 
-1. Edit the block in this file first.
+1. Edit the block in [STANDARDS.md](STANDARDS.md) first.
 2. Then update every SKILL.md that embeds the block to match exactly.
 3. A future CI linter will enforce this (deferred to v0.2). Until then, it's on the contributor.
 
@@ -42,41 +42,7 @@ Do NOT edit a block in a single SKILL.md and leave the others stale. Do NOT intr
 
 ## Canonical shared blocks
 
-The four blocks below are the authoritative sources. Skills embed them verbatim.
-
-### Numbered shortcut recognition
-
-When you present the "What's next?" options at the end of your output, the user may respond with just a number (e.g., "1" or "2"). If the user's next message is a bare number matching one of the options you presented, treat it as if they typed the corresponding slash command and invoke that skill immediately.
-
-### Milestone completion check
-
-Before presenting options, check if this was the last ticket in its milestone:
-1. Read the current ticket via `get_issue` and note its `projectMilestone`
-2. Read that milestone's description via `get_milestone` and parse the `## Order` section for the ticket sequence
-3. Use `list_issues` to query Linear for each ticket's status
-4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
-5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
-
-### Recommendation hint
-
-Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recommended)** in the output block.
-
-**Default:** mark `/tld-auto` as Recommended.
-
-**Flip to `/tld-write-tests`** if ANY of these are true:
-- Ticket description or AC mentions any of: `auth`, `RLS`, `migration`, `payment`, `credentials`, `security`
-- "Files to Create/Modify" lists 5 or more files
-
-Only one option gets the marker. Never mark `/tld-side-quest`. Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
-
-### Manual-QA classification
-
-**Manual-QA ticket** — classify as this if ANY of:
-- Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end", "manual verification"
-- "Files to Create/Modify" is "None", empty, or missing from the ticket
-- All AC items describe user actions (e.g., "Navigate to...", "Click...", "Verify that...", "Run seed then check...")
-
-**Code ticket** — everything else (the default).
+The 8 canonical reusable blocks have moved to **[STANDARDS.md](STANDARDS.md)**. The rules around editing them (the "no-drift rule" above) still apply — STANDARDS.md is now the source of truth that skill copies must match.
 
 ---
 
@@ -190,72 +156,6 @@ Every TLD and campaign skill falls into exactly one category below. This matrix 
 
 `/tld-run-test` appears under "Writes ticket status" because its QA gate optionally marks the current ticket Done on approval. If the user declines at that gate, the skill writes nothing.
 
-### Canonical paste-block: Load project config
-
-Every skill that touches project state opens with this block verbatim. It lives here so all copies stay byte-identical.
-
-```
-Read `.tld/campaign.md` from the current repo root.
-If the file does not exist, stop and output:
-  "No campaign found in this repo. Run /campaign-init to scaffold one."
-  Do not proceed. Do not attempt to resolve project config from any other source.
-Parse the four sections: Project, Test Commands, Stack, Commit format.
-If any required field in Project (Issue tracker, Project name, Team, Ticket prefix) is missing, stop and output:
-  "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
-The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
-```
-
-### Canonical paste-block: Resolve next ticket
-
-Every skill that needs "the current ticket" opens with this block verbatim (after Load project config).
-
-```
-Query Linear for issues in the configured project with status = "In Progress".
-Case A — exactly one In-Progress ticket:
-  That is the current ticket. Load it via get_issue for full description / AC / files.
-Case B — zero In-Progress tickets:
-  List milestones in the configured project, ordered by sortOrder ascending.
-  Walk the list; for each milestone, read its description via get_milestone and parse the ## Order section.
-  For each ticket ID in Order, check its status. Return the first ticket whose status is neither Done nor Canceled.
-  If no such ticket exists in any milestone, stop and output:
-    "No incomplete tickets found in any milestone. Nothing to do."
-Case C — two or more In-Progress tickets:
-  Stop and output the list with AskUserQuestion: "Multiple tickets are In Progress — pick the one to act on."
-  Do not guess.
-If Linear is unreachable at any step, stop and output:
-  "Cannot reach Linear — aborting. No offline mode."
-  Do not fall back to cached state; there is none.
-```
-
-### Canonical paste-block: Local DB safety check
-
-Every skill that runs test commands or destructive database operations embeds this block verbatim after Load project config (and, where relevant, after Resolve current ticket / Resolve test command). It aborts the skill if the configured database URL is not a loopback address. The block body must be byte-identical across every embedder — if you change the wording here, update every SKILL.md that embeds it.
-
-````
-**Run the local-DB safety check before any test command or destructive database operation.**
-
-Read `Stack.Database` from `.tld/campaign.md` — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
-
-Verify the live database connection also points at local:
-1. Scan the repo for database URL references (Supabase config, `.env*`, `SUPABASE_URL`, `DATABASE_URL`, or equivalent for this project's stack).
-2. If any reference names a non-local host (anything that is not `127.0.0.1` or `localhost`), **HARD ABORT immediately**:
-
-```
-🛑 ABORT: Non-local database detected.
-
-Found: [the URL/host that's not local]
-Location: [where you found it]
-Campaign Stack.Database: [value from campaign.md]
-
-This skill runs tests or destructive operations against the database.
-Refusing to proceed against a non-local database.
-
-Fix: Ensure the configured database URL points at local (matches Stack.Database).
-```
-
-Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
-````
-
 ### Error handling: Linear unreachable
 
 There is no offline mode. If a Linear call fails (network error, auth failure, rate limit, 5xx), the skill surfaces the error and exits. Skills must not proceed against stale cached state — the campaign file has no ticket-order or status cache by design, so there is nothing to fall back to.
@@ -265,76 +165,3 @@ There is no offline mode. If a Linear call fails (network error, auth failure, r
 Linear ticket status (Todo / In Progress / Done / Canceled) is the **sole** indicator of runtime position. The campaign file has no `Active.Current`, no `Active.Order`, no per-milestone cache. Resume after `/clear` works by reading the In-Progress ticket from Linear, not from disk.
 
 Adding a local state cache re-introduces drift risk — don't. If a skill thinks it needs one, it is solving the wrong problem.
-
-### Worked example: `.tld/campaign.md`
-
-This is the real campaign file for the Adventure Skills repo itself:
-
-```markdown
-# Campaign: Adventure Skills
-
-## Project
-- Issue tracker: Linear
-- Project name: Adventure Skills
-- Team: 2ndFoundry
-- Ticket prefix: 2ND
-
-## Test Commands
-- Backend: cd backend && npm run test:run
-- Frontend: cd frontend-next && npm test
-- Full: cd frontend-next && npm test && cd ../backend && npm run test:run
-
-## Stack
-- Backend directory: backend
-- Frontend directory: frontend-next
-- Database: Supabase local at 127.0.0.1:54321
-- Changelog path: CHANGELOG.md
-
-## Commit format
-- Pattern: feat(2ND-XXX): title
-- Co-author: Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
-```
-
-### Worked example: Linear milestone description
-
-This is the real description of **M1: Foundation Docs** in the Adventure Skills project. It shows both the plain and auto-linked forms the Order-section parser has to accept.
-
-**Plain form (what a planning skill writes via `save_milestone`):**
-
-```markdown
-## Purpose
-Establish the foundational documentation that every later milestone depends on. No skill code changes — this milestone is pure documentation and contracts.
-
-## Scope
-CONTRIBUTING.md with shared block definitions (the canonical source for reused SKILL.md text). LIMITATIONS.md and CHANGELOG.md for OSS readiness. The campaign file + Linear milestone contract that defines the .tld/campaign.md schema (4 static sections), the milestone description schema (Purpose / Scope / Order / Exit Criteria / Dependencies / Risk), writer/reader rules, and the canonical paste-blocks every TLD skill will use.
-
-## Order
-1. 2ND-199
-2. 2ND-200
-3. 2ND-202
-
-## Exit Criteria
-- CONTRIBUTING.md exists with shared block definitions and the Campaign File + Milestone Contract section
-- LIMITATIONS.md and CHANGELOG.md exist at repo root
-- Milestone description schema documented (including the Order-section regex)
-- Writer/reader matrix lists every TLD and campaign skill
-- Canonical "Load project config" and "Resolve next ticket" paste-blocks provided verbatim
-- Nothing in skills/ has changed yet
-
-## Dependencies
-None. This is the starting milestone.
-
-## Risk
-None — documentation only.
-```
-
-**Auto-linked form (what the parser actually sees after Linear re-renders):**
-
-```markdown
-## Order
-1. [2ND-199](https://linear.app/2ndfoundry/issue/2ND-199/foundation-add-contributingmd-with-shared-block-definitions)
-2. [2ND-200](https://linear.app/2ndfoundry/issue/2ND-200/foundation-add-limitationsmd-and-changelogmd)
-3. [2ND-202](https://linear.app/2ndfoundry/issue/2ND-202/foundation-define-campaign-file-linear-milestone-contract-in)
-```
-
-Both forms must yield the same ticket sequence `[2ND-199, 2ND-200, 2ND-202]` under the parser algorithm above. A mixed list (some plain, some auto-linked) should also work — that happens when a user hand-edits one line of a previously-linked list.
