@@ -131,7 +131,7 @@ Stop here. Do not commit.
 
 ### 4. Update CHANGE_LOG.md
 
-If this ticket touches `backend/`, check whether `backend/CHANGE_LOG.md` was updated. If not, add an entry now. This is required or CI will fail.
+Read the `Changelog path` from `.tld/campaign.md`'s Stack section. If the value is blank, skip this step. Otherwise, check whether the file at that path was updated; if not, add an entry now. Projects that use a CI changelog gate will fail without it.
 
 ### 5. Present for approval
 
@@ -147,7 +147,7 @@ If tests pass, show the user what will be committed:
 All [N] tests passing
 
 ### Commit message
-feat(2ND-XXX): [ticket title] — TLD verified
+[resolved from .tld/campaign.md Commit format Pattern, with the ticket ID and title substituted in, and ` — TLD verified` appended]
 ```
 
 Then present the options:
@@ -185,8 +185,7 @@ When you present the "What's next?" options at the end of your output, the user 
 Only after explicit user approval:
 
 1. Stage the relevant files: `git add [specific files]` — only files related to this ticket
-2. Commit with message format: `feat(2ND-XXX): [ticket title] — TLD verified`
-   Include `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+2. Commit using the `Pattern` from `.tld/campaign.md`'s Commit format section, substituting the ticket ID and title (append ` — TLD verified`). If the campaign's `Co-author` field is non-empty, include that line in the commit trailer; if blank, omit it.
 3. Verify the commit succeeded
 
 **Do NOT push.** Confirm with user before pushing (GitHub Actions budget).

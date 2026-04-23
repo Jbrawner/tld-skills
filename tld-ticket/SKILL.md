@@ -50,7 +50,7 @@ Before creating the ticket, understand the scope:
 2. **Check existing tickets** in Linear to avoid duplicates (use `list_issues` with a keyword search)
 3. **Identify affected files** by reading the codebase. Use grep/glob to find the files that would need to change
 4. **Identify pattern references** by finding existing files that follow the same patterns (same type of component, similar endpoint, etc.)
-5. **Determine the test command** from the playbook step, or use the standard: `cd backend && npm run test:run` for backend, `cd frontend-next && npm test` for frontend
+5. **Determine the test command** by reading `.tld/campaign.md`'s Test Commands section (Backend, Frontend, Full) — pick the one matching the files the new ticket will modify
 
 ### 3. Draft the ticket
 
@@ -62,7 +62,7 @@ Show the user the full ticket before creating it. Format it exactly as it will a
 
 ### 5. Create in Linear
 
-After user approval, use `save_issue` to create the ticket in the mAIn Character project (team: 2ndFoundry).
+After user approval, use `save_issue` to create the ticket in the project and team from `.tld/campaign.md` (Project.Project name and Project.Team).
 
 ---
 
@@ -186,7 +186,7 @@ These apply to ALL ticket types:
 
 3. **Pattern References are mandatory.** There is always an existing file that does something similar. Find it. This is how the pipeline maintains code consistency.
 
-4. **Test Command must be exact.** Not "run the tests" but `cd backend && npm run test:run`. Copy it from the playbook step.
+4. **Test Command must be exact.** Not "run the tests" but the exact command from `.tld/campaign.md`'s Test Commands section (Backend, Frontend, or Full) matching the ticket's scope.
 
 5. **One ticket = one thing.** If the description has "and" connecting two distinct pieces of work, split into two tickets. The TLD pipeline works best with small, focused tickets.
 

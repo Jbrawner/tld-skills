@@ -174,9 +174,9 @@ Generate a manual QA checklist based on the ticket's acceptance criteria and the
   ```
   ### Commands
 
-  **1.** Run the group-open seed script
+  **1.** Run the scenario seed script
   ```sh
-  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f backend/supabase/seed-wc-group-open.sql
+  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f backend/supabase/seed-[your-scenario].sql
   ```
 
   **2.** Check dates are in future
@@ -242,7 +242,7 @@ Type **1**, **2**, or **3** to proceed.
 **For code tickets**, only after explicit user approval:
 
 1. Stage the relevant files: `git add [specific files]` — only files related to this ticket, not unrelated changes
-2. Commit with message format: `feat(2ND-XXX): [ticket title] — TLD verified`
+2. Commit using the `Pattern` from `.tld/campaign.md`'s Commit format section, substituting the ticket ID and title (append ` — TLD verified`). If the campaign's `Co-author` field is non-empty, include that line in the commit trailer; if blank, omit it.
 3. Verify the commit succeeded
 
 **For manual-QA tickets**, there is nothing to commit. Skip directly to the output step.

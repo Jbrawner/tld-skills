@@ -257,7 +257,7 @@ Run a drift check to catch cases where tests pass but implementation doesn't mat
 
 #### 3.2 Update CHANGE_LOG.md
 
-Check if this ticket touches `backend/`. If so, check whether `backend/CHANGE_LOG.md` was updated. If not, add an entry now documenting what changed and test counts. This is required or CI will fail.
+Read the `Changelog path` from `.tld/campaign.md`'s Stack section. If the value is blank, skip this step. Otherwise, check whether the file at that path was updated; if not, add an entry now documenting what changed and test counts. Projects that use a CI changelog gate will fail without it.
 
 **Do NOT commit yet.** The commit happens after the user approves at the QA gate.
 
@@ -297,9 +297,9 @@ The test plan format:
   ```
   ### Commands
 
-  **1.** Run the group-open seed script
+  **1.** Run the scenario seed script
   ```sh
-  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f backend/supabase/seed-wc-group-open.sql
+  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f backend/supabase/seed-[your-scenario].sql
   ```
 
   **2.** Check dates are in future
@@ -310,7 +310,7 @@ The test plan format:
 - **One command per code block.** Never put multiple commands in the same block. Each block = one click to copy.
 
 Guidelines for the test plan:
-- **Be concrete.** Give exact URLs, curl commands, or UI paths. No "verify the endpoint works" — say `curl http://127.0.0.1:54321/functions/v1/tournament?type=world_cup` and what the response should contain.
+- **Be concrete.** Give exact URLs, curl commands, or UI paths. No "verify the endpoint works" — say `curl http://127.0.0.1:54321/functions/v1/[your-endpoint]` and what the response should contain.
 - **Only include tests that need manual verification.** If something is fully covered by automated tests (like unit logic, error codes, auth checks), skip it. Focus on things a human eye catches better: data shape, ordering, integration between pieces, UI rendering.
 - **If the ticket is purely backend logic with no user-facing surface** (like a migration or stored procedure), and automated tests fully cover the AC, say so explicitly: "All AC items are covered by automated tests. No manual QA needed." Then skip the gate.
 - **Scale to the ticket.** A simple migration might need 0 manual tests. A new API endpoint might need 2-3. A frontend feature might need 5+. Don't pad.
@@ -338,8 +338,7 @@ Say "All AC items are covered by automated tests. No manual QA needed. Committin
 **For code tickets**, only after explicit user approval (or no manual tests needed):
 
 1. Stage relevant files: `git add [specific files]` — only files related to this ticket
-2. Commit with format: `feat(2ND-XXX): [ticket title] — TLD verified`
-   Include `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+2. Commit using the `Pattern` from `.tld/campaign.md`'s Commit format section, substituting the ticket ID and title (append ` — TLD verified`). If the campaign's `Co-author` field is non-empty, include that line in the commit trailer. If it is blank, omit the `Co-Authored-By` line entirely.
 3. Verify commit succeeded
 
 **Do NOT push.** Confirm with user before pushing (GitHub Actions budget).

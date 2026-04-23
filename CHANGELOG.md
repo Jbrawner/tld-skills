@@ -14,6 +14,10 @@ First open-source release. Extracts the TLD (Test-Led Development) skills framew
 - `CONTRIBUTING.md` with the canonical text of the four shared blocks (Numbered shortcut recognition, Milestone completion check, Recommendation hint, Manual-QA classification) plus the Campaign File + Milestone Contract, Local DB Safety Check, and Canonical Approval Keyword set.
 - `LIMITATIONS.md` documenting known constraints (Linear-only, Vitest/Jest assumed, Supabase local at 127.0.0.1:54321 assumed, alpha + dogfooding caveats).
 
+### Changed
+
+- Generalized skill files to remove hardcoded project-specific identifiers: tld-audit domain examples are now `[your-auth-helper]` / `[your-api-key-helper]` / `[YourFeature].tsx` placeholders, tld-auto / tld-run-test seed filenames and example URLs are now generic, and tld-commit / tld-auto / tld-run-test now read the commit pattern, co-author line, and changelog path from `.tld/campaign.md` at runtime instead of hardcoding them. tld-ticket now reads test commands from `.tld/campaign.md` Test Commands. Tracked in 2ND-212.
+
 ### Removed
 
 - `/campaign-switch` skill — obsolete under the per-repo campaign model (one campaign per repo, nothing to switch between). Tracked in 2ND-232.
