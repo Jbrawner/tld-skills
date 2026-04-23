@@ -157,7 +157,9 @@ Then tell the user:
 - Which ticket was selected and why (position in milestone Order, or "you specified it" for Mode A)
 - Summary of what it involves
 - Dependencies confirmed clear
-- If the ticket has a `model:*` label, add this line (using the value after `model:` as the model name): **Recommended model:** `{model}` — run `/model {model}` to switch Claude Code's active model to match. If no `model:*` label is present, omit this line entirely — do NOT render a placeholder.
+- Render a compact recommendation block from the ticket's `labels` array. Extract the value after `model:` from any `model:*` label (expected: `opus`, `sonnet`, `haiku`) and the value after `effort:` from any `effort:*` label (expected: `low`, `medium`, `high`). Then:
+  - Output a single line in the form **Recommended:** model `{model}` · effort `{effort}` — using `·` as the separator. Omit the `model `{model}`` portion if there is no `model:*` label; omit the `effort `{effort}`` portion if there is no `effort:*` label; if neither label is present, omit the entire line (and the warning line below) — do NOT render a placeholder.
+  - Directly below that line, ONLY if a `model:*` label is present AND the currently running Claude Code model's family does not match the recommendation, add a warning line in the form: ⚠️ Current model is `{current}` — run `/model {recommended}` to match. Determine the current family by reading the environment preamble (which names the model like "Opus 4.7", "Sonnet 4.6", or "Haiku 4.5") and mapping that family to `opus` / `sonnet` / `haiku` (lowercase) for comparison. If the current family matches the `model:*` value, omit the warning line entirely. If there is no `model:*` label, omit the warning line entirely (never compare effort — effort is display-only and has no Claude Code runtime setting).
 
 Then present the options block based on the ticket type classification from step 8.
 
