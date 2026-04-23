@@ -58,16 +58,31 @@ Never write to `.tld/campaign.md`.
 3. Locate the current ticket's position in the parsed Order.
 4. Walk forward from there. For each remaining ticket ID, look up its status. Return the first one whose status is **Todo** or **Backlog** — skip Done, Canceled, AND In Progress (another agent may have claimed it).
 
-**If a next ticket is found:** set `next_action` = `/tld-setup {next-ticket-ID}`.
+**If a next ticket is found:** set `next_action` = `/tld-setup {next-ticket-ID}`. Then call `get_issue` on the next ticket to read its `labels` array. Parse:
+- **Recommended model:** the value after `model:` in any `model:*` label. If no `model:*` label is present, default to `sonnet` and mark the source as "default" (not a label).
+- **Recommended effort:** the value after `effort:` in any `effort:*` label. If no `effort:*` label is present, default to `medium` and mark the source as "default" (not a label).
 
-**If no Todo ticket remains in this milestone's Order:** set `next_action` = `/tld-gate`. Note the milestone name — it just completed.
+These values drive the recommendation line and the override cycles in step 7.
+
+**If no Todo ticket remains in this milestone's Order:** set `next_action` = `/tld-gate`. Note the milestone name — it just completed. No label read is needed in this case.
 
 **Edge — malformed Order:** If the Order section is missing or yields zero tickets, stop and output:
   "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it. Ticket {ID} was marked Done successfully."
 
 ### Numbered shortcut recognition
 
-When you present the "What's next?" options at the end of your output, the user may respond with just a number (e.g., "1" or "2"). If the user's next message is a bare number matching one of the options you presented, treat it as if they typed the corresponding slash command and invoke that skill immediately.
+When the user responds to a "What's next?" block with a bare number, map it based on which block was presented:
+
+**Next-ticket case (4-option block):**
+- `1` → end the skill. The user runs `/clear` + the printed `/tld-setup {id}` command manually. Do NOT invoke `/tld-setup` yourself.
+- `2` → apply the Change-model cycle, update labels via `save_issue`, re-render the block. Wait again.
+- `3` → apply the Change-effort cycle, update labels via `save_issue`, re-render the block. Wait again.
+- `4` → prompt the user inline for model + effort values, update labels via `save_issue`, re-render the block. Wait again.
+
+**Milestone-gate case (3-option block):**
+- `1` → end the skill. The user runs `/clear` + `/tld-gate` manually. Do NOT invoke `/tld-gate` yourself.
+- `2` → invoke `/tld-dashboard`.
+- `3` → invoke `/tld-side-quest`.
 
 ### 6. Output
 
@@ -75,6 +90,7 @@ Report:
 - Ticket {ID} marked Done in Linear
 - Milestone progress (e.g., "3 of 5 tickets resolved in M3: Core TLD Wiring")
 - What's next (next ticket ID or milestone gate)
+- If next action is another ticket, a recommendation line in the form `Recommended: model:{X} | effort:{Y}`, using the values parsed in step 5. When a label source is "default" (no `model:*` or `effort:*` label on the next ticket), render that side as `{value} (default)` — e.g., `Recommended: model: sonnet (default) | effort: medium (default)`.
 
 Context is saved in Linear. The recommended flow is to clear this conversation's stale context and start the next action fresh.
 
@@ -84,25 +100,54 @@ Context is saved in Linear. The recommended flow is to clear this conversation's
 
 ---
 
+```
+Next: /tld-setup {next-ticket-ID}
+Recommended: model:{X} | effort:{Y}
+```
+
+(When the next ticket has no `model:*` label, render that side as `model: sonnet (default)`. When it has no `effort:*` label, render it as `effort: medium (default)`.)
+
 **What's next?**
 
-> **1.** Start next ticket with clean context (Recommended)
->    Best for: standard flow, clean slate for {next-ticket-ID}
+> **1.** Proceed as recommended (Recommended)
+>    Best for: labels look right, ready to start the next ticket
 >    Step 1: type `/clear` · Step 2: run the command below
 
 ```
 /tld-setup {next-ticket-ID}
 ```
 
-> **2.** /tld-dashboard — review progress first
->    Best for: want to see where you are before deciding
+> **2.** Change model — cycle `sonnet → opus → haiku → sonnet`
+>    Best for: turned out to be a different complexity than labeled
 
-> **3.** /tld-side-quest — handle a quick fix before moving on
->    Best for: noticed polish to handle before next ticket
+> **3.** Change effort — cycle `low → medium → high → low`
+>    Best for: re-scoping the effort up or down
 
-Type **2** or **3** to invoke those options. For option 1, run `/clear` then paste the command above.
+> **4.** Proceed with custom model+effort — collect values inline
+>    Best for: want to set both to specific values in one shot
 
-**HARD STOP: After outputting the above, you are DONE. Do NOT invoke `/tld-setup` or any other skill. Wait for the user to pick an option or type a command.**
+Type **2**, **3**, or **4** to adjust the recommendation and re-display. For option 1, run `/clear` then paste the command above.
+
+#### Handling overrides (options 2, 3, 4)
+
+Each of these updates the **next** ticket's Linear labels (not the just-completed ticket) via `save_issue`, then re-renders the "What's next?" block with the updated values. Never write to `.tld/campaign.md`.
+
+**Option 2 — Change model:** advance the current model value one step in the cycle `sonnet → opus → haiku → sonnet`. If the next ticket has no `model:*` label, the starting point is `sonnet`, so the new value becomes `opus`. Effort stays unchanged.
+
+**Option 3 — Change effort:** advance the current effort value one step in the cycle `low → medium → high → low`. If the next ticket has no `effort:*` label, the starting point is `medium`, so the new value becomes `high`. Model stays unchanged.
+
+**Option 4 — Custom model+effort:** ask the user inline for both values. Accept only the canonical sets — `opus`/`sonnet`/`haiku` for model, `low`/`medium`/`high` for effort. Reject anything else and re-ask.
+
+**Label mutation (all three options):**
+
+1. Start from the next ticket's current `labels` array.
+2. Remove every existing `model:*` label if model is changing; remove every existing `effort:*` label if effort is changing. Non-`model:`/`effort:` labels are preserved untouched.
+3. Append the new `model:{X}` and/or `effort:{Y}` label(s).
+4. Call `save_issue({id: next-ticket-ID, labels: new-array})`.
+
+After the update succeeds, re-render the "What's next?" block above with the refreshed `Recommended: …` line. The loop continues until the user picks option 1.
+
+**HARD STOP: Options 2, 3, 4 loop in-skill — apply the override, re-render, wait. Option 1 ends the skill: do NOT invoke `/tld-setup` or any other skill. The user runs `/clear` then pastes the printed `/tld-setup {id}` command manually.**
 
 **If next action is milestone gate:**
 
