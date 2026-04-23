@@ -231,7 +231,7 @@ Type **1**, **2**, or **3** to proceed.
 ### >>> MANDATORY APPROVAL GATE — STOP HERE <<<
 
 **HARD STOP.** Do NOT commit or mark Done until the user explicitly approves. Wait for one of:
-- "1", "approve", "commit", "lgtm", "looks good", "ship it", or similar affirmative → proceed to step 5
+- Any canonical approval keyword: "approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" (see CONTRIBUTING.md § Approval keyword set) → proceed to step 5
 - User describes a problem → report which files likely need fixing, suggest `/tld-align` or manual fix, then re-run `/tld-run-test`
 - "2" or "side quest" → invoke `/tld-side-quest`, come back to commit after
 

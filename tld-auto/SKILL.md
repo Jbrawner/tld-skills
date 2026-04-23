@@ -123,7 +123,7 @@ End with: **"RED phase complete. [N] tests written, all failing. Review the test
 ### >>> MANDATORY REVIEW GATE 1 — STOP HERE <<<
 
 **HARD STOP.** Do NOT proceed to Phase 2 until the user explicitly approves. Wait for one of:
-- "go", "looks good", "proceed", "lgtm", "approved", "continue", "ship it", or similar affirmative
+- Any canonical approval keyword: "approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" (see CONTRIBUTING.md § Approval keyword set for the full definition)
 - Feedback/changes — make the requested adjustments to tests, re-run to confirm RED, then present the gate again
 
 **If the user gives feedback:** Modify the tests as requested, re-run to confirm they still fail, and present the RED Gate Output again. Repeat until the user approves.
@@ -323,7 +323,7 @@ End the test plan with: **"Run the manual tests above. Reply 'approve' to commit
 
 **HARD STOP.** Wait for the user to confirm.
 
-- User says "approve", "done", "commit", "lgtm", "looks good", "ship it", etc. → proceed to 4.3
+- User says any canonical approval keyword ("approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" — see CONTRIBUTING.md § Approval keyword set) → proceed to 4.3
 - User says "side quest" or "2" → invoke `/tld-side-quest`, come back to commit after
 - User reports a failure → STOP. Tell them which files likely need fixing and suggest running `/tld-align` or fixing manually, then `/tld-run-test`.
 

@@ -159,7 +159,7 @@ Then tell the user:
 
 This is the hard gate. Do nothing until the user responds.
 
-**If the user says "approve"** (or equivalent affirmative):
+**If the user says any canonical approval keyword** ("approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" — see CONTRIBUTING.md § Approval keyword set):
 - Proceed to step 6.
 
 **If the user describes issues:**

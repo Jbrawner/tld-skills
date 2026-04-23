@@ -170,7 +170,7 @@ Type **1**, **2**, or **3** to proceed.
 ### >>> MANDATORY APPROVAL GATE — STOP HERE <<<
 
 **HARD STOP.** Do NOT commit until the user explicitly approves. Wait for one of:
-- "1", "approve", "commit", "lgtm", "looks good", "ship it" → proceed to step 6
+- Any canonical approval keyword: "approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" (see CONTRIBUTING.md § Approval keyword set) → proceed to step 6
 - User describes a problem → suggest `/tld-align` or manual fix
 - "2" or "side quest" → invoke `/tld-side-quest`, come back later with `/tld-commit`
 

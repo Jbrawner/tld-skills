@@ -8,7 +8,7 @@ description: |
 
 # TLD Help
 
-Print the following reference card exactly as shown. Do not add commentary or explanation beyond what is written here.
+Print the reference card below, then determine the user's current position in the flow and present context-aware options.
 
 ---
 
