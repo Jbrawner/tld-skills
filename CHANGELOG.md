@@ -19,6 +19,7 @@ First open-source release. Extracts the TLD (Test-Led Development) skills framew
 
 - Generalized skill files to remove hardcoded project-specific identifiers: tld-audit domain examples are now `[your-auth-helper]` / `[your-api-key-helper]` / `[YourFeature].tsx` placeholders, tld-auto / tld-run-test seed filenames and example URLs are now generic, and tld-commit / tld-auto / tld-run-test now read the commit pattern, co-author line, and changelog path from `.tld/campaign.md` at runtime instead of hardcoding them. tld-ticket now reads test commands from `.tld/campaign.md` Test Commands. Tracked in 2ND-212.
 - Capped `/tld-build`'s green-phase fix-and-retry loop at a hard 3-attempt maximum, with explicit attempt-tracking and a failure options block (mirroring `/tld-run-test`'s `/tld-align` / manual fix / `/tld-side-quest` triad) when the cap is hit. `/tld-build` is now the source of truth for the cap that `/tld-auto` already references. Tracked in 2ND-218.
+- `/tld-ticket` now prompts for Model + Effort via AskUserQuestion before creating a ticket and applies the selections as `model:*` / `effort:*` labels via `save_issue`, defaulting to `sonnet` + `medium` if the user skips. `/campaign-plan` and `/milestone-create` gain label-not-found error handling that points users at `/campaign-init` to restore the required label set. Tracked in 2ND-233.
 
 ### Removed
 

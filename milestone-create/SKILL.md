@@ -146,7 +146,11 @@ Walk the ticket list in order. For each ticket title:
    - `labels`: `[model:*, effort:*]` from step 2
 4. **Capture the returned ticket identifier** (`{prefix}-XXX`). You will use it to build the Order section in step 8.
 
-If a `save_issue` call fails, stop and report which tickets were created before the failure. Do not attempt to recover automatically — the user may want to inspect Linear before retrying. The milestone itself was already created; tickets created before the failure are already attached.
+If a `save_issue` call fails with a label-not-found error (e.g., the workspace is missing `model:sonnet` or `effort:medium`), stop and output:
+
+> Label application failed: one of the required `model:*` / `effort:*` labels is not present in the workspace. This shouldn't happen if `/campaign-init` has been run. Re-run `/campaign-init` to restore the label set, then retry this skill.
+
+For any other `save_issue` failure, stop and report which tickets were created before the failure. Do not attempt to recover automatically — the user may want to inspect Linear before retrying. The milestone itself was already created; tickets created before the failure are already attached.
 
 After the loop, you have an ordered list of ticket identifiers for this milestone.
 

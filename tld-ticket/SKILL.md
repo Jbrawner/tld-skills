@@ -56,13 +56,34 @@ Before creating the ticket, understand the scope:
 
 Apply the template for the ticket type. Fill in every field. If you can't determine a field, ask the user rather than leaving it blank.
 
-### 4. Present for review
+### 4. Ask for model + effort
 
-Show the user the full ticket before creating it. Format it exactly as it will appear in Linear so they can review.
+Before presenting for review, call AskUserQuestion twice (separate questions in one tool call is fine) to collect the two labels that will be applied to the ticket:
 
-### 5. Create in Linear
+1. **Model** — enum. Options in this order:
+   - **sonnet** (default) — normal skill authoring, structured writing
+   - **opus** — high-risk, pattern-setting, or architectural work
+   - **haiku** — cheap, mechanical, short tasks
+2. **Effort** — enum. Options in this order:
+   - **low** — mechanical edits, grep-replace, short additions
+   - **medium** (default) — normal authoring, structured writing
+   - **high** — architectural design, pattern-setting work
 
-After user approval, use `save_issue` to create the ticket in the project and team from `.tld/campaign.md` (Project.Project name and Project.Team).
+If the user closes the prompt or gives no answer to either question, default to `sonnet` + `medium`. Record the chosen values — they appear in the step 5 preview and are applied as `model:{model}` / `effort:{effort}` labels by `save_issue` in step 6.
+
+### 5. Present for review
+
+Show the user the full ticket before creating it. Format it exactly as it will appear in Linear so they can review. Include the model + effort labels collected in step 4 at the top of the preview (e.g., `**Labels:** `model:sonnet` · `effort:medium``) so the user can spot a wrong pick before it lands.
+
+### 6. Create in Linear
+
+After user approval, call `save_issue` to create the ticket in the project and team from `.tld/campaign.md` (Project.Project name and Project.Team). Pass the labels from step 4 as `["model:{model}", "effort:{effort}"]`.
+
+If `save_issue` fails with a label-not-found error (e.g., the workspace is missing `model:sonnet` or `effort:medium`), stop and output:
+
+> Label application failed: one of the required `model:*` / `effort:*` labels is not present in the workspace. This shouldn't happen if `/campaign-init` has been run. Re-run `/campaign-init` to restore the label set, then retry `/tld-ticket`.
+
+For any other `save_issue` failure, report the error and stop — do not retry automatically.
 
 ---
 
