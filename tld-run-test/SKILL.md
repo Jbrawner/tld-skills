@@ -191,7 +191,7 @@ Generate a manual QA checklist based on the ticket's acceptance criteria and the
 Guidelines:
 - **Be concrete.** Give exact URLs, curl commands, or UI paths.
 - **Only include tests that need manual verification.** Skip things fully covered by automated tests. Focus on what a human eye catches better: data shape, integration, UI rendering.
-- **If purely backend logic with no user-facing surface** and automated tests fully cover the AC, say so: "All AC items are covered by automated tests. No manual QA needed — reply 'approve' to commit."
+- **If purely backend logic with no user-facing surface** and automated tests fully cover the AC, say so: "All AC items are covered by automated tests. No manual QA needed." Then still present the standard numbered "What's next?" block so the user can approve, detour to a side quest, or flag an issue.
 - **Scale to the ticket.** Don't pad.
 
 Then present the options:

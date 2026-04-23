@@ -118,7 +118,22 @@ Report to the user:
 - The test names grouped by AC item, so the user can see the specification at a glance
 - Test run summary showing all new tests fail (RED confirmed)
 
-End with: **"RED phase complete. [N] tests written, all failing. Review the test spec above. Reply 'go' to proceed with build, or give feedback to adjust."**
+End with the summary line **"RED phase complete. [N] tests written, all failing. Review the test spec above."** then present:
+
+---
+
+**What's next?**
+
+> **1.** Approve — proceed to GREEN phase (Recommended)
+>    Best for: tests match the spec, ready to implement
+
+> **2.** /tld-side-quest — handle a quick fix first
+>    Best for: noticed something unrelated worth doing before building
+
+> **3.** Describe adjustments — refine the test spec
+>    Best for: wrong assertion, missing edge case, or unclear expected output
+
+Type **1**, **2**, or **3** to proceed.
 
 ### >>> MANDATORY REVIEW GATE 1 — STOP HERE <<<
 
@@ -319,7 +334,22 @@ Guidelines for the test plan:
 
 **If manual tests are needed:**
 
-End the test plan with: **"Run the manual tests above. Reply 'approve' to commit and mark Done, or report what failed. You can also say 'side quest' to handle a quick fix before committing."**
+End the test plan with the instruction **"Run the manual tests above."** then present:
+
+---
+
+**What's next?**
+
+> **1.** Approve — commit and mark Done (Recommended)
+>    Best for: manual QA passed, ready to close out
+
+> **2.** /tld-side-quest — handle a quick fix first
+>    Best for: manual QA revealed polish needed elsewhere
+
+> **3.** Describe what failed — I'll help investigate
+>    Best for: manual QA caught a real issue
+
+Type **1**, **2**, or **3** to proceed.
 
 **HARD STOP.** Wait for the user to confirm.
 
