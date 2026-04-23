@@ -46,11 +46,13 @@ Determine the affected directory scope:
 2. Classify the scope against campaign Stack paths:
    - All affected paths under `Stack.Backend directory` → backend-only.
    - All affected paths under `Stack.Frontend directory` → frontend-only.
+   - All affected paths under `Stack.Landing directory` → landing-only.
    - Mixed, neither, or empty → both/unsure.
 
 Pick the command from campaign Test Commands:
   - backend-only → Backend command.
   - frontend-only → Frontend command.
+  - landing-only → Landing command.
   - both/unsure → Full command.
 
 If the chosen command is empty, fall back to the Full command.
