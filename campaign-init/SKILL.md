@@ -51,10 +51,11 @@ If the user picks anything other than `Linear`, immediately print this advisory 
 
 ### 3. Collect the Test Commands section
 
-AskUserQuestion for each; all three allow blank (the user may not have a command for every slot):
+AskUserQuestion for each; all four allow blank (the user may not have a command for every slot):
 
 - **Backend** — e.g. `cd backend && npm run test:run`
 - **Frontend** — e.g. `cd frontend-next && npm test`
+- **Landing** — the marketing / SEO site's test command, if distinct from Frontend; e.g. `cd landing && npm test`
 - **Full** — used by `/tld-gate` for regression; e.g. `cd frontend-next && npm test && cd ../backend && npm run test:run`
 
 ### 4. Collect the Stack section
@@ -63,6 +64,7 @@ AskUserQuestion for each; all blank-allowed:
 
 - **Backend directory** — e.g. `backend`
 - **Frontend directory** — e.g. `frontend-next`
+- **Landing directory** — the marketing / SEO site's directory, if distinct from Frontend; e.g. `landing` or `marketing-site`
 - **Database** — free text, e.g. `Supabase local at 127.0.0.1:54321`
 - **Changelog path** — e.g. `CHANGELOG.md` or `backend/CHANGE_LOG.md`
 
@@ -113,11 +115,13 @@ Write `{cwd}/.tld/campaign.md` with this exact content. Substitute each `{field}
 ## Test Commands
 - Backend: {Backend test command}
 - Frontend: {Frontend test command}
+- Landing: {Landing test command}
 - Full: {Full test command}
 
 ## Stack
 - Backend directory: {Backend directory}
 - Frontend directory: {Frontend directory}
+- Landing directory: {Landing directory}
 - Database: {Database}
 - Changelog path: {Changelog path}
 

@@ -43,6 +43,7 @@ Print every current value in a single table grouped by section so the user can s
 |---|---|
 | Backend | {value or "(blank)"} |
 | Frontend | {value or "(blank)"} |
+| Landing | {value or "(blank)"} |
 | Full | {value or "(blank)"} |
 
 ### Stack
@@ -50,6 +51,7 @@ Print every current value in a single table grouped by section so the user can s
 |---|---|
 | Backend directory | {value or "(blank)"} |
 | Frontend directory | {value or "(blank)"} |
+| Landing directory | {value or "(blank)"} |
 | Database | {value or "(blank)"} |
 | Changelog path | {value or "(blank)"} |
 
@@ -65,8 +67,8 @@ Print every current value in a single table grouped by section so the user can s
 Use AskUserQuestion: "Which category do you want to edit?" with these four options:
 
 - **Project** — Issue tracker, Project name, Team, Ticket prefix
-- **Test Commands** — Backend, Frontend, Full
-- **Stack** — Backend directory, Frontend directory, Database, Changelog path
+- **Test Commands** — Backend, Frontend, Landing, Full
+- **Stack** — Backend directory, Frontend directory, Landing directory, Database, Changelog path
 - **Commit format** — Pattern, Co-author
 
 ### 4. Pick a field within the category

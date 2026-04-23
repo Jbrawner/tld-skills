@@ -38,11 +38,13 @@ Print the parsed values in this format. Render any blank field as `(blank)`:
 ### Test Commands
 - Backend: {backend}
 - Frontend: {frontend}
+- Landing: {landing}
 - Full: {full}
 
 ### Stack
 - Backend directory: {backend dir}
 - Frontend directory: {frontend dir}
+- Landing directory: {landing dir}
 - Database: {database}
 - Changelog path: {changelog}
 
