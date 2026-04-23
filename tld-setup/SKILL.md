@@ -73,6 +73,7 @@ Use `get_issue` with `includeRelations: true` on the target ticket. Extract:
 - Acceptance criteria
 - Dependencies (`blockedBy` relations)
 - Milestone (`projectMilestone`)
+- Labels (the `labels` array, e.g. `["effort:low","model:sonnet"]`)
 - Any test commands or file references mentioned in the description
 
 ### 5. Check dependencies
@@ -128,6 +129,7 @@ Present the full ticket context directly in the conversation. Structure your out
 
 **Title:** {ticket title}
 **Milestone:** {milestone name}
+**Labels:** {comma-separated backticked labels, e.g. `effort:low`, `model:sonnet` — or `_none_` if the ticket has no labels}
 
 ### Description
 {full ticket description from Linear}
@@ -155,6 +157,7 @@ Then tell the user:
 - Which ticket was selected and why (position in milestone Order, or "you specified it" for Mode A)
 - Summary of what it involves
 - Dependencies confirmed clear
+- If the ticket has a `model:*` label, add this line (using the value after `model:` as the model name): **Recommended model:** `{model}` — run `/model {model}` to switch Claude Code's active model to match. If no `model:*` label is present, omit this line entirely — do NOT render a placeholder.
 
 Then present the options block based on the ticket type classification from step 8.
 
