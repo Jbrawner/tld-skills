@@ -8,7 +8,8 @@ First open-source release. Extracts the TLD (Test-Led Development) skills framew
 
 ### Added
 
-- TLD skill family: `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-align`, `/tld-audit`, `/tld-commit`, `/tld-next`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-save-point`, `/tld-dashboard`, `/tld-ticket`, `/tld-help`.
+- TLD skill family: `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-align`, `/tld-audit`, `/tld-commit`, `/tld-next`, `/tld-skip`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-save-point`, `/tld-dashboard`, `/tld-ticket`, `/tld-help`.
+- `/tld-skip` skill — reverts the current In-Progress ticket to Todo (or a "Skipped" state if the Linear team has one) and points the user at the next ticket in the milestone's `## Order` section. The skipped ticket stays in Order and can be resumed any time via `/tld-setup {id}`. Tracked in 2ND-224.
 - Campaign skill family for per-repo project configuration: `/campaign-init`, `/campaign-edit`, `/campaign-show`, `/campaign-test`, `/campaign-remove`.
 - Milestone-driven architecture — Linear is the sole source of truth for milestones, ticket order (via the `## Order` section in each milestone description), and ticket status. The local `.tld/campaign.md` file holds only static project config.
 - `CONTRIBUTING.md` with the canonical text of the four shared blocks (Numbered shortcut recognition, Milestone completion check, Recommendation hint, Manual-QA classification) plus the Campaign File + Milestone Contract, Local DB Safety Check, and Canonical Approval Keyword set.

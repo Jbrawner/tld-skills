@@ -37,6 +37,7 @@ Print the reference card below, then determine the user's current position in th
 |-------|-------------|-------------|
 | `/tld-align` | Fixes implementation after test failures | After `/tld-run-test` fails |
 | `/tld-commit` | Picks up a pending commit after a detour | After a side quest when changes are uncommitted |
+| `/tld-skip` | Reverts the current ticket to Todo and finds the next one | When a ticket is practically blocked or out of order for today |
 | `/tld-save-point` | Recovers your position from playbook + Linear | Start of a new conversation |
 | `/tld-dashboard` | Shows progress across all steps and tickets | When you want the big picture |
 
