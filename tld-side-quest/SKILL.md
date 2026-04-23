@@ -151,9 +151,22 @@ When the subagent returns, present a clean summary:
 [path to the worktree where changes live]
 ```
 
-Then tell the user:
+Then tell the user: "Changes are ready in an isolated worktree. Please test manually using the checklist above." and present:
 
-> "Changes are ready in an isolated worktree. Please test manually using the checklist above. When you're satisfied, say **approve** and I'll commit and merge. Say **reject** or describe what's wrong and I'll fix it."
+---
+
+**What's next?**
+
+> **1.** Approve — commit and merge (Recommended)
+>    Best for: manual test passed, ready to ship this side quest
+
+> **2.** Describe adjustments — I'll re-iterate in the worktree
+>    Best for: small tweak needed before committing
+
+> **3.** Reject — discard the worktree and abort
+>    Best for: this isn't the right direction; throw it away
+
+Type **1**, **2**, or **3** to proceed.
 
 ### 5. Wait for approval
 
@@ -162,12 +175,12 @@ This is the hard gate. Do nothing until the user responds.
 **If the user says any canonical approval keyword** ("approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" — see CONTRIBUTING.md § Approval keyword set):
 - Proceed to step 6.
 
-**If the user describes issues:**
+**If the user says "2", describes issues, or asks for adjustments:**
 - Either fix inline (if trivial) or spawn another subagent iteration in the same worktree
 - Present updated changes and test checklist
 - Wait for approval again
 
-**If the user says "reject" or "cancel":**
+**If the user says "3", "reject", or "cancel":**
 - Clean up the worktree (`git worktree remove`)
 - Set the ticket back to its previous state (or to "Canceled" if it was newly created)
 - Report: "Side quest canceled. Worktree cleaned up. No changes committed."
