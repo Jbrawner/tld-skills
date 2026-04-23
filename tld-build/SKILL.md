@@ -129,7 +129,7 @@ Then present the options block:
 
 **What's next?**
 
-> **1.** /tld-run-test — verify, QA, commit on approval
+> **1.** /tld-run-test — verify, QA, commit on approval (Recommended)
 >    Best for: implementation done, ready for the gate
 
 > **2.** /tld-audit — security and architecture review first
