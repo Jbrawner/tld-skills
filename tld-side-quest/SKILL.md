@@ -172,7 +172,7 @@ Type **1**, **2**, or **3** to proceed.
 
 This is the hard gate. Do nothing until the user responds.
 
-**If the user says any canonical approval keyword** ("approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" — see CONTRIBUTING.md § Approval keyword set):
+**If the user says any canonical approval keyword** ("approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" — see STANDARDS.md § Approval keyword set):
 - Proceed to step 6.
 
 **If the user says "2", describes issues, or asks for adjustments:**

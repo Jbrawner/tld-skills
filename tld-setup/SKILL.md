@@ -93,7 +93,7 @@ Never write to `.tld/campaign.md` at any point — this skill does not touch the
 
 Read any files explicitly referenced in the ticket description (pattern refs, existing tests, source files being ported). Use the Test Commands and Stack sections of the campaign file for test-command hints — these values come from campaign, not the ticket.
 
-### 8. Classify ticket type
+### 8. Manual-QA classification (setup-time)
 
 **Manual-QA ticket** — classify as this if ANY of:
 - Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end", "manual verification"

@@ -86,14 +86,14 @@ Fix: Ensure the configured database URL points at local (matches Stack.Database)
 
 Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
 
-### 1.5. Detect ticket type
+### 1.5. Manual-QA classification (verify-time)
 
 Classify the active ticket to determine which path to take.
 
 **Manual-QA ticket** — classify as this if ANY of:
-- Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end"
-- "Files to Create/Modify" is "None" or empty
-- All AC items describe user actions ("Navigate to...", "Click...", "Verify that...")
+- Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end", "manual verification"
+- "Files to Create/Modify" is "None", empty, or missing from the ticket
+- All AC items describe user actions (e.g., "Navigate to...", "Click...", "Verify that...", "Run seed then check...")
 - `git diff` and `git diff --cached` show no uncommitted changes
 
 **Code ticket** — everything else (the default).
@@ -233,7 +233,7 @@ Type **1**, **2**, or **3** to proceed.
 ### >>> MANDATORY APPROVAL GATE — STOP HERE <<<
 
 **HARD STOP.** Do NOT commit or mark Done until the user explicitly approves. Wait for one of:
-- Any canonical approval keyword: "approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" (see CONTRIBUTING.md § Approval keyword set) → proceed to step 5
+- Any canonical approval keyword: "approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" (see STANDARDS.md § Approval keyword set) → proceed to step 5
 - User describes a problem → report which files likely need fixing, suggest `/tld-align` or manual fix, then re-run `/tld-run-test`
 - "2" or "side quest" → invoke `/tld-side-quest`, come back to commit after
 
@@ -258,15 +258,14 @@ Report:
 - Drift check results (clean)
 - Commit hash
 
-**Milestone completion check:** Before presenting options, check if this was the last ticket in its milestone:
-1. Call `get_milestone` on the current ticket's `projectMilestone.id` (captured in step 1a).
-2. Parse the `## Order` section using the unanchored regex algorithm:
-   - Find the `^## Order\s*$` line.
-   - Capture following lines until the next `^## ` header or end-of-description.
-   - For each line, take the first regex match of `({prefix}-\d+)` — Do NOT anchor on `^\d+\.\s+` (Linear's auto-link rewrite breaks that).
-3. For each ticket ID in Order, look up its status via `list_issues` or `get_issue`.
-4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next).
-5. If every ticket in the milestone Order is Done or Canceled, append the 4th option below. Otherwise present only the first 3.
+### Milestone completion check
+
+Before presenting options, check if this was the last ticket in its milestone:
+1. Read the current ticket via `get_issue` and note its `projectMilestone`
+2. Read that milestone's description via `get_milestone` and parse the `## Order` section for the ticket sequence
+3. Use `list_issues` to query Linear for each ticket's status
+4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
+5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
 
 Then present the options block:
 
@@ -295,7 +294,14 @@ Report:
 - Manual QA items confirmed
 - No changes to commit (manual-QA ticket)
 
-**Milestone completion check:** Before presenting options, check if this was the last ticket in its milestone (same logic as the code-ticket branch above: `get_milestone`, parse the `## Order` section with the unanchored `({prefix}-\d+)` regex, query Linear for each ticket's status, treat the current ticket as Done). If every ticket in the milestone Order is Done or Canceled, append the 4th option below.
+### Milestone completion check
+
+Before presenting options, check if this was the last ticket in its milestone:
+1. Read the current ticket via `get_issue` and note its `projectMilestone`
+2. Read that milestone's description via `get_milestone` and parse the `## Order` section for the ticket sequence
+3. Use `list_issues` to query Linear for each ticket's status
+4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
+5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
 
 Then present the options block:
 

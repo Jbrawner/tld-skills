@@ -169,7 +169,7 @@ Compose the new milestone description by replacing the placeholder `## Order` bl
 
 Call `save_milestone` with the milestone ID from step 6 and the new description.
 
-Write the plain `1. {prefix}-XXX` form. Linear will rewrite each line to `1. [{prefix}-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms. See CONTRIBUTING.md "Order-section parser" for the algorithm reader skills use.
+Write the plain `1. {prefix}-XXX` form. Linear will rewrite each line to `1. [{prefix}-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms. See STANDARDS.md "Order-section parser" for the algorithm reader skills use.
 
 ### 9. Final output
 

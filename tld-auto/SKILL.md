@@ -31,7 +31,7 @@ The tracker, team, prefix, and project name from this block are the only ones th
 
 Query Linear for issues in the configured project with status = "In Progress".
 
-**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / pattern refs / `projectMilestone`.
+**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
 
 **Case B — zero In-Progress tickets:** Stop and output:
   "No In-Progress ticket found. Run /tld-setup to pick one up."
@@ -65,14 +65,14 @@ If the Full command is also empty, stop and output:
 
 Use the resolved command for any test run in this skill. Do not invent commands or read any playbook file.
 
-#### 1.1.5 Detect ticket type
+#### 1.1.5 Manual-QA classification (setup-time)
 
 Classify the active ticket. This determines which phases to run.
 
 **Manual-QA ticket** — classify as this if ANY of:
-- Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end"
-- "Files to Create/Modify" is "None" or empty
-- All AC items describe user actions
+- Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end", "manual verification"
+- "Files to Create/Modify" is "None", empty, or missing from the ticket
+- All AC items describe user actions (e.g., "Navigate to...", "Click...", "Verify that...", "Run seed then check...")
 
 **Code ticket** — everything else (the default).
 
@@ -138,7 +138,7 @@ Type **1**, **2**, or **3** to proceed.
 ### >>> MANDATORY REVIEW GATE 1 — STOP HERE <<<
 
 **HARD STOP.** Do NOT proceed to Phase 2 until the user explicitly approves. Wait for one of:
-- Any canonical approval keyword: "approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" (see CONTRIBUTING.md § Approval keyword set for the full definition)
+- Any canonical approval keyword: "approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" (see STANDARDS.md § Approval keyword set for the full definition)
 - Feedback/changes — make the requested adjustments to tests, re-run to confirm RED, then present the gate again
 
 **If the user gives feedback:** Modify the tests as requested, re-run to confirm they still fail, and present the RED Gate Output again. Repeat until the user approves.
@@ -353,7 +353,7 @@ Type **1**, **2**, or **3** to proceed.
 
 **HARD STOP.** Wait for the user to confirm.
 
-- User says any canonical approval keyword ("approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" — see CONTRIBUTING.md § Approval keyword set) → proceed to 4.3
+- User says any canonical approval keyword ("approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" — see STANDARDS.md § Approval keyword set) → proceed to 4.3
 - User says "side quest" or "2" → invoke `/tld-side-quest`, come back to commit after
 - User reports a failure → STOP. Tell them which files likely need fixing and suggest running `/tld-align` or fixing manually, then `/tld-run-test`.
 

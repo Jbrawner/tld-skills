@@ -144,7 +144,7 @@ For each milestone with an authoring decision:
 
 **Call `save_milestone`** with the milestone ID and the composed description.
 
-Write the plain `1. {prefix}-XXX` form. Linear will rewrite each line to `1. [{prefix}-XXX](url)` on save — that is expected, and the reader-side Order-section parser (see CONTRIBUTING.md "Order-section parser") handles both forms.
+Write the plain `1. {prefix}-XXX` form. Linear will rewrite each line to `1. [{prefix}-XXX](url)` on save — that is expected, and the reader-side Order-section parser (see STANDARDS.md "Order-section parser") handles both forms.
 
 If `save_milestone` fails for any milestone, record the failure and continue with the next milestone. Do not abort the whole run — partial progress is useful, and the user can re-run /milestone-sync to retry the failures.
 

@@ -37,22 +37,26 @@ The tracker, team, prefix, and project name from this block are the only ones th
 
 Query Linear for issues in the configured project with status = "In Progress".
 
-**Case A — exactly one In-Progress ticket:**
-  That is the active position. Load it via `get_issue` for full description / AC / files and its `projectMilestone`.
+**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
 
-**Case B — zero In-Progress tickets:**
-  Call `list_milestones` for the configured project, sorted by `sortOrder` ascending.
-  If the list is empty, report "No milestones in project '{project name}' — run /campaign-plan or /milestone-create to create one." and stop.
-  Walk the list. For each milestone, call `get_milestone` and parse the `## Order` section.
-  For each ticket ID in Order, check its status. The first ticket whose status is neither Done nor Canceled is the next ticket to pick up.
-  If no such ticket exists in any milestone, report "All tickets in all milestones are resolved. Nothing to do." and stop.
+**Case B — zero In-Progress tickets:** Auto-discover by walking milestones:
+1. Call `list_milestones` for the configured project, sorted by `sortOrder` ascending.
+2. If the result is empty, stop and output:
+     "No milestones in project '{project name}' — run /campaign-plan or /milestone-create to create one."
+3. Walk the milestones in order. For each milestone:
+   a. Call `get_milestone` to read its description.
+   b. Parse the `## Order` section using the unanchored regex algorithm (find `^## Order\s*$`, capture lines until the next `## ` header, take the first `({prefix}-\d+)` match per line).
+   c. If the `## Order` section is missing or yields zero ticket IDs, stop and output:
+        "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it."
+   d. For each ticket ID in the parsed Order, look up its status. Return the first ticket whose status is neither Done nor Canceled.
+4. If every ticket in every milestone is Done or Canceled, stop and output:
+     "All tickets in all milestones are resolved. Nothing to do."
 
-**Case C — two or more In-Progress tickets:**
-  Call `AskUserQuestion` with one option per In-Progress ticket. Each option's `label` is `{TICKET-ID} — {title}`. Question text: "Multiple tickets are In Progress — pick the one to resume."
-  Do not guess. Proceed with whichever ticket the user picks.
+**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
 
 If Linear is unreachable at any step, stop and output:
   "Cannot reach Linear — aborting. No offline mode."
+Do not fall back to cached state; there is none.
 
 ### 3. Parse milestone Order (for context)
 

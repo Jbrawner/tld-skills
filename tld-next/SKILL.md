@@ -69,7 +69,7 @@ These values drive the recommendation line and the override cycles in step 7.
 **Edge — malformed Order:** If the Order section is missing or yields zero tickets, stop and output:
   "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it. Ticket {ID} was marked Done successfully."
 
-### Numbered shortcut recognition
+### Per-option number handling
 
 When the user responds to a "What's next?" block with a bare number, map it based on which block was presented:
 

@@ -38,13 +38,13 @@ The tracker, team, prefix, and project name from this block are the only ones th
 
 Query Linear for issues in the configured project with status = "In Progress".
 
-**Case A — exactly one In-Progress ticket:** That is the ticket to skip. Load it via `get_issue` for its `projectMilestone` and full context.
+**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
 
 **Case B — zero In-Progress tickets:** Stop and output:
-  "No In-Progress ticket found — nothing to skip. Run /tld-setup to start a ticket first."
-Do not guess. Do not walk milestones. Skipping requires a live target.
+  "No In-Progress ticket found. Run /tld-setup to pick one up."
+Do not guess, do not walk milestones — that is /tld-setup's job.
 
-**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to skip."
+**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
 
 If Linear is unreachable at any step, stop and output:
   "Cannot reach Linear — aborting. No offline mode."

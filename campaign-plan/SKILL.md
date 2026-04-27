@@ -139,7 +139,7 @@ For each phase in order:
 2. Compose the new milestone description by replacing the placeholder `## Order` block from step 6 with the populated block. Leave the other five sections (Purpose / Scope / Exit Criteria / Dependencies / Risk) unchanged.
 3. Call `save_milestone` with the milestone ID from step 6 and the new description.
 
-Write the plain `1. PREFIX-XXX` form. Linear will rewrite each line to `1. [PREFIX-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms. See CONTRIBUTING.md "Order-section parser" for the algorithm reader skills use.
+Write the plain `1. PREFIX-XXX` form. Linear will rewrite each line to `1. [PREFIX-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms. See STANDARDS.md "Order-section parser" for the algorithm reader skills use.
 
 ### 9. Final output
 
