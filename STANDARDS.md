@@ -66,7 +66,7 @@ Only one option gets the marker. Never mark `/tld-side-quest`. Do not add a "Why
 
 ### Approval keyword set
 
-**When to use:** Standalone block in `CONTRIBUTING.md` and reproduced here as the source-of-truth. Skills that gate on user approval (`/tld-auto`, `/tld-run-test`, `/tld-commit`, `/tld-side-quest`) reference this section by name in their own prose — they do NOT re-embed the full definition. They cite it inline (e.g., "see STANDARDS.md § Approval keyword set for the full definition") and list the keywords in passing as part of their own gate language.
+**When to use:** This is the source-of-truth definition. Skills that gate on user approval (`/tld-auto`, `/tld-run-test`, `/tld-commit`, `/tld-side-quest`) reference this section by name in their own prose — they do NOT re-embed the full definition. They cite it inline (e.g., "see STANDARDS.md § Approval keyword set for the full definition") and list the keywords in passing as part of their own gate language.
 
 Every gate skill that waits for explicit user approval (`/tld-auto`, `/tld-run-test`, `/tld-commit`, `/tld-side-quest`) accepts this canonical set of affirmative responses. Any of these — and only these — advance the gate:
 
