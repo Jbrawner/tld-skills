@@ -11,3 +11,10 @@ Thumbs.db
 
 # Build artifacts (release plugin packaging)
 dist/
+
+# Local Claude Code state (settings, worktree scratch)
+.claude/
+
+# Python bytecode cache
+__pycache__/
+*.pyc
