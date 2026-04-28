@@ -8,7 +8,7 @@ Linear is the only tracker the v0.1 skills are wired to call. `/campaign-init` a
 
 Downstream TLD skills call Linear MCP tools by name (`list_issues`, `get_issue`, `save_issue`, `get_milestone`, `list_milestones`, `list_issue_labels`, `create_issue_label`). Every skill that reads or writes ticket state — `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-commit`, `/tld-next`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-ticket`, `/tld-save-point`, `/tld-dashboard`, `/campaign-init`'s label bootstrap — will fail on non-Linear configs until adapter work lands.
 
-If you pick Jira, GitHub Issues, or anything else, `/campaign-init` writes the file successfully and prints an advisory, but you are on your own for the rest of the pipeline until per-tracker adapters exist. See 2ND-207 (M6: Documentation) for the adapter-interface contract ticket.
+If you pick Jira, GitHub Issues, or anything else, `/campaign-init` writes the file successfully and prints an advisory, but you are on your own for the rest of the pipeline until per-tracker adapters exist. See [docs/ADAPTERS.md](docs/ADAPTERS.md) for the full interface contract — it specifies every MCP call the skills make, what parameters are passed, what response fields are read, and the edge cases (auto-linking, rate-limiting) an adapter must handle.
 
 Multi-tracker support is deferred to a future release.
 

@@ -2,7 +2,7 @@
 
 A set of Claude Code skills for test-led development. Drives a project through small tickets with hard stops between phases, drift detection, side quests in isolated worktrees, and step-boundary gate checks.
 
-This is the v0 snapshot. The full philosophy section, install instructions, getting-started walkthrough, compatibility matrix, and worked example land later in the v0.1.0 ticket plan. See [CONTRIBUTING.md](CONTRIBUTING.md) for the test-led development philosophy, hard-stop rules, and canonical shared-block definitions. See [LIMITATIONS.md](LIMITATIONS.md) for known constraints (Linear-only, Vitest/Jest assumed, Supabase local DB assumed, alpha caveats) and [CHANGELOG.md](CHANGELOG.md) for release history.
+This is the v0 snapshot. The full philosophy section, install instructions, getting-started walkthrough, compatibility matrix, and worked example land later in the v0.1.0 ticket plan. See [CONTRIBUTING.md](CONTRIBUTING.md) for the test-led development philosophy, hard-stop rules, and canonical shared-block definitions. See [LIMITATIONS.md](LIMITATIONS.md) for known constraints (Linear-only, Vitest/Jest assumed, Supabase local DB assumed, alpha caveats), [docs/ADAPTERS.md](docs/ADAPTERS.md) for the issue tracker adapter interface contract, and [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## Status
 
