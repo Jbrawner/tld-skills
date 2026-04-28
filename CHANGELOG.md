@@ -8,6 +8,7 @@ First open-source release. Extracts the TLD (Test-Led Development) skills framew
 
 ### Added
 
+- `docs/SKILL_REFERENCE.md` — authoritative reference for all 26 skills in the Adventure Skills repo, covering all TLD ticket-level skills (including `/tld-skip` and `/tld-recenter`), the boundary skill (`/tld-gate`), campaign skills, and planning skills. Includes a Standard Flow diagram and a Context Recovery section. Tracked in 2ND-213.
 - TLD skill family: `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-align`, `/tld-audit`, `/tld-commit`, `/tld-next`, `/tld-skip`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-save-point`, `/tld-dashboard`, `/tld-ticket`, `/tld-help`.
 - `/tld-skip` skill — reverts the current In-Progress ticket to Todo (or a "Skipped" state if the Linear team has one) and points the user at the next ticket in the milestone's `## Order` section. The skipped ticket stays in Order and can be resumed any time via `/tld-setup {id}`. Tracked in 2ND-224.
 - Campaign skill family for per-repo project configuration: `/campaign-init`, `/campaign-edit`, `/campaign-show`, `/campaign-test`, `/campaign-remove`.
