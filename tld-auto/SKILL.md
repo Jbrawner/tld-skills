@@ -31,7 +31,7 @@ The tracker, team, prefix, and project name from this block are the only ones th
 
 Query Linear for issues in the configured project with status = "In Progress".
 
-**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / pattern refs / `projectMilestone`.
+**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
 
 **Case B — zero In-Progress tickets:** Stop and output:
   "No In-Progress ticket found. Run /tld-setup to pick one up."
@@ -65,14 +65,14 @@ If the Full command is also empty, stop and output:
 
 Use the resolved command for any test run in this skill. Do not invent commands or read any playbook file.
 
-#### 1.1.5 Detect ticket type
+#### 1.1.5 Manual-QA classification (setup-time)
 
 Classify the active ticket. This determines which phases to run.
 
 **Manual-QA ticket** — classify as this if ANY of:
-- Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end"
-- "Files to Create/Modify" is "None" or empty
-- All AC items describe user actions
+- Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end", "manual verification"
+- "Files to Create/Modify" is "None", empty, or missing from the ticket
+- All AC items describe user actions (e.g., "Navigate to...", "Click...", "Verify that...", "Run seed then check...")
 
 **Code ticket** — everything else (the default).
 
@@ -118,12 +118,27 @@ Report to the user:
 - The test names grouped by AC item, so the user can see the specification at a glance
 - Test run summary showing all new tests fail (RED confirmed)
 
-End with: **"RED phase complete. [N] tests written, all failing. Review the test spec above. Reply 'go' to proceed with build, or give feedback to adjust."**
+End with the summary line **"RED phase complete. [N] tests written, all failing. Review the test spec above."** then present:
+
+---
+
+**What's next?**
+
+> **1.** Approve — proceed to GREEN phase (Recommended)
+>    Best for: tests match the spec, ready to implement
+
+> **2.** /tld-side-quest — handle a quick fix first
+>    Best for: noticed something unrelated worth doing before building
+
+> **3.** Describe adjustments — refine the test spec
+>    Best for: wrong assertion, missing edge case, or unclear expected output
+
+Type **1**, **2**, or **3** to proceed.
 
 ### >>> MANDATORY REVIEW GATE 1 — STOP HERE <<<
 
 **HARD STOP.** Do NOT proceed to Phase 2 until the user explicitly approves. Wait for one of:
-- "go", "looks good", "proceed", "lgtm", "approved", "continue", "ship it", or similar affirmative
+- Any canonical approval keyword: "approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" (see STANDARDS.md § Approval keyword set for the full definition)
 - Feedback/changes — make the requested adjustments to tests, re-run to confirm RED, then present the gate again
 
 **If the user gives feedback:** Modify the tests as requested, re-run to confirm they still fail, and present the RED Gate Output again. Repeat until the user approves.
@@ -257,7 +272,7 @@ Run a drift check to catch cases where tests pass but implementation doesn't mat
 
 #### 3.2 Update CHANGE_LOG.md
 
-Check if this ticket touches `backend/`. If so, check whether `backend/CHANGE_LOG.md` was updated. If not, add an entry now documenting what changed and test counts. This is required or CI will fail.
+Read the `Changelog path` from `.tld/campaign.md`'s Stack section. If the value is blank, skip this step. Otherwise, check whether the file at that path was updated; if not, add an entry now documenting what changed and test counts. Projects that use a CI changelog gate will fail without it.
 
 **Do NOT commit yet.** The commit happens after the user approves at the QA gate.
 
@@ -297,9 +312,9 @@ The test plan format:
   ```
   ### Commands
 
-  **1.** Run the group-open seed script
+  **1.** Run the scenario seed script
   ```sh
-  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f backend/supabase/seed-wc-group-open.sql
+  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f backend/supabase/seed-[your-scenario].sql
   ```
 
   **2.** Check dates are in future
@@ -310,7 +325,7 @@ The test plan format:
 - **One command per code block.** Never put multiple commands in the same block. Each block = one click to copy.
 
 Guidelines for the test plan:
-- **Be concrete.** Give exact URLs, curl commands, or UI paths. No "verify the endpoint works" — say `curl http://127.0.0.1:54321/functions/v1/tournament?type=world_cup` and what the response should contain.
+- **Be concrete.** Give exact URLs, curl commands, or UI paths. No "verify the endpoint works" — say `curl http://127.0.0.1:54321/functions/v1/[your-endpoint]` and what the response should contain.
 - **Only include tests that need manual verification.** If something is fully covered by automated tests (like unit logic, error codes, auth checks), skip it. Focus on things a human eye catches better: data shape, ordering, integration between pieces, UI rendering.
 - **If the ticket is purely backend logic with no user-facing surface** (like a migration or stored procedure), and automated tests fully cover the AC, say so explicitly: "All AC items are covered by automated tests. No manual QA needed." Then skip the gate.
 - **Scale to the ticket.** A simple migration might need 0 manual tests. A new API endpoint might need 2-3. A frontend feature might need 5+. Don't pad.
@@ -319,11 +334,26 @@ Guidelines for the test plan:
 
 **If manual tests are needed:**
 
-End the test plan with: **"Run the manual tests above. Reply 'approve' to commit and mark Done, or report what failed. You can also say 'side quest' to handle a quick fix before committing."**
+End the test plan with the instruction **"Run the manual tests above."** then present:
+
+---
+
+**What's next?**
+
+> **1.** Approve — commit and mark Done (Recommended)
+>    Best for: manual QA passed, ready to close out
+
+> **2.** /tld-side-quest — handle a quick fix first
+>    Best for: manual QA revealed polish needed elsewhere
+
+> **3.** Describe what failed — I'll help investigate
+>    Best for: manual QA caught a real issue
+
+Type **1**, **2**, or **3** to proceed.
 
 **HARD STOP.** Wait for the user to confirm.
 
-- User says "approve", "done", "commit", "lgtm", "looks good", "ship it", etc. → proceed to 4.3
+- User says any canonical approval keyword ("approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" — see STANDARDS.md § Approval keyword set) → proceed to 4.3
 - User says "side quest" or "2" → invoke `/tld-side-quest`, come back to commit after
 - User reports a failure → STOP. Tell them which files likely need fixing and suggest running `/tld-align` or fixing manually, then `/tld-run-test`.
 
@@ -338,8 +368,7 @@ Say "All AC items are covered by automated tests. No manual QA needed. Committin
 **For code tickets**, only after explicit user approval (or no manual tests needed):
 
 1. Stage relevant files: `git add [specific files]` — only files related to this ticket
-2. Commit with format: `feat(2ND-XXX): [ticket title] — TLD verified`
-   Include `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+2. Commit using the `Pattern` from `.tld/campaign.md`'s Commit format section, substituting the ticket ID and title (append ` — TLD verified`). If the campaign's `Co-author` field is non-empty, include that line in the commit trailer. If it is blank, omit the `Co-Authored-By` line entirely.
 3. Verify commit succeeded
 
 **Do NOT push.** Confirm with user before pushing (GitHub Actions budget).

@@ -46,11 +46,13 @@ Determine the affected directory scope:
 2. Classify the scope against campaign Stack paths:
    - All affected paths under `Stack.Backend directory` → backend-only.
    - All affected paths under `Stack.Frontend directory` → frontend-only.
+   - All affected paths under `Stack.Landing directory` → landing-only.
    - Mixed, neither, or empty → both/unsure.
 
 Pick the command from campaign Test Commands:
   - backend-only → Backend command.
   - frontend-only → Frontend command.
+  - landing-only → Landing command.
   - both/unsure → Full command.
 
 If the chosen command is empty, fall back to the Full command.
@@ -84,14 +86,14 @@ Fix: Ensure the configured database URL points at local (matches Stack.Database)
 
 Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
 
-### 1.5. Detect ticket type
+### 1.5. Manual-QA classification (verify-time)
 
 Classify the active ticket to determine which path to take.
 
 **Manual-QA ticket** — classify as this if ANY of:
-- Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end"
-- "Files to Create/Modify" is "None" or empty
-- All AC items describe user actions ("Navigate to...", "Click...", "Verify that...")
+- Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end", "manual verification"
+- "Files to Create/Modify" is "None", empty, or missing from the ticket
+- All AC items describe user actions (e.g., "Navigate to...", "Click...", "Verify that...", "Run seed then check...")
 - `git diff` and `git diff --cached` show no uncommitted changes
 
 **Code ticket** — everything else (the default).
@@ -174,9 +176,9 @@ Generate a manual QA checklist based on the ticket's acceptance criteria and the
   ```
   ### Commands
 
-  **1.** Run the group-open seed script
+  **1.** Run the scenario seed script
   ```sh
-  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f backend/supabase/seed-wc-group-open.sql
+  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f backend/supabase/seed-[your-scenario].sql
   ```
 
   **2.** Check dates are in future
@@ -189,7 +191,7 @@ Generate a manual QA checklist based on the ticket's acceptance criteria and the
 Guidelines:
 - **Be concrete.** Give exact URLs, curl commands, or UI paths.
 - **Only include tests that need manual verification.** Skip things fully covered by automated tests. Focus on what a human eye catches better: data shape, integration, UI rendering.
-- **If purely backend logic with no user-facing surface** and automated tests fully cover the AC, say so: "All AC items are covered by automated tests. No manual QA needed — reply 'approve' to commit."
+- **If purely backend logic with no user-facing surface** and automated tests fully cover the AC, say so: "All AC items are covered by automated tests. No manual QA needed." Then still present the standard numbered "What's next?" block so the user can approve, detour to a side quest, or flag an issue.
 - **Scale to the ticket.** Don't pad.
 
 Then present the options:
@@ -231,7 +233,7 @@ Type **1**, **2**, or **3** to proceed.
 ### >>> MANDATORY APPROVAL GATE — STOP HERE <<<
 
 **HARD STOP.** Do NOT commit or mark Done until the user explicitly approves. Wait for one of:
-- "1", "approve", "commit", "lgtm", "looks good", "ship it", or similar affirmative → proceed to step 5
+- Any canonical approval keyword: "approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" (see STANDARDS.md § Approval keyword set) → proceed to step 5
 - User describes a problem → report which files likely need fixing, suggest `/tld-align` or manual fix, then re-run `/tld-run-test`
 - "2" or "side quest" → invoke `/tld-side-quest`, come back to commit after
 
@@ -242,7 +244,7 @@ Type **1**, **2**, or **3** to proceed.
 **For code tickets**, only after explicit user approval:
 
 1. Stage the relevant files: `git add [specific files]` — only files related to this ticket, not unrelated changes
-2. Commit with message format: `feat(2ND-XXX): [ticket title] — TLD verified`
+2. Commit using the `Pattern` from `.tld/campaign.md`'s Commit format section, substituting the ticket ID and title (append ` — TLD verified`). If the campaign's `Co-author` field is non-empty, include that line in the commit trailer; if blank, omit it.
 3. Verify the commit succeeded
 
 **For manual-QA tickets**, there is nothing to commit. Skip directly to the output step.
@@ -256,15 +258,14 @@ Report:
 - Drift check results (clean)
 - Commit hash
 
-**Milestone completion check:** Before presenting options, check if this was the last ticket in its milestone:
-1. Call `get_milestone` on the current ticket's `projectMilestone.id` (captured in step 1a).
-2. Parse the `## Order` section using the unanchored regex algorithm:
-   - Find the `^## Order\s*$` line.
-   - Capture following lines until the next `^## ` header or end-of-description.
-   - For each line, take the first regex match of `({prefix}-\d+)` — Do NOT anchor on `^\d+\.\s+` (Linear's auto-link rewrite breaks that).
-3. For each ticket ID in Order, look up its status via `list_issues` or `get_issue`.
-4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next).
-5. If every ticket in the milestone Order is Done or Canceled, append the 4th option below. Otherwise present only the first 3.
+### Milestone completion check
+
+Before presenting options, check if this was the last ticket in its milestone:
+1. Read the current ticket via `get_issue` and note its `projectMilestone`
+2. Read that milestone's description via `get_milestone` and parse the `## Order` section for the ticket sequence
+3. Use `list_issues` to query Linear for each ticket's status
+4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
+5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
 
 Then present the options block:
 
@@ -293,7 +294,14 @@ Report:
 - Manual QA items confirmed
 - No changes to commit (manual-QA ticket)
 
-**Milestone completion check:** Before presenting options, check if this was the last ticket in its milestone (same logic as the code-ticket branch above: `get_milestone`, parse the `## Order` section with the unanchored `({prefix}-\d+)` regex, query Linear for each ticket's status, treat the current ticket as Done). If every ticket in the milestone Order is Done or Canceled, append the 4th option below.
+### Milestone completion check
+
+Before presenting options, check if this was the last ticket in its milestone:
+1. Read the current ticket via `get_issue` and note its `projectMilestone`
+2. Read that milestone's description via `get_milestone` and parse the `## Order` section for the ticket sequence
+3. Use `list_issues` to query Linear for each ticket's status
+4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
+5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
 
 Then present the options block:
 

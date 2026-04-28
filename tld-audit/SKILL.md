@@ -54,9 +54,9 @@ For each changed file, apply the relevant checks from the categories below. Skip
 **What to look for:** Business logic, data mutations, or authorization decisions happening on the frontend instead of the backend.
 
 - **Data writes without edge function:** Frontend code that calls Supabase directly for INSERT/UPDATE/DELETE instead of going through an edge function. The anon key + RLS is not enough for mutations that need validation.
-- **Business logic in components:** Scoring calculations, ranking algorithms, bracket logic, tournament phase transitions, or any domain logic in frontend code. These belong in stored procedures or edge functions.
+- **Business logic in components:** Your domain logic (scoring, ranking, phase transitions, etc.) living in frontend code. These belong in stored procedures or edge functions.
 - **Client-side authorization:** Code like `if (user.role === 'admin')` in React components to gate features. The backend must enforce this; frontend checks are UX only, not security.
-- **Secret-adjacent values:** API keys, internal IDs, admin endpoints, or configuration that reveals system internals in frontend code. Check for anything that isn't `NEXT_PUBLIC_*`.
+- **Secret-adjacent values:** API keys, internal IDs, admin endpoints, or configuration that reveals system internals in frontend code. Check for anything that isn't `NEXT_PUBLIC_*` (the Next.js client-side env-var convention — other frameworks use different prefixes such as `VITE_`, `REACT_APP_`, or `PUBLIC_`; adapt the check to your framework).
 
 **Severity:** HIGH for data mutations and auth decisions. MEDIUM for business logic.
 
@@ -66,10 +66,10 @@ For each changed file, apply the relevant checks from the categories below. Skip
 
 **What to look for:** Edge functions that accept requests without verifying the caller.
 
-- **No auth check on mutation endpoints:** Any edge function handling POST/PUT/PATCH/DELETE that doesn't call `resolveAuthUser(req)` or `resolveBracketFromApiKey(req)` near the top.
+- **No auth check on mutation endpoints:** Any edge function handling POST/PUT/PATCH/DELETE that doesn't call `[your-auth-helper](req)` or `[your-api-key-helper](req)` near the top.
 - **Auth check but no early return:** Auth is called but the function continues even when `error` is returned. Pattern to look for:
   ```typescript
-  const { user, error } = await resolveAuthUser(req);
+  const { user, error } = await [your-auth-helper](req);
   if (error || !user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   ```
 - **Admin endpoints without admin check:** Functions that should be admin-only but don't verify `ADMIN_API_KEY`.
@@ -125,7 +125,7 @@ For each changed file, apply the relevant checks from the categories below. Skip
 **What to look for:** Patterns that work now but will cause problems.
 
 - **Duplicated types:** Same TypeScript interface defined in both frontend and backend without a shared source. Changes to one will silently diverge from the other.
-- **Hardcoded URLs or IDs:** Production URLs, specific tournament IDs, or environment-specific values baked into code instead of coming from config/env.
+- **Hardcoded URLs or IDs:** Production URLs, specific domain IDs, or environment-specific values baked into code instead of coming from config/env.
 - **Missing error handling on fetch:** Frontend API calls without try/catch or .catch(), or without handling non-200 responses.
 - **Race conditions in state updates:** Frontend code that reads state, makes an async call, then writes state without checking if state changed during the call.
 - **Missing CORS headers:** New edge functions without proper CORS handling (check for OPTIONS method handling and `Access-Control-*` headers).
@@ -149,9 +149,9 @@ Present findings in a severity-grouped table format:
 
 | # | Severity | Check | File | Finding | Fix |
 |---|----------|-------|------|---------|-----|
-| 1 | HIGH | Auth gap | `functions/foo/index.ts` | POST handler missing auth check | Add `resolveAuthUser(req)` with early 401 return |
-| 2 | MEDIUM | Frontend logic | `components/Bracket.tsx` | Score calculation in component | Move to stored procedure or edge function |
-| 3 | LOW | Data exposure | `functions/bar/index.ts` | `SELECT *` on brackets table | Select only needed columns |
+| 1 | HIGH | Auth gap | `functions/foo/index.ts` | POST handler missing auth check | Add `[your-auth-helper](req)` with early 401 return |
+| 2 | MEDIUM | Frontend logic | `components/[YourFeature].tsx` | Score calculation in component | Move to stored procedure or edge function |
+| 3 | LOW | Data exposure | `functions/bar/index.ts` | `SELECT *` on `[your-domain-table]` | Select only needed columns |
 
 Sort by severity (HIGH first), then by check number.
 

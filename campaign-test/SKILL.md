@@ -121,9 +121,11 @@ These run for every tracker — they are local checks with no Linear dependency.
 
 - **Backend test command runnable:** if the Backend field is set, extract the first whitespace-separated token of the command. Run `bash -c 'command -v <token>'`. Exit 0 → ✅; non-zero → ❌ `Backend test command '<token>' not runnable — check /campaign-edit.`
 - **Frontend test command runnable:** same pattern with the Frontend command.
+- **Landing test command runnable:** same pattern with the Landing command.
 - **Full test command runnable:** same pattern with the Full command.
 - **Backend directory exists:** if the Backend directory field is set, check `{cwd}/{Backend directory}` exists as a directory. If not → ❌ `Backend directory '{path}' not found — check /campaign-edit.`
 - **Frontend directory exists:** same pattern for the Frontend directory.
+- **Landing directory exists:** same pattern for the Landing directory.
 
 The `command -v` check only verifies the first token resolves to something executable; it does NOT run the test suite (that's `/tld-run-test`'s job).
 

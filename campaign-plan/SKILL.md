@@ -117,7 +117,11 @@ Walk the phases in order. For each phase, walk its ticket list in order. For eac
 
 After all tickets for a phase are created, you have an ordered list of ticket identifiers for that phase.
 
-If a `save_issue` call fails, stop and report which tickets in which phases were created before the failure. Do not attempt to recover automatically — the user may want to inspect Linear before retrying.
+If a `save_issue` call fails with a label-not-found error (e.g., the workspace is missing `model:sonnet` or `effort:medium`), stop and output:
+
+> Label application failed: one of the required `model:*` / `effort:*` labels is not present in the workspace. This shouldn't happen if `/campaign-init` has been run. Re-run `/campaign-init` to restore the label set, then retry this skill.
+
+For any other `save_issue` failure, stop and report which tickets in which phases were created before the failure. Do not attempt to recover automatically — the user may want to inspect Linear before retrying.
 
 ### 8. Update each milestone's Order section
 
@@ -135,7 +139,7 @@ For each phase in order:
 2. Compose the new milestone description by replacing the placeholder `## Order` block from step 6 with the populated block. Leave the other five sections (Purpose / Scope / Exit Criteria / Dependencies / Risk) unchanged.
 3. Call `save_milestone` with the milestone ID from step 6 and the new description.
 
-Write the plain `1. PREFIX-XXX` form. Linear will rewrite each line to `1. [PREFIX-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms. See CONTRIBUTING.md "Order-section parser" for the algorithm reader skills use.
+Write the plain `1. PREFIX-XXX` form. Linear will rewrite each line to `1. [PREFIX-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms. See STANDARDS.md "Order-section parser" for the algorithm reader skills use.
 
 ### 9. Final output
 

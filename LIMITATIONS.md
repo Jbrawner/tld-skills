@@ -12,6 +12,16 @@ If you pick Jira, GitHub Issues, or anything else, `/campaign-init` writes the f
 
 Multi-tracker support is deferred to a future release.
 
+## Linear MCP: milestone order is UI-only
+
+Even on the "supported" Linear tracker, the MCP surface the skills call does not expose every Linear field. `save_milestone` accepts `name`, `description`, and `targetDate` — but not `sortOrder`. Linear's GraphQL has a `projectMilestoneReorder` mutation, but the Linear MCP connector does not surface it.
+
+This matters because `/tld-setup` picks the next ticket by walking milestones in `sortOrder` ascending. When `/campaign-plan` or `/milestone-create` creates a new milestone, Linear assigns it a higher `sortOrder` than any existing milestone, so the new one lands at the bottom of the list. That is rarely what you want if you are inserting a "Phase 2" between existing milestones, or creating a build milestone that should run before an existing docs milestone.
+
+Workaround: after any skill that creates or splits milestones, open Project → Milestones in the Linear UI and drag the milestones into the intended order. The skills cannot do this for you. `/tld-setup`'s pick reflects whatever is in the UI, so the manual fix only needs to happen once per reorder.
+
+Fixing this upstream means wiring `projectMilestoneReorder` into the Linear MCP connector. Deferred until the connector exposes it.
+
 ## Test runner: Vitest or Jest assumed
 
 The verification phase (`/tld-run-test`) shells out to test commands stored in `.tld/campaign.md`. The skills assume those commands produce output that looks like Vitest or Jest output — pass/fail counts, file paths, and error messages in a roughly compatible format.

@@ -46,11 +46,13 @@ Determine the affected directory scope:
 2. Classify the scope against campaign Stack paths:
    - All affected paths under `Stack.Backend directory` → backend-only.
    - All affected paths under `Stack.Frontend directory` → frontend-only.
+   - All affected paths under `Stack.Landing directory` → landing-only.
    - Mixed, neither, or empty → both/unsure.
 
 Pick the command from campaign Test Commands:
   - backend-only → Backend command.
   - frontend-only → Frontend command.
+  - landing-only → Landing command.
   - both/unsure → Full command.
 
 If the chosen command is empty, fall back to the Full command.
@@ -87,13 +89,32 @@ For different ticket types:
 
 Run the resolved test command from step 1b. The goal is ALL GREEN — every test that was failing should now pass.
 
-**If some tests fail:** Read the failure output carefully. Fix the implementation (not the tests). Run again. Repeat until green.
+**If some tests fail:** Read the failure output carefully. Fix the implementation (not the tests). Run again. **Hard cap: 3 attempts.** Track which attempt you are on (1, 2, 3) so you have a clear stop condition. Do not retry a fourth time — getting stuck after 3 attempts means the failure is not a small implementation gap, and the right next move is `/tld-align`, a manual fix, or stepping aside via `/tld-side-quest`.
+
+**If tests still fail after the 3rd attempt, STOP.** Do NOT silently keep iterating. Do NOT proceed to commit. Report the failures inline, then present:
+
+---
+
+**What's next?**
+
+> **1.** /tld-align — auto-fix the implementation to match tests
+>    Best for: failures look like small implementation gaps
+
+> **2.** Fix manually, then run /tld-run-test again
+>    Best for: complex failures you want to debug yourself
+
+> **3.** /tld-side-quest — bail to something else and come back
+>    Best for: need a break or a detour to understand the issue
+
+Type **1**, **2**, or **3** to proceed.
+
+**HARD STOP. Do NOT continue past the retry cap without explicit user approval.**
 
 **If tests pass but with warnings:** Note the warnings in your output but don't block on them unless they indicate a real problem.
 
 ### Numbered shortcut recognition
 
-When you present the "What's next?" options at the end of your output, the user may respond with just a number (e.g., "1"). If the user's next message is a bare number matching one of the options you presented, treat it as if they typed the corresponding slash command and invoke that skill immediately.
+When you present the "What's next?" options at the end of your output, the user may respond with just a number (e.g., "1" or "2"). If the user's next message is a bare number matching one of the options you presented, treat it as if they typed the corresponding slash command and invoke that skill immediately.
 
 ### 5. Output
 
@@ -110,7 +131,7 @@ Then present the options block:
 
 **What's next?**
 
-> **1.** /tld-run-test — verify, QA, commit on approval
+> **1.** /tld-run-test — verify, QA, commit on approval (Recommended)
 >    Best for: implementation done, ready for the gate
 
 > **2.** /tld-audit — security and architecture review first

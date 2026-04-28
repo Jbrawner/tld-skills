@@ -73,6 +73,7 @@ Use `get_issue` with `includeRelations: true` on the target ticket. Extract:
 - Acceptance criteria
 - Dependencies (`blockedBy` relations)
 - Milestone (`projectMilestone`)
+- Labels (the `labels` array, e.g. `["effort:low","model:sonnet"]`)
 - Any test commands or file references mentioned in the description
 
 ### 5. Check dependencies
@@ -92,7 +93,7 @@ Never write to `.tld/campaign.md` at any point — this skill does not touch the
 
 Read any files explicitly referenced in the ticket description (pattern refs, existing tests, source files being ported). Use the Test Commands and Stack sections of the campaign file for test-command hints — these values come from campaign, not the ticket.
 
-### 8. Classify ticket type
+### 8. Manual-QA classification (setup-time)
 
 **Manual-QA ticket** — classify as this if ANY of:
 - Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end", "manual verification"
@@ -128,6 +129,7 @@ Present the full ticket context directly in the conversation. Structure your out
 
 **Title:** {ticket title}
 **Milestone:** {milestone name}
+**Labels:** {comma-separated backticked labels, e.g. `effort:low`, `model:sonnet` — or `_none_` if the ticket has no labels}
 
 ### Description
 {full ticket description from Linear}
@@ -155,6 +157,18 @@ Then tell the user:
 - Which ticket was selected and why (position in milestone Order, or "you specified it" for Mode A)
 - Summary of what it involves
 - Dependencies confirmed clear
+- Render a compact recommendation block from the ticket's `labels` array. Extract the value after `model:` from any `model:*` label (expected: `opus`, `sonnet`, `haiku`) and the value after `effort:` from any `effort:*` label (expected: `low`, `medium`, `high`). Then:
+  - Output a single line in the form **Recommended:** model `{model}` · effort `{effort}` — using `·` as the separator. Omit the `model `{model}`` portion if there is no `model:*` label; omit the `effort `{effort}`` portion if there is no `effort:*` label; if neither label is present, omit the entire line (and the warning line below) — do NOT render a placeholder.
+  - Directly below that line, ONLY if a `model:*` label is present AND the currently running Claude Code model's family does not match the recommendation, add a warning line in the form: ⚠️ Current model is `{current}` — run `/model {recommended}` to match. Determine the current family by reading the environment preamble (which names the model like "Opus 4.7", "Sonnet 4.6", or "Haiku 4.5") and mapping that family to `opus` / `sonnet` / `haiku` (lowercase) for comparison. If the current family matches the `model:*` value, omit the warning line entirely. If there is no `model:*` label, omit the warning line entirely (never compare effort — effort is display-only and has no Claude Code runtime setting).
+  - Directly below the recommendation line (and the warning line, if shown), add a **tailored hint line** that nudges the user toward manual stepping or `/tld-auto` based on the model+effort combination. The line starts with `Consider:` and is a single sentence. Use this mapping, evaluated in order — the first matching rule wins:
+    1. `model:haiku` (any effort) → `Consider: Haiku-scoped work is mechanical — /tld-auto is fine.`
+    2. `model:opus` + `effort:high` → `Consider: Opus + high suggests pattern-setting / architectural work — manual stepping may give more control than /tld-auto.`
+    3. `model:sonnet` + `effort:high` → `Consider: Sonnet + high is meaningful design — either manual stepping or /tld-auto with careful review works.`
+    4. `effort:high` (any other model, e.g. model label missing) → `Consider: effort:high — lean toward manual stepping.`
+    5. `model:sonnet` + `effort:low` → `Consider: Sonnet + low is mechanical — /tld-auto is fine.`
+    6. `model:sonnet` + `effort:medium` → omit the hint line entirely (this is the default case, no nudge needed).
+    7. Any other combination (including a ticket with only one of the two labels that doesn't match a rule above) → omit the hint line entirely.
+    Skip the hint line entirely if neither label is present (the recommendation line itself is already omitted in that case).
 
 Then present the options block based on the ticket type classification from step 8.
 

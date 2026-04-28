@@ -38,11 +38,13 @@ Print the parsed values in this format. Render any blank field as `(blank)`:
 ### Test Commands
 - Backend: {backend}
 - Frontend: {frontend}
+- Landing: {landing}
 - Full: {full}
 
 ### Stack
 - Backend directory: {backend dir}
 - Frontend directory: {frontend dir}
+- Landing directory: {landing dir}
 - Database: {database}
 - Changelog path: {changelog}
 
@@ -64,7 +66,7 @@ The snapshot is read-through from Linear; nothing is cached locally and nothing 
 
 ### Numbered shortcut recognition
 
-When you present the "What's next?" options at the end of your output, the user may respond with just a number (e.g., "1"). If the user's next message is a bare number matching one of the options you presented, treat it as if they typed the corresponding slash command and invoke that skill immediately.
+When you present the "What's next?" options at the end of your output, the user may respond with just a number (e.g., "1" or "2"). If the user's next message is a bare number matching one of the options you presented, treat it as if they typed the corresponding slash command and invoke that skill immediately.
 
 ### 4. Present options
 

@@ -51,10 +51,11 @@ If the user picks anything other than `Linear`, immediately print this advisory 
 
 ### 3. Collect the Test Commands section
 
-AskUserQuestion for each; all three allow blank (the user may not have a command for every slot):
+AskUserQuestion for each; all four allow blank (the user may not have a command for every slot):
 
 - **Backend** — e.g. `cd backend && npm run test:run`
 - **Frontend** — e.g. `cd frontend-next && npm test`
+- **Landing** — the marketing / SEO site's test command, if distinct from Frontend; e.g. `cd landing && npm test`
 - **Full** — used by `/tld-gate` for regression; e.g. `cd frontend-next && npm test && cd ../backend && npm run test:run`
 
 ### 4. Collect the Stack section
@@ -63,6 +64,7 @@ AskUserQuestion for each; all blank-allowed:
 
 - **Backend directory** — e.g. `backend`
 - **Frontend directory** — e.g. `frontend-next`
+- **Landing directory** — the marketing / SEO site's directory, if distinct from Frontend; e.g. `landing` or `marketing-site`
 - **Database** — free text, e.g. `Supabase local at 127.0.0.1:54321`
 - **Changelog path** — e.g. `CHANGELOG.md` or `backend/CHANGE_LOG.md`
 
@@ -75,11 +77,11 @@ AskUserQuestion for each; all blank-allowed:
 
 If tracker ≠ Linear, skip this step entirely. Remember the tracker so you can note the skip in the output.
 
-If tracker = Linear, the TLD framework needs six workspace-level labels. They may already exist from a previous `/campaign-init` run; this step is idempotent.
+If tracker = Linear, the TLD framework needs seven workspace-level labels. They may already exist from a previous `/campaign-init` run; this step is idempotent.
 
 Call `list_issue_labels` with no team filter to get workspace labels. Build the set of existing label names (case-sensitive).
 
-For each of the six required labels below that is NOT in the existing set, call `create_issue_label` with the exact name, color, and description:
+For each of the seven required labels below that is NOT in the existing set, call `create_issue_label` with the exact name, color, and description:
 
 | Name | Color | Description |
 |---|---|---|
@@ -89,6 +91,7 @@ For each of the six required labels below that is NOT in the existing set, call 
 | `effort:low` | `#26B87A` | Recommended reasoning effort: low. Mechanical edits, grep-replace, short additions. |
 | `effort:medium` | `#F2994A` | Recommended reasoning effort: medium. Normal skill authoring, structured writing. |
 | `effort:high` | `#EB5757` | Recommended reasoning effort: high. Architectural design, pattern-setting work, contracts. |
+| `side-quest` | `#14B8A6` | Small polish or quick-fix work handled via `/tld-side-quest` outside the main TLD flow. |
 
 Track how many you created vs. how many already existed. You'll report the counts in step 8.
 
@@ -112,11 +115,13 @@ Write `{cwd}/.tld/campaign.md` with this exact content. Substitute each `{field}
 ## Test Commands
 - Backend: {Backend test command}
 - Frontend: {Frontend test command}
+- Landing: {Landing test command}
 - Full: {Full test command}
 
 ## Stack
 - Backend directory: {Backend directory}
 - Frontend directory: {Frontend directory}
+- Landing directory: {Landing directory}
 - Database: {Database}
 - Changelog path: {Changelog path}
 
@@ -127,12 +132,33 @@ Write `{cwd}/.tld/campaign.md` with this exact content. Substitute each `{field}
 
 Do NOT add a `## Milestones` section, an `## Active` section, or any other section beyond these four. Those sections do not exist in the v0.1 schema — Linear is the source of truth for milestone structure and ticket order.
 
+**Ensure `.tld/` is gitignored.** The campaign file is per-repo local config and should never be committed. After writing it, update the repo's ignore list:
+
+1. Check if `{cwd}/.git/` exists. If not, skip this sub-step silently — not a git repo, nothing to ignore.
+2. Read `{cwd}/.gitignore` if present.
+3. Decide the action:
+   - **No `.gitignore`:** create it with the block below.
+   - **`.gitignore` exists and already contains a line matching `^\s*\.tld/?\s*$` (and not commented out):** skip — already ignored.
+   - **`.gitignore` exists but `.tld/` is not listed:** append the block below, separated from existing content by a blank line if the file is non-empty.
+
+   Block to write or append:
+
+   ```
+   # TLD skill config (per-repo, local only)
+   .tld/
+   ```
+
+4. Record the outcome (`created`, `appended`, `already-ignored`, or `skipped — not a git repo`) so you can report it in step 8.
+
+This step is idempotent. Rerunning `/campaign-init` after the skill matures will find `.tld/` already ignored and skip.
+
 ### 8. Output
 
 Report to the user:
 
 - **Path:** the absolute or repo-relative path written (e.g., `.tld/campaign.md`).
 - **Tracker:** which tracker was picked. If non-Linear, repeat the hand-holding advisory from step 2.
+- **Gitignore:** outcome from step 7, one of: "Added `.tld/` to `.gitignore`", "Created `.gitignore` with `.tld/`", "`.tld/` already gitignored — skipped", or "Not a git repo — gitignore step skipped".
 - **Label bootstrap:** either "Created N workspace labels; M already existed" (Linear) or "Label bootstrap skipped — tracker is {X}, not Linear" (non-Linear).
 - **Summary:** one line echoing project name, ticket prefix, and tracker, so the user can spot a typo immediately.
 
