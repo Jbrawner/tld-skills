@@ -43,13 +43,22 @@ Run `/tld-help` to confirm.
 
 ### Option B — Install as a Claude Code plugin
 
-The plugin tarball is attached to each [release](https://github.com/Jbrawner/tld-skills/releases) (`tld-plugin-vX.Y.Z.tar.gz`). Claude Code installs plugins through its marketplace mechanism — see the [plugin marketplaces docs](https://code.claude.com/docs/en/plugin-marketplaces.md) for the install flow. After install, every command is namespaced under `/tld:`:
+In Claude Code, run:
+
+```
+/plugin marketplace add https://github.com/Jbrawner/claude-skills
+/plugin install tld@claude-skills
+```
+
+Every command is namespaced under `/tld:`:
 - TLD: `/tld:help`, `/tld:setup`, `/tld:build`, …
 - Campaign: `/tld:campaign-init`, `/tld:campaign-show`, …
 - Milestone: `/tld:milestone-create`, `/tld:milestone-sync`, …
 
-**Pros:** clean `/tld:` namespace prevents conflicts with other skills; updates flow through Claude Code's plugin update mechanism.
-**Cons:** Claude Code's plugin install flow needs a `marketplace.json` registration. This repo does not ship one — to use this path you have to host your own marketplace.json pointing at the release tarball.
+The marketplace at [Jbrawner/claude-skills](https://github.com/Jbrawner/claude-skills) auto-tracks each release of this repo, so `/plugin update tld@claude-skills` pulls the latest version when one ships.
+
+**Pros:** clean `/tld:` namespace prevents conflicts with other skills; one-line update via `/plugin update`; no clone or symlink to maintain.
+**Cons:** updates land when a new tagged release ships, not on every `main` commit — so you don't get unreleased changes. If you want bleeding edge or want to hack on the source, use Option A.
 
 ### Heads-up about command names below
 
