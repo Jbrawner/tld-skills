@@ -1,0 +1,54 @@
+name: Update marketplace on release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout claude-skills
+        uses: actions/checkout@v4
+        with:
+          repository: Jbrawner/claude-skills
+          token: ${{ secrets.MARKETPLACE_PAT }}
+          path: claude-skills
+
+      - name: Bump tld plugin entry
+        working-directory: claude-skills
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VER="${TAG#v}"
+          jq --arg v "$VER" --arg r "$TAG" \
+            '(.plugins[] | select(.name=="tld") | .version) = $v
+             | (.plugins[] | select(.name=="tld") | .source.ref) = $r' \
+            .claude-plugin/marketplace.json > .claude-plugin/marketplace.json.tmp
+          mv .claude-plugin/marketplace.json.tmp .claude-plugin/marketplace.json
+          echo "--- updated marketplace.json ---"
+          cat .claude-plugin/marketplace.json
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v6
+        id: cpr
+        with:
+          path: claude-skills
+          token: ${{ secrets.MARKETPLACE_PAT }}
+          branch: auto/bump-tld-${{ github.event.release.tag_name }}
+          delete-branch: true
+          title: "Bump tld to ${{ github.event.release.tag_name }}"
+          body: |
+            Automated bump from `tld-skills` release **${{ github.event.release.tag_name }}**.
+
+            Source: ${{ github.event.release.html_url }}
+          commit-message: "Bump tld to ${{ github.event.release.tag_name }}"
+
+      - name: Auto-merge
+        if: steps.cpr.outputs.pull-request-number
+        working-directory: claude-skills
+        env:
+          GH_TOKEN: ${{ secrets.MARKETPLACE_PAT }}
+        run: gh pr merge --auto --squash "${{ steps.cpr.outputs.pull-request-number }}"
