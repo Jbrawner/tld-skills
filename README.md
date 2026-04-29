@@ -2,8 +2,6 @@
 
 A set of Claude Code skills for **Test-Led Development (TLD)**. Drives a project through small Linear tickets one at a time, with hard stops between phases, drift detection against the ticket spec, side quests in isolated git worktrees, and milestone-boundary gate checks.
 
-This is the v0.1.0-alpha release. Pre-alpha. Extracted from a single private project ("mAIn Character") and now portable to other repos. Expect rough edges — see [LIMITATIONS.md](LIMITATIONS.md).
-
 ---
 
 ## Philosophy
@@ -24,16 +22,14 @@ This is the v0.1.0-alpha release. Pre-alpha. Extracted from a single private pro
 
 ## Install
 
-Adventure Skills installs as a Claude Code plugin. The intended v0.1.0 install command is the marketplace one — that command will be filled in once the public marketplace URL is live (tracked in 2ND-222).
-
-In the meantime, you can install from a local clone:
+Clone the repo and symlink it into Claude Code's skills directory:
 
 ```bash
 git clone https://github.com/Jbrawner/tld-skills.git ~/code/tld-skills
 ln -s ~/code/tld-skills ~/.claude/skills
 ```
 
-Then restart Claude Code. The TLD skills (everything starting with `/tld-`) and the campaign skills (everything starting with `/campaign-`) should appear as slash commands. Test the install with `/tld-help`, which prints a quick reference of every skill.
+Restart Claude Code. The TLD skills (everything starting with `/tld-`) and the campaign skills (everything starting with `/campaign-`) appear as slash commands. Run `/tld-help` to confirm the install — it prints a quick reference of every skill.
 
 If the slash commands don't appear, check that `~/.claude/skills` resolves to the cloned directory and that each skill subdirectory contains a `SKILL.md` file at its root.
 
@@ -144,7 +140,7 @@ Both forms are valid; the parser reads either, plus mixed lists where one line w
 
 ## Compatibility
 
-v0.1.0 makes a few hard assumptions. They will be relaxed in later releases, but for now, plan around them.
+A few hard assumptions are baked in. Plan around them.
 
 | Area | Assumed | Why it matters |
 |---|---|---|
@@ -153,7 +149,7 @@ v0.1.0 makes a few hard assumptions. They will be relaxed in later releases, but
 | **Local database** | Supabase local at `127.0.0.1:54321` | `/tld-gate`, `/tld-audit`'s RLS checks, and the local-DB safety check all target that endpoint. Other Postgres setups will fail or produce misleading output. |
 | **Linear MCP surface** | `save_milestone` does not expose `sortOrder` | Newly-created milestones land at the bottom of the list. Reorder by hand in the Linear UI after `/campaign-plan` or `/milestone-create`. One-time fix per reorder. |
 
-For the full list — including the alpha + dogfooding caveats — see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker adapter interface contract (every Linear MCP call the TLD skills make, with parameters, response fields, and edge cases), see [docs/ADAPTERS.md](docs/ADAPTERS.md).
+For the full list, see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker adapter interface contract (every Linear MCP call the TLD skills make, with parameters, response fields, and edge cases), see [docs/ADAPTERS.md](docs/ADAPTERS.md).
 
 ---
 
@@ -161,10 +157,10 @@ For the full list — including the alpha + dogfooding caveats — see [LIMITATI
 
 | Document | What's in it |
 |---|---|
-| [LIMITATIONS.md](LIMITATIONS.md) | Known constraints — Linear-only, Vitest/Jest assumed, Supabase local DB assumed, alpha + dogfooding caveats |
+| [LIMITATIONS.md](LIMITATIONS.md) | Known constraints — Linear-only, Vitest/Jest assumed, Supabase local DB assumed |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Test-led philosophy, hard-stop rules, the no-drift rule, and the full Campaign File + Linear Milestone contract (campaign schema, milestone description schema, the `## Order` parser algorithm, and the writer/reader matrix) |
 | [STANDARDS.md](STANDARDS.md) | Canonical text of the 10 reusable shared blocks that appear verbatim across multiple skills (the source of truth for `scripts/verify-block-alignment.py`) |
-| [CHANGELOG.md](CHANGELOG.md) | Release history — what's added, changed, removed, and what's planned but not yet shipped |
+| [CHANGELOG.md](CHANGELOG.md) | Release history — what's added, changed, and removed |
 | [docs/SKILL_REFERENCE.md](docs/SKILL_REFERENCE.md) | Authoritative reference for every skill — purpose, when to use, what it reads, what it writes, and where it sits in the standard flow |
 | [docs/ADAPTERS.md](docs/ADAPTERS.md) | Issue tracker adapter interface — every MCP call the TLD skills make, parameters and response fields, and edge cases (auto-linking, rate limits) for future Jira / GitHub Issues adapter authors |
 
