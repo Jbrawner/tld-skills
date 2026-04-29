@@ -46,9 +46,9 @@ jobs:
             Source: ${{ github.event.release.html_url }}
           commit-message: "Bump tld to ${{ github.event.release.tag_name }}"
 
-      - name: Auto-merge
+      - name: Merge bump PR
         if: steps.cpr.outputs.pull-request-number
         working-directory: claude-skills
         env:
           GH_TOKEN: ${{ secrets.MARKETPLACE_PAT }}
-        run: gh pr merge --auto --squash "${{ steps.cpr.outputs.pull-request-number }}"
+        run: gh pr merge --squash --delete-branch "${{ steps.cpr.outputs.pull-request-number }}"
