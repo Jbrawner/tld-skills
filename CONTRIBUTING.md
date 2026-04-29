@@ -24,7 +24,7 @@ Skills run a strict phase sequence: **red → review → green → verify → co
 
 Every transition between phases is a **mandatory hard stop**. A skill that finishes its phase must not invoke another skill, write implementation code after writing tests, or commit before manual-QA approval.
 
-Silence is not approval. Questions are not approval. Only a canonical approval keyword advances the flow — see the "Approval keyword set" canonical block below for the full list.
+Silence is not approval. Questions are not approval. Only a canonical approval keyword advances the flow — see [STANDARDS.md § Approval keyword set](STANDARDS.md#approval-keyword-set) for the full list.
 
 If a skill's output does not end with a hard-stop directive and a "What's next?" options block, something is wrong — either the skill forgot the gate or the user is about to lose a review opportunity.
 
@@ -42,28 +42,9 @@ Do NOT edit a block in a single SKILL.md and leave the others stale. Do NOT intr
 
 ## Canonical shared blocks
 
-The 8 canonical reusable blocks have moved to **[STANDARDS.md](STANDARDS.md)**. The rules around editing them (the "no-drift rule" above) still apply — STANDARDS.md is now the source of truth that skill copies must match.
+The 10 canonical reusable blocks (6 shared blocks + 4 paste-blocks) have moved to **[STANDARDS.md](STANDARDS.md)**. The rules around editing them (the "no-drift rule" above) still apply — STANDARDS.md is now the source of truth that skill copies must match.
 
-### Approval keyword set
-
-Every gate skill that waits for explicit user approval (`/tld-auto`, `/tld-run-test`, `/tld-commit`, `/tld-side-quest`) accepts this canonical set of affirmative responses. Any of these — and only these — advance the gate:
-
-- `approve`
-- `commit`
-- `lgtm`
-- `looks good`
-- `ship it`
-- `go`
-- `proceed`
-- `1` (the bare option number for the approve choice in the "What's next?" block)
-
-**Matching rules:**
-- Case-insensitive.
-- Leading/trailing whitespace ignored.
-- Substring does NOT count — the response must match one of these keywords exactly (modulo case and whitespace).
-- Synonyms and variants ("approved", "done", "yes", "continue", etc.) are NOT accepted. To add a new keyword, update this canonical block first; do not special-case a single skill.
-
-Silence, questions, partial responses, and off-list words are not approval.
+For the canonical set of approval keywords every gate skill accepts, see [STANDARDS.md § Approval keyword set](STANDARDS.md#approval-keyword-set).
 
 ---
 
