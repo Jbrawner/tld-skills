@@ -22,16 +22,46 @@ A set of Claude Code skills for **Test-Led Development (TLD)**. Drives a project
 
 ## Install
 
-Clone the repo and symlink it into Claude Code's skills directory:
+Two paths. Pick one.
+
+### Option A — Symlink the repo
 
 ```bash
 git clone https://github.com/Jbrawner/tld-skills.git ~/code/tld-skills
 ln -s ~/code/tld-skills ~/.claude/skills
 ```
 
-Restart Claude Code. The TLD skills (everything starting with `/tld-`) and the campaign skills (everything starting with `/campaign-`) appear as slash commands. Run `/tld-help` to confirm the install — it prints a quick reference of every skill.
+Restart Claude Code. Commands appear without a namespace prefix:
+- TLD: `/tld-help`, `/tld-setup`, `/tld-build`, …
+- Campaign: `/campaign-init`, `/campaign-show`, …
+- Milestone: `/milestone-create`, `/milestone-sync`, …
 
-If the slash commands don't appear, check that `~/.claude/skills` resolves to the cloned directory and that each skill subdirectory contains a `SKILL.md` file at its root.
+Run `/tld-help` to confirm.
+
+**Pros:** works immediately, easy to update with `git pull`, easy to read or hack on the skill source files.
+**Cons:** no namespace prefix — if another skill on your machine happens to share a name (`setup`, `build`, etc.), the names collide. Updates are manual.
+
+### Option B — Install as a Claude Code plugin
+
+The plugin tarball is attached to each [release](https://github.com/Jbrawner/tld-skills/releases) (`tld-plugin-vX.Y.Z.tar.gz`). Claude Code installs plugins through its marketplace mechanism — see the [plugin marketplaces docs](https://code.claude.com/docs/en/plugin-marketplaces.md) for the install flow. After install, every command is namespaced under `/tld:`:
+- TLD: `/tld:help`, `/tld:setup`, `/tld:build`, …
+- Campaign: `/tld:campaign-init`, `/tld:campaign-show`, …
+- Milestone: `/tld:milestone-create`, `/tld:milestone-sync`, …
+
+**Pros:** clean `/tld:` namespace prevents conflicts with other skills; updates flow through Claude Code's plugin update mechanism.
+**Cons:** Claude Code's plugin install flow needs a `marketplace.json` registration. This repo does not ship one — to use this path you have to host your own marketplace.json pointing at the release tarball.
+
+### Heads-up about command names below
+
+The Getting Started section uses Option A's command form. If you installed via Option B, mentally substitute:
+
+| Option A (symlink) | Option B (plugin) |
+|---|---|
+| `/tld-x` | `/tld:x` |
+| `/campaign-x` | `/tld:campaign-x` |
+| `/milestone-x` | `/tld:milestone-x` |
+
+If the slash commands don't appear after restart, check that `~/.claude/skills` resolves to the cloned directory (Option A) and that each skill subdirectory contains a `SKILL.md` file at its root, or that the plugin is enabled in Claude Code's `/plugin` view (Option B).
 
 ---
 
