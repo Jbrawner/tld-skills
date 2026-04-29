@@ -8,8 +8,9 @@
 #     skills/<name>/...
 #
 # Inside each copied skills/<name>/SKILL.md, rewrites cross-references:
-#   /tld-x       -> /tld:x
-#   /campaign-x  -> /tld:campaign-x
+#   /tld-x        -> /tld:x
+#   /campaign-x   -> /tld:campaign-x
+#   /milestone-x  -> /tld:milestone-x
 #
 # The version field in plugin.json is parsed from the latest `## [vX.Y.Z...]`
 # heading in CHANGELOG.md.
@@ -85,14 +86,15 @@ EOF
 }
 
 # Rewrite cross-references in a single SKILL.md in place.
-# `/campaign-` first so its result (`/tld:campaign-`) is no longer a match
-# for the second pattern.
+# `/campaign-` and `/milestone-` first so their results (`/tld:campaign-`,
+# `/tld:milestone-`) are no longer matches for the `/tld-` pattern.
 rewrite_refs() {
     local file="$1"
     # `sed -i ''` is BSD/macOS form; works on GNU sed too with a tiny tweak,
     # but the repo's primary platform is macOS so we target BSD behavior.
     sed -i '' \
         -e 's|/campaign-\([a-z]\)|/tld:campaign-\1|g' \
+        -e 's|/milestone-\([a-z]\)|/tld:milestone-\1|g' \
         -e 's|/tld-\([a-z]\)|/tld:\1|g' \
         "$file"
 }

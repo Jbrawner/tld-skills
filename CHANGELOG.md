@@ -26,6 +26,10 @@ First open-source release. Extracts the TLD (Test-Led Development) skills framew
 - `/tld-ticket` now prompts for Model + Effort via AskUserQuestion before creating a ticket and applies the selections as `model:*` / `effort:*` labels via `save_issue`, defaulting to `sonnet` + `medium` if the user skips. `/campaign-plan` and `/milestone-create` gain label-not-found error handling that points users at `/campaign-init` to restore the required label set. Tracked in 2ND-233.
 - `/tld-next` now reads the next ticket's `model:*` / `effort:*` labels and renders a `Recommended: model:X | effort:Y` line alongside the next-step command (defaults to `sonnet` / `medium` when labels are absent). The next-ticket "What's next?" block gains options to cycle the model (`sonnet → opus → haiku → sonnet`), cycle the effort (`low → medium → high → low`), or set a custom pair inline — each override updates the next ticket's Linear labels via `save_issue` and re-renders, looping until the user proceeds. Tracked in 2ND-234.
 
+### Fixed
+
+- `scripts/build-plugin.sh` cross-reference rewriter now also rewrites `/milestone-*` references (e.g., `/milestone-create`, `/milestone-sync`) to the `/tld:milestone-*` namespace. The original two-rule rewriter (`/campaign-` and `/tld-` only) left ~20 in-skill references pointing at unprefixed command names that don't exist once the plugin is installed, breaking error-recovery branches in `/tld-setup`, `/tld-dashboard`, `/tld-auto`, `/tld-next`, `/tld-help`, `/tld-save-point`, `/campaign-init`, `/milestone-create`, and `/milestone-sync`. Caught by `/tld-gate` on the M7 boundary. Tracked in 2ND-215.
+
 ### Removed
 
 - `/campaign-switch` skill — obsolete under the per-repo campaign model (one campaign per repo, nothing to switch between). Tracked in 2ND-232.
