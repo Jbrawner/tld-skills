@@ -2,7 +2,7 @@
 
 All notable changes to Adventure Skills are recorded here. Versions follow semantic versioning once we leave alpha.
 
-## [v0.1.0-alpha] — Unreleased
+## [v0.1.0] — 2026-04-29
 
 First open-source release. Extracts the TLD (Test-Led Development) skills framework from a single private project ("mAIn Character") and makes it portable to other repositories.
 
@@ -42,4 +42,4 @@ First open-source release. Extracts the TLD (Test-Led Development) skills framew
 
 See `LIMITATIONS.md` for the full list. Headlines: Linear-only issue tracker, Vitest/Jest test runner assumption, Supabase local DB assumption, alpha quality.
 
-[v0.1.0-alpha]: https://github.com/2ndfoundry/adventure-skills/releases/tag/v0.1.0-alpha
+[v0.1.0]: https://github.com/Jbrawner/tld-skills/releases/tag/v0.1.0

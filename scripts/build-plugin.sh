@@ -28,7 +28,7 @@ CHANGELOG="${REPO_ROOT}/CHANGELOG.md"
 
 PLUGIN_NAME="tld"
 PLUGIN_DESCRIPTION="Test-Led Development skills for Claude Code — milestone-driven workflow over Linear."
-PLUGIN_AUTHOR_NAME="2ndFoundry"
+PLUGIN_AUTHOR_NAME="Jbrawner"
 PLUGIN_AUTHOR_URL="https://github.com/Jbrawner/tld-skills"
 
 # Directories at repo root that are NOT skills.
