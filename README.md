@@ -29,8 +29,8 @@ Adventure Skills installs as a Claude Code plugin. The intended v0.1.0 install c
 In the meantime, you can install from a local clone:
 
 ```bash
-git clone https://github.com/2ndfoundry/adventure-skills.git ~/code/adventure-skills
-ln -s ~/code/adventure-skills ~/.claude/skills
+git clone https://github.com/Jbrawner/tld-skills.git ~/code/tld-skills
+ln -s ~/code/tld-skills ~/.claude/skills
 ```
 
 Then restart Claude Code. The TLD skills (everything starting with `/tld-`) and the campaign skills (everything starting with `/campaign-`) should appear as slash commands. Test the install with `/tld-help`, which prints a quick reference of every skill.
