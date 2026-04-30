@@ -2,6 +2,12 @@
 
 All notable changes to Adventure Skills are recorded here. Versions follow semantic versioning once we leave alpha.
 
+## [Unreleased]
+
+### Added
+
+- `/tld-experience` skill — turns a lived conversation moment into a candidate skill on a new branch with the four house-style docs updated and a PR opened against `Jbrawner/tld-skills`. Runs `scripts/verify-block-alignment.py` before committing so embedded canonical blocks (sections that must match `STANDARDS.md` byte-for-byte) cannot drift.
+
 ## [v0.1.0] — 2026-04-29
 
 First open-source release. Extracts the TLD (Test-Led Development) skills framework from a single private project ("mAIn Character") and makes it portable to other repositories.
