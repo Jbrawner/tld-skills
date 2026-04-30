@@ -63,6 +63,12 @@ Print the reference card below, then determine the user's current position in th
 |-------|-------------|-------------|
 | `/campaign-test` | Pre-flight connection check for the campaign | Before `/tld-setup`; after `/campaign-init` |
 
+### Meta
+
+| Skill | What it does | When to use |
+|-------|-------------|-------------|
+| `/tld-experience` | Turn a lived conversation moment into a candidate skill — drafts a SKILL.md, updates the four house-style docs, opens a PR | Right after a workflow you want to be a one-liner next time |
+
 ### Standard Flow
 
 ```

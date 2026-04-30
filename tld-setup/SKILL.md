@@ -110,11 +110,15 @@ Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recom
 
 **Default:** mark `/tld-auto` as Recommended.
 
+**Flip to `/tld-build`** if ANY of these are true:
+- Ticket has a `no-tests` or `build-only` label
+- All files in "Files to Create/Modify" fall under the campaign's `Stack.Landing directory`
+
 **Flip to `/tld-write-tests`** if ANY of these are true:
 - Ticket description or AC mentions any of: `auth`, `RLS`, `migration`, `payment`, `credentials`, `security`
 - "Files to Create/Modify" lists 5 or more files
 
-Only one option gets the marker. Never mark `/tld-side-quest`. Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
+Evaluate the `/tld-build` flip first. If neither flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard` or `/tld-side-quest`. Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
 
 ### Numbered shortcut recognition
 
@@ -186,13 +190,17 @@ Then present the options block based on the ticket type classification from step
 >    Best for: small, straightforward tickets you're confident about
 >    Gates: 2 stops (test review, QA approval)
 
-> **3.** /tld-dashboard — review progress before diving in
+> **3.** /tld-build — skip tests, build directly
+>    Best for: landing pages, marketing UI, frontend-only work where tests add no value
+>    Flow: build → run-test (manual QA only) → next
+
+> **4.** /tld-dashboard — review progress before diving in
 >    Best for: want the big picture before starting this ticket
 
-> **4.** /tld-side-quest — handle a quick fix first
+> **5.** /tld-side-quest — handle a quick fix first
 >    Best for: noticed something else before starting this ticket
 
-Type **1**, **2**, **3**, or **4** to proceed.
+Type **1**, **2**, **3**, **4**, or **5** to proceed.
 
 **If ticket is a MANUAL-QA ticket, present:**
 

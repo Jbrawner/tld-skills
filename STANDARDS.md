@@ -35,11 +35,15 @@ Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recom
 
 **Default:** mark `/tld-auto` as Recommended.
 
+**Flip to `/tld-build`** if ANY of these are true:
+- Ticket has a `no-tests` or `build-only` label
+- All files in "Files to Create/Modify" fall under the campaign's `Stack.Landing directory`
+
 **Flip to `/tld-write-tests`** if ANY of these are true:
 - Ticket description or AC mentions any of: `auth`, `RLS`, `migration`, `payment`, `credentials`, `security`
 - "Files to Create/Modify" lists 5 or more files
 
-Only one option gets the marker. Never mark `/tld-side-quest`. Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
+Evaluate the `/tld-build` flip first. If neither flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard` or `/tld-side-quest`. Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
 
 ### Manual-QA classification (setup-time)
 

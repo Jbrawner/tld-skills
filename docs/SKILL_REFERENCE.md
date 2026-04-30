@@ -108,6 +108,16 @@ Skills that work on individual tickets within the ticket loop. All read the In-P
 
 ---
 
+## Meta Skills
+
+Skills that operate on the Adventure Skills repo itself rather than on a TLD project.
+
+| Skill | Purpose | When to use | Reads | Writes | Flow position |
+|-------|---------|-------------|-------|--------|---------------|
+| `/tld-experience` | Turn a lived conversation moment into a candidate skill — drafts a SKILL.md, runs the standards verifier, updates CHANGELOG.md / docs/SKILL_REFERENCE.md / tld-help/SKILL.md, commits, and opens a PR | Right after a workflow with Claude that the user wants captured as a reusable command | Recent conversation, repo conventions in `STANDARDS.md` and `tld-ticket/SKILL.md` | New `~/.claude/skills/{slug}/SKILL.md`, CHANGELOG.md, docs/SKILL_REFERENCE.md, tld-help/SKILL.md, a new branch, a commit, a GitHub PR | Standalone — runs whenever a moment is worth capturing |
+
+---
+
 ## Entry Paths
 
 | Scenario | Flow |
