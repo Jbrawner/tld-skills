@@ -91,7 +91,6 @@ Output the **complete** drafted SKILL.md. Show the user:
 Below the draft, list the docs that will be updated in step 7 so the user knows the full blast radius:
 - `~/.claude/skills/{slug}/SKILL.md` — new file
 - `CHANGELOG.md` — bullet under `### Added` in `[Unreleased]`
-- `docs/SKILL_REFERENCE.md` — entry in the matching section
 - `tld-help/SKILL.md` — row in the matching table
 
 **HARD STOP.** Wait for an approval keyword from the user (see [STANDARDS.md § Approval keyword set](../STANDARDS.md#approval-keyword-set) for the full list — `approve`, `commit`, `lgtm`, `looks good`, `ship it`, `go`, `proceed`, or the bare `1` from the options block). Silence is not approval. Questions are not approval. If the user asks for changes, redraft and re-present.
@@ -129,10 +128,6 @@ Edit each file in place. Do not add new tables or sections — find the matching
 - If a `## [Unreleased]` section does not exist, add one above the topmost released version (e.g., above `## [v0.1.1]`).
 - Under `### Added` inside `[Unreleased]`, append: `- /{slug} skill — {one-sentence purpose}.`
 
-**`docs/SKILL_REFERENCE.md`:**
-- Pick the section whose role best matches the new skill: `## Campaign Skills`, `## Planning Skills`, `## TLD Ticket-Level Skills`, `## TLD Boundary Skill`. If none fit, add a new `## Meta Skills` section directly above `## Entry Paths`.
-- Append a row to that section's table, columns: Skill, Purpose, When to use, Reads, Writes, Flow position. Match the existing prose style — terse, factual.
-
 **`tld-help/SKILL.md`:**
 - Pick the table whose role best matches: Core Flow, Automation, Recovery + Navigation, or Planning. If none fit, add a new `### Meta` table directly below the last existing table.
 - Append a row, columns: Skill (with leading slash, code-fenced), What it does, When to use.
@@ -152,7 +147,7 @@ Run `python scripts/verify-block-alignment.py` again. The doc edits should not a
 Stage the new SKILL.md plus every doc updated in step 7:
 
 ```
-git add ~/.claude/skills/{slug}/SKILL.md CHANGELOG.md docs/SKILL_REFERENCE.md tld-help/SKILL.md
+git add ~/.claude/skills/{slug}/SKILL.md CHANGELOG.md tld-help/SKILL.md
 ```
 
 (Add `README.md` to the list only if it was edited in step 7.)
@@ -188,7 +183,6 @@ If `gh pr create` fails (auth, rate limit, network), surface the error and stop.
 **Files touched:**
 - `~/.claude/skills/{slug}/SKILL.md` (new)
 - `CHANGELOG.md`
-- `docs/SKILL_REFERENCE.md`
 - `tld-help/SKILL.md`
 ```
 

@@ -6,7 +6,11 @@ All notable changes to Adventure Skills are recorded here. Versions follow seman
 
 ### Added
 
-- `/tld-experience` skill — turns a lived conversation moment into a candidate skill on a new branch with the four house-style docs updated and a PR opened against `Jbrawner/tld-skills`. Runs `scripts/verify-block-alignment.py` before committing so embedded canonical blocks (sections that must match `STANDARDS.md` byte-for-byte) cannot drift.
+- `/tld-experience` skill — turns a lived conversation moment into a candidate skill on a new branch with the three house-style docs updated and a PR opened against `Jbrawner/tld-skills`. Runs `scripts/verify-block-alignment.py` before committing so embedded canonical blocks (sections that must match `STANDARDS.md` byte-for-byte) cannot drift.
+
+### Removed
+
+- `docs/SKILL_REFERENCE.md` — removed as redundant. Its content (skill catalog, Standard Flow, Context Recovery) duplicates README.md and CONTRIBUTING.md. The README's "Standard Flow" section and CONTRIBUTING.md's skill catalog are now the canonical homes. `docs/ADAPTERS.md` stays — it's the only place the tracker-adapter contract lives.
 
 ## [v0.1.0] — 2026-04-29
 
