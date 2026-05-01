@@ -3,7 +3,7 @@ name: campaign-test
 description: |
   Pre-flight connection check for this repo's `.tld/campaign.md`. Validates the 4-section schema on every
   run, and when tracker = Linear also verifies Linear reachability, team / project existence, ticket-prefix
-  match, and the six required workspace labels. Read-mostly: the only write path is creating missing
+  match, and the seven required workspace labels. Read-mostly: the only write path is creating missing
   workspace labels, and only after an explicit user Yes via AskUserQuestion (default No). Use this skill
   whenever the user says "campaign-test", "campaign test", "test connections", "verify setup", or wants to
   diagnose a misconfigured campaign before `/tld-setup` fails.
@@ -40,7 +40,14 @@ Do not abort on schema failures — continue through the remaining checks so the
 
 If `Issue tracker` ≠ `Linear`, print this advisory verbatim, then skip to step 7 (optional checks):
 
-> **Heads up:** The skills framework was built against Linear MCP. Other trackers are accepted in the schema but downstream TLD skills call Linear tools by name and will need manual adaptation. See LIMITATIONS.md.
+> ⚠️ **Tracker is `{Issue tracker}`, not Linear.**
+>
+> The TLD skills framework calls Linear MCP tools by name. The following skills will hard-abort on every invocation under a non-Linear tracker until a per-tracker adapter ships:
+>
+> - **TLD pipeline (state-touching):** `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-align`, `/tld-audit`, `/tld-commit`, `/tld-next`, `/tld-skip`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-save-point`, `/tld-dashboard`, `/tld-ticket`
+> - **Planning:** `/campaign-plan`, `/milestone-create`, `/milestone-sync`
+>
+> **Manual workaround:** mirror the equivalent state changes in your tracker by hand (status transitions, ordered ticket list per phase). See [docs/ADAPTERS.md](../docs/ADAPTERS.md) for the full Linear MCP surface a future adapter must implement.
 
 If `Issue tracker` = `Linear`, continue to step 4.
 
@@ -75,7 +82,7 @@ Each check runs independently; continue through all three even if an earlier one
 
 Call `list_issue_labels` with no team filter to get workspace-level labels.
 
-For each of these six required labels, check case-sensitive name match:
+For each of these seven required labels, check case-sensitive name match:
 
 - `model:sonnet`
 - `model:opus`
@@ -83,6 +90,7 @@ For each of these six required labels, check case-sensitive name match:
 - `effort:low`
 - `effort:medium`
 - `effort:high`
+- `side-quest`
 
 Report each as ✅ present or ❌ missing. Collect the set of missing label names for step 6b.
 
@@ -112,6 +120,7 @@ On **Yes**: for each label in the missing set, call `create_issue_label` with th
 | `effort:low` | `#26B87A` | Recommended reasoning effort: low. Mechanical edits, grep-replace, short additions. |
 | `effort:medium` | `#F2994A` | Recommended reasoning effort: medium. Normal skill authoring, structured writing. |
 | `effort:high` | `#EB5757` | Recommended reasoning effort: high. Architectural design, pattern-setting work, contracts. |
+| `side-quest` | `#14B8A6` | Small polish or quick-fix work handled via `/tld-side-quest` outside the main TLD flow. |
 
 Do not invent new labels. Do not create labels that weren't reported missing in step 6.
 
