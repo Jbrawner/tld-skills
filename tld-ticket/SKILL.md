@@ -46,7 +46,7 @@ Based on the user's description, classify as one of:
 
 Before creating the ticket, understand the scope:
 
-1. **Read the playbook** (`docs/EXECUTION_PLAYBOOK.md`) to see if this work fits into an existing step or is standalone
+1. **Read active milestones** — Call `list_milestones` for the configured Linear project (sorted by `sortOrder` ascending), then `get_milestone` on each in-progress milestone to read its description and `## Order` section. This shows you whether the new work fits into an existing milestone (add it to that milestone's `## Order`) or is standalone (no milestone, fix-on-main)
 2. **Check existing tickets** in Linear to avoid duplicates (use `list_issues` with a keyword search)
 3. **Identify affected files** by reading the codebase. Use grep/glob to find the files that would need to change
 4. **Identify pattern references** by finding existing files that follow the same patterns (same type of component, similar endpoint, etc.)
