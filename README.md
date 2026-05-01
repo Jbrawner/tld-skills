@@ -201,7 +201,6 @@ For the full list, see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker a
 | [STANDARDS.md](STANDARDS.md) | Canonical text of the 10 reusable shared blocks that appear verbatim across multiple skills (the source of truth for `scripts/verify-block-alignment.py`) |
 | [CHANGELOG.md](CHANGELOG.md) | Release history — what's added, changed, and removed |
 | [RELEASING.md](RELEASING.md) | How to cut a new release — the 4-step procedure, what the workflow automates, recovery if it fails, and PAT rotation |
-| [docs/SKILL_REFERENCE.md](docs/SKILL_REFERENCE.md) | Authoritative reference for every skill — purpose, when to use, what it reads, what it writes, and where it sits in the standard flow |
 | [docs/ADAPTERS.md](docs/ADAPTERS.md) | Issue tracker adapter interface — every MCP call the TLD skills make, parameters and response fields, and edge cases (auto-linking, rate limits) for future Jira / GitHub Issues adapter authors |
 
 ---
