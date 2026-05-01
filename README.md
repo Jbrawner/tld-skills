@@ -69,6 +69,7 @@ The Getting Started section uses Option A's command form. If you installed via O
 | `/tld-x` | `/tld:x` |
 | `/campaign-x` | `/tld:campaign-x` |
 | `/milestone-x` | `/tld:milestone-x` |
+| `/npc-x` | `/tld:npc-x` |
 
 If the slash commands don't appear after restart, check that `~/.claude/skills` resolves to the cloned directory (Option A) and that each skill subdirectory contains a `SKILL.md` file at its root, or that the plugin is enabled in Claude Code's `/plugin` view (Option B).
 

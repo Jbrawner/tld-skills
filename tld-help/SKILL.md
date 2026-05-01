@@ -30,6 +30,7 @@ Print the reference card below, then determine the user's current position in th
 | Skill | What it does | When to use |
 |-------|-------------|-------------|
 | `/tld-auto` | Chains the full pipeline with 2 gates (red review, QA) | When tickets are small and straightforward |
+| `/npc-partial` | Build → STOP for manual QA on uncommitted diff → commit + tld-next on approval | Doc/content tickets where test command is `skip` and you want one QA pause |
 
 ### Recovery + Navigation
 
