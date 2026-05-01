@@ -6,7 +6,7 @@ Adventure Skills v0.1.0 is alpha software. It was built by dogfooding the framew
 
 Linear is the only tracker the v0.1 skills are wired to call. `/campaign-init` accepts Linear, Jira, GitHub Issues, and Other as the issue tracker, and `/campaign-edit` will not stop you from changing the field to any of those values — but the schema accepting a tracker name is not the same thing as the framework supporting it.
 
-Downstream TLD skills call Linear MCP tools by name. The full list of 11 calls (with parameters and response fields) is in [docs/ADAPTERS.md](docs/ADAPTERS.md). Every skill that reads or writes ticket state — `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-commit`, `/tld-next`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-ticket`, `/tld-save-point`, `/tld-dashboard`, `/campaign-init`'s label bootstrap — will fail on non-Linear configs until adapter work lands.
+Downstream TLD skills call Linear MCP tools by name. The full list of 11 calls (with parameters and response fields) is in [docs/ADAPTERS.md](docs/ADAPTERS.md). Every skill that reads or writes ticket state — `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-commit`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-ticket`, `/tld-save-point`, `/tld-dashboard`, `/campaign-init`'s label bootstrap — will fail on non-Linear configs until adapter work lands.
 
 If you pick Jira, GitHub Issues, or anything else, `/campaign-init` writes the file successfully and prints an advisory, but you are on your own for the rest of the pipeline until per-tracker adapters exist. See [docs/ADAPTERS.md](docs/ADAPTERS.md) for the full interface contract — it specifies every MCP call the skills make, what parameters are passed, what response fields are read, and the edge cases (auto-linking, rate-limiting) an adapter must handle.
 
@@ -21,6 +21,16 @@ This matters because `/tld-setup` picks the next ticket by walking milestones in
 Workaround: after any skill that creates or splits milestones, open Project → Milestones in the Linear UI and drag the milestones into the intended order. The skills cannot do this for you. `/tld-setup`'s pick reflects whatever is in the UI, so the manual fix only needs to happen once per reorder.
 
 Fixing this upstream means wiring `projectMilestoneReorder` into the Linear MCP connector. Deferred until the connector exposes it.
+
+## Linear API unreachable
+
+There is no offline mode. Every state-touching skill (`/tld-setup`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-commit`, `/tld-side-quest`, `/campaign-plan`, `/milestone-create`, `/milestone-sync`, `/tld-ticket`) calls Linear MCP early and aborts on the first network error, auth failure, rate limit, or 5xx — there is no retry, no exponential backoff, no fallback to cached state.
+
+This is intentional. The campaign file has no ticket-order or status cache by design, so there is nothing to fall back to. Running half a pipeline against stale local data and reporting "partial success" would mask drift that the user cannot see; failing fast keeps the agent honest.
+
+The practical workaround when Linear is genuinely down: note the operation you tried, finish whatever local work you can (write tests, edit code, run the test command), and retry the Linear write manually in the Linear UI once connectivity returns. For a state transition the skill never made (e.g., flipping In Progress → Done), set the status by hand in Linear, then re-enter the pipeline at the next skill.
+
+A "stash and retry" pattern — queue the failed write locally and replay it on the next successful call — is not on the roadmap. It re-introduces the cache the framework deliberately avoids.
 
 ## Test runner: Vitest or Jest assumed
 
