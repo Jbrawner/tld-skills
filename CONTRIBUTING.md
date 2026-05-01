@@ -73,11 +73,13 @@ Four sections, in this order:
 ## Test Commands
 - Backend: {command to run backend tests}
 - Frontend: {command to run frontend tests}
+- Landing: {command to run landing-site tests, if the project has a landing surface}
 - Full: {command to run the full regression suite — used by /tld-gate}
 
 ## Stack
 - Backend directory: {path}
 - Frontend directory: {path}
+- Landing directory: {path to landing-site code, if the project has one}
 - Database: {connection hint, e.g. Supabase local at 127.0.0.1:54321}
 - Changelog path: {path to repo CHANGELOG, if the project keeps one}
 
