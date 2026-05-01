@@ -1,7 +1,7 @@
 ---
 name: tld-gate
 description: |
-  Run a milestone boundary gate check for TLD. Use this skill whenever the user says "tld-gate", "tld gate", "run gate check", "gate check", or has finished all tickets in a milestone and needs full regression, consistency, and drift validation before moving to the next milestone. This is the heavyweight verification that runs at milestone boundaries — not after every ticket. Operates ONLY against local database. Always use when /tld-next says to.
+  Run a milestone boundary gate check for TLD. Use this skill whenever the user says "tld-gate", "tld gate", "run gate check", "gate check", or has finished all tickets in a milestone and needs full regression, consistency, and drift validation before moving to the next milestone. Accepts an optional milestone ID argument (`/tld-gate {milestoneId}`) which `/tld-next` emits automatically. This is the heavyweight verification that runs at milestone boundaries — not after every ticket. Operates ONLY against local database. Always use when /tld-next says to.
 ---
 
 # TLD Gate
@@ -48,13 +48,35 @@ Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
 
 ### 3. Identify the completed milestone
 
+There are two modes here. Mode A is the safe, recommended path; Mode B is a fallback that can pick the wrong milestone in some Linear histories.
+
+**Mode A — milestone ID provided as an argument (recommended):**
+
+If the user invoked `/tld-gate {milestoneId}` (this is how `/tld-next` calls it), use that ID directly. Call `get_milestone` on it to load the full description. This is the authoritative path — it cannot pick the wrong milestone.
+
+**Mode B — no argument provided (fallback, with warning):**
+
 Query Linear for tickets in the configured project with status = "Done", sorted by `completedAt` descending. Take the first result — that ticket's `projectMilestone` is the milestone being gated.
 
-**Edge case — no Done tickets exist yet:** Stop and output:
+Before proceeding, emit this warning:
+
+```
+⚠️ No milestone ID was provided to /tld-gate. Falling back to "most recent
+Done ticket's milestone" — this can pick the WRONG milestone if Linear has
+re-opened tickets, manually-flipped statuses, or parallel work across
+milestones.
+
+Recommended: re-run as `/tld-gate {milestoneId}` to gate a specific milestone.
+`/tld-next` always emits the correct ID automatically.
+
+Continuing in fallback mode against milestone: {name} ({id})
+```
+
+**Edge case — no Done tickets exist yet (Mode B only):** Stop and output:
   "No Done tickets yet — /tld-gate runs after a milestone's tickets are complete. Check /tld-dashboard for current state, or run /tld-setup to start the first ticket."
 Do not silently select an arbitrary milestone.
 
-Load the gated milestone's full description via `get_milestone`.
+Load the gated milestone's full description via `get_milestone` (already done in Mode A).
 
 ### 4. Verify milestone completion
 

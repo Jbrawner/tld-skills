@@ -64,7 +64,7 @@ Never write to `.tld/campaign.md`.
 
 These values drive the recommendation line and the override cycles in step 7.
 
-**If no Todo ticket remains in this milestone's Order:** set `next_action` = `/tld-gate`. Note the milestone name — it just completed. No label read is needed in this case.
+**If no Todo ticket remains in this milestone's Order:** set `next_action` = `/tld-gate {milestoneId}` — substitute the just-completed ticket's `projectMilestone.id` so `/tld-gate` runs against the correct milestone (its no-arg fallback can pick the wrong one in Linear histories with re-opened tickets or parallel work). Note the milestone name — it just completed. No label read is needed in this case.
 
 **Edge — malformed Order:** If the Order section is missing or yields zero tickets, stop and output:
   "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it. Ticket {ID} was marked Done successfully."
@@ -80,7 +80,7 @@ When the user responds to a "What's next?" block with a bare number, map it base
 - `4` → prompt the user inline for model + effort values, update labels via `save_issue`, re-render the block. Wait again.
 
 **Milestone-gate case (3-option block):**
-- `1` → end the skill. The user runs `/clear` + `/tld-gate` manually. Do NOT invoke `/tld-gate` yourself.
+- `1` → end the skill. The user runs `/clear` + the printed `/tld-gate {milestoneId}` command manually. Do NOT invoke `/tld-gate` yourself.
 - `2` → invoke `/tld-dashboard`.
 - `3` → invoke `/tld-side-quest`.
 
@@ -160,7 +160,7 @@ After the update succeeds, re-render the "What's next?" block above with the ref
 >    Step 1: type `/clear` · Step 2: run the command below
 
 ```
-/tld-gate
+/tld-gate {milestoneId}
 ```
 
 > **2.** /tld-dashboard — review progress first
