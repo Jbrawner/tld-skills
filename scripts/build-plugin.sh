@@ -90,13 +90,16 @@ EOF
 # `/tld:milestone-`) are no longer matches for the `/tld-` pattern.
 rewrite_refs() {
     local file="$1"
-    # `sed -i ''` is BSD/macOS form; works on GNU sed too with a tiny tweak,
-    # but the repo's primary platform is macOS so we target BSD behavior.
-    sed -i '' \
+    # Portable in-place edit. BSD sed (macOS) requires `-i ''`; GNU sed
+    # (Linux / GitHub Actions ubuntu-latest) treats `-i ''` as an unreadable
+    # filename. `-i.bak` works on both — the `.bak` is the backup-extension
+    # arg in both dialects — then we delete the backup so output is clean.
+    sed -i.bak \
         -e 's|/campaign-\([a-z]\)|/tld:campaign-\1|g' \
         -e 's|/milestone-\([a-z]\)|/tld:milestone-\1|g' \
         -e 's|/tld-\([a-z]\)|/tld:\1|g' \
         "$file"
+    rm -f "${file}.bak"
 }
 
 # --- build ----------------------------------------------------------------
