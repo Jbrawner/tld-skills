@@ -138,11 +138,13 @@ This is the real campaign file from the Adventure Skills repo itself, showing th
 ## Test Commands
 - Backend: cd backend && npm run test:run
 - Frontend: cd frontend-next && npm test
-- Full: cd frontend-next && npm test && cd ../backend && npm run test:run
+- Landing: cd landing && npm test
+- Full: cd frontend-next && npm test && cd ../backend && npm run test:run && cd ../landing && npm test
 
 ## Stack
 - Backend directory: backend
 - Frontend directory: frontend-next
+- Landing directory: landing
 - Database: Supabase local at 127.0.0.1:54321
 - Changelog path: CHANGELOG.md
 
