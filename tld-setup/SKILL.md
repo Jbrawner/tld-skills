@@ -35,7 +35,18 @@ The tracker, team, prefix, and project name from this block are the only ones th
 
 Validate the ID matches the `{prefix}-\d+` pattern from the campaign. If not, stop and ask the user to re-run with a valid ID.
 
-Call `get_issue` on the ID with `includeRelations: true`. If the ticket is already Done or Canceled, warn and ask whether to proceed anyway. If In Progress, proceed (the user is resuming). Capture `projectMilestone` for context.
+Call `get_issue` on the ID with `includeRelations: true`. If In Progress, proceed (the user is resuming). Capture `projectMilestone` for context.
+
+If the ticket is already Done or Canceled, use AskUserQuestion:
+
+> Ticket {TICKET-ID} is already {Done|Canceled}. Proceed with setup anyway?
+
+Options, in this order (default is Cancel):
+
+- **Cancel** — abort cleanly. Do not modify the ticket's Linear state. Report: "Cancelled. {TICKET-ID} is {Done|Canceled} and was left untouched. Run `/tld-setup` with no argument to find the next ticket."
+- **Proceed anyway** — continue with the existing Mode A flow.
+
+If the user's response is ambiguous, default to **Cancel** (default-No pattern). Only proceed when the user explicitly picks "Proceed anyway".
 
 Skip to step 4.
 
@@ -51,6 +62,8 @@ Skip to step 4.
         "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it."
    d. For each ticket ID in the parsed Order, look up its status (batched `list_issues` or per-ticket `get_issue`).
    e. Return the first ticket whose status is **neither Done NOR Canceled**. Both statuses count as "already resolved" — skip both.
+
+   _Note: Mode B intentionally accepts In-Progress tickets — this is how `/tld-setup` recovers an orphaned ticket from a prior session. `/tld-next` does the opposite (walks Order skipping In-Progress) because, in `/tld-next`'s frame, the In-Progress ticket is the one that just got marked Done. The divergence is deliberate._
 4. If every ticket in every milestone is Done or Canceled, stop and output:
      "All tickets in all milestones are resolved. Nothing to do."
 
