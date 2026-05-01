@@ -131,7 +131,7 @@ Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recom
 - Ticket description or AC mentions any of: `auth`, `RLS`, `migration`, `payment`, `credentials`, `security`
 - "Files to Create/Modify" lists 5 or more files
 
-Evaluate the `/tld-build` flip first. If neither flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard` or `/tld-side-quest`. Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
+Evaluate the `/tld-build` flip first. If neither flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard`, `/tld-side-quest`, `/npc-partial`, or `/npc-full` (the NPC variants are intentionally listed last because they skip testing and are rarely the right call for real implementation tickets). Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
 
 ### Numbered shortcut recognition
 
@@ -213,7 +213,15 @@ Then present the options block based on the ticket type classification from step
 > **5.** /tld-side-quest — handle a quick fix first
 >    Best for: noticed something else before starting this ticket
 
-Type **1**, **2**, **3**, **4**, or **5** to proceed.
+> **6.** /npc-partial — build → diff-review pause → commit → next, skipping tests
+>    Best for: doc/content tickets where Test Commands are `skip` and you want one QA pause
+>    ⚠️ Rarely the right call for real implementation tickets — prefer 1, 2, or 3.
+
+> **7.** /npc-full — build → commit → next, no pauses, skipping tests
+>    Best for: doc/content tickets where Test Commands are `skip` and you trust the build
+>    ⚠️ Rarely the right call for real implementation tickets — prefer 1, 2, or 3.
+
+Type **1**, **2**, **3**, **4**, **5**, **6**, or **7** to proceed.
 
 **If ticket is a MANUAL-QA ticket, present:**
 
@@ -235,6 +243,14 @@ Type **1**, **2**, **3**, **4**, or **5** to proceed.
 > **4.** /tld-side-quest — handle a quick fix first
 >    Best for: noticed polish worth handling before starting the walkthrough
 
-Type **1**, **2**, **3**, or **4** to proceed.
+> **5.** /npc-partial — build → diff-review pause → commit → next, skipping tests
+>    Best for: doc/content tickets where Test Commands are `skip` and you want one QA pause
+>    ⚠️ Rarely the right call for manual-QA tickets — prefer 1 or 2.
+
+> **6.** /npc-full — build → commit → next, no pauses, skipping tests
+>    Best for: doc/content tickets where Test Commands are `skip` and you trust the build
+>    ⚠️ Rarely the right call for manual-QA tickets — prefer 1 or 2.
+
+Type **1**, **2**, **3**, **4**, **5**, or **6** to proceed.
 
 **HARD STOP: After outputting the above, you are DONE. Do NOT write tests, do NOT write implementation code, do NOT invoke any other TLD skill. Wait for the user to pick an option or type a command. Your only job was setup.**

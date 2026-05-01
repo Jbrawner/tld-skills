@@ -159,7 +159,7 @@ Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recom
 - Ticket description or AC mentions any of: `auth`, `RLS`, `migration`, `payment`, `credentials`, `security`
 - "Files to Create/Modify" lists 5 or more files
 
-Evaluate the `/tld-build` flip first. If neither flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard` or `/tld-side-quest`. Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
+Evaluate the `/tld-build` flip first. If neither flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard`, `/tld-side-quest`, `/npc-partial`, or `/npc-full` (the NPC variants are intentionally listed last because they skip testing and are rarely the right call for real implementation tickets). Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
 
 ---
 
