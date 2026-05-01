@@ -16,6 +16,8 @@ Run the content-ticket loop end-to-end with no review pauses: implement, commit,
 
 Trigger phrases: `npc-full`, `npc full`, `npc full flow`, "full flow", "build commit next no stop".
 
+**Use `/npc-partial` instead** if you want a single hard stop between build and commit so you can eyeball the uncommitted diff before anything lands. `/npc-full` does not pause there.
+
 ## Inputs
 
 What the user provides:

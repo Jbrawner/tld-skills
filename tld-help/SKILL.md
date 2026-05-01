@@ -40,6 +40,8 @@ Print the reference card below, then determine the user's current position in th
 | `/tld-align` | Fixes implementation after test failures | After `/tld-run-test` fails |
 | `/tld-commit` | Picks up a pending commit after a detour | After a side quest when changes are uncommitted |
 | `/tld-skip` | Reverts the current ticket to Todo and finds the next one | When a ticket is practically blocked or out of order for today |
+| `/tld-cancel` | Marks the current ticket Canceled and removes it from the milestone Order | When a ticket is no longer needed and should not be picked up again |
+| `/tld-recenter` | Cuts a fresh branch off the latest `main` (refuses if working tree is dirty) | After a PR merges, before starting the next ticket |
 | `/tld-save-point` | Recovers your position from milestone + Linear | Start of a new conversation |
 | `/tld-dashboard` | Shows progress across all milestones and tickets | When you want the big picture |
 
@@ -63,7 +65,12 @@ Print the reference card below, then determine the user's current position in th
 
 | Skill | What it does | When to use |
 |-------|-------------|-------------|
-| `/campaign-test` | Pre-flight connection check for the campaign | Before `/tld-setup`; after `/campaign-init` |
+| `/campaign-init` | Scaffolds `.tld/campaign.md` with the four required sections | Setting up TLD in a new repo |
+| `/campaign-show` | Displays the campaign's four sections plus an optional Linear snapshot | When you need to see the current project config |
+| `/campaign-edit` | Edits a single field in `.tld/campaign.md` | Updating a test command, stack path, or commit pattern |
+| `/campaign-validate` | Schema-only check (no Linear calls) | Offline, or right after `/campaign-edit` to confirm the file parses |
+| `/campaign-test` | Pre-flight connection check for the campaign (schema + Linear reachability) | Before `/tld-setup`; after `/campaign-init` |
+| `/campaign-remove` | Deletes `.tld/campaign.md` (and the `.tld/` dir if empty) | Tearing down TLD config in this repo |
 
 ### Meta
 

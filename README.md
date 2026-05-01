@@ -150,7 +150,7 @@ This is the real campaign file from the Adventure Skills repo itself, showing th
 - Changelog path: CHANGELOG.md
 
 ## Commit format
-- Pattern: feat(2ND-XXX): title
+- Pattern: feat/(2ND-XXX): title
 - Co-author: Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 ```
 

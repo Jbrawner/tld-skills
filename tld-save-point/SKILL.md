@@ -147,7 +147,19 @@ Type **1**, **2**, or **3** to proceed.
 
 **If ticket is In Progress with no changes (needs implementation):**
 
-Apply a recommendation hint to one option before presenting. Default: mark `/tld-auto` as **(Recommended)**. Flip the mark to `/tld-write-tests` if the ticket description or AC mentions any of `auth`, `RLS`, `migration`, `payment`, `credentials`, `security`, OR the "Files to Create/Modify" list has 5+ files. Only option 1 or option 2 can receive the marker. Never mark `/tld-dashboard` or `/tld-side-quest`.
+Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recommended)** in the output block.
+
+**Default:** mark `/tld-auto` as Recommended.
+
+**Flip to `/tld-build`** if ANY of these are true:
+- Ticket has a `no-tests` or `build-only` label
+- All files in "Files to Create/Modify" fall under the campaign's `Stack.Landing directory`
+
+**Flip to `/tld-write-tests`** if ANY of these are true:
+- Ticket description or AC mentions any of: `auth`, `RLS`, `migration`, `payment`, `credentials`, `security`
+- "Files to Create/Modify" lists 5 or more files
+
+Evaluate the `/tld-build` flip first. If neither flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard` or `/tld-side-quest`. Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
 
 ---
 

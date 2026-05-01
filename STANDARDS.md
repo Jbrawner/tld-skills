@@ -163,6 +163,23 @@ If Linear is unreachable at any step, stop and output:
 Do not fall back to cached state; there is none.
 ```
 
+### Canonical paste-block: Author Order block
+
+**When to use:** Skills that author or rewrite a Linear milestone's `## Order` section (`/campaign-plan`, `/milestone-create`, `/milestone-sync`). All three must build the Order block the same way, otherwise the reader-side parser may end up pointed at a sequence that doesn't match what was written. Embed the block verbatim wherever a milestone description is being composed; surrounding Mode-specific logic (placeholder vs. populated, full-template vs. Order-only) stays local to the embedding skill.
+
+````
+**Build the Order block:**
+
+```markdown
+## Order
+1. {first ticket ID}
+2. {second ticket ID}
+3. ...
+```
+
+Write the plain `1. {prefix}-XXX` form. Linear will rewrite each line to `1. [{prefix}-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms.
+````
+
 ### Canonical paste-block: Local DB safety check
 
 **When to use:** Every skill that runs test commands or destructive database operations embeds this block verbatim after Load project config (and, where relevant, after Resolve current ticket / Resolve test command).

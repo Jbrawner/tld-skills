@@ -16,6 +16,8 @@ Run the content-ticket loop as a near-one-liner: implement the ticket, pause for
 
 Trigger phrases: `npc-partial`, `npc partial`, `npc partial flow`, "partial flow", "build pause commit next", "build then qa then commit".
 
+**Use `/npc-full` instead** if you trust the build enough to skip the diff-review pause and want the loop to keep moving from build straight through commit and `/tld-next` with no stops.
+
 ## Inputs
 
 What the user provides:

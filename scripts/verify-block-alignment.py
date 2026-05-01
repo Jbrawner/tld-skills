@@ -53,6 +53,10 @@ BLOCKS: list[tuple[str, str]] = [
         "Local DB safety check",
         "local-DB safety check",
     ),
+    (
+        "Author Order block",
+        "Linear will rewrite each line to ",
+    ),
 ]
 
 BANNED_GLOBAL = [
@@ -91,8 +95,20 @@ def extract_canonical_body(text: str, heading: str) -> str:
         sys.exit(f"FATAL: canonical heading not found in STANDARDS.md: {heading}")
 
     end = len(lines)
+    in_fence: str | None = None
+    fence_re = re.compile(r"^(`{3,})[A-Za-z0-9_+\-]*\s*$")
     for j in range(start, len(lines)):
         L = lines[j]
+        m = fence_re.match(L)
+        if m:
+            tick = m.group(1)
+            if in_fence is None:
+                in_fence = tick
+            elif L.strip() == in_fence:
+                in_fence = None
+            continue
+        if in_fence is not None:
+            continue
         if L.startswith("### ") or L.startswith("## ") or L.strip() == "---":
             end = j
             break

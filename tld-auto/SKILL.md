@@ -65,7 +65,7 @@ If the Full command is also empty, stop and output:
 
 Use the resolved command for any test run in this skill. Do not invent commands or read any playbook file.
 
-#### 1.1.5 Manual-QA classification (setup-time)
+#### 1.4 Manual-QA classification (setup-time)
 
 Classify the active ticket. This determines which phases to run.
 
@@ -76,11 +76,11 @@ Classify the active ticket. This determines which phases to run.
 
 **Code ticket** — everything else (the default).
 
-**If MANUAL-QA ticket, skip Phase 1 (RED), Phase 2 (GREEN), Phase 2.5 (audit), and Phase 3 (drift + commit).** Jump directly to Phase 4 (Manual QA Gate). There are no new tests to write, no code to build, no drift to check, and no changes to commit. The entire purpose is the manual walkthrough + mark Done.
+**If MANUAL-QA ticket, skip the rest of Phase 1 (RED), Phase 2 (GREEN), Phase 2.5 (audit), and Phase 3 (drift + commit).** Jump directly to Phase 4 (Manual QA Gate). There are no new tests to write, no code to build, no drift to check, and no changes to commit. The entire purpose is the manual walkthrough + mark Done.
 
-**If CODE ticket**, proceed to 1.2 and continue through all phases as normal.
+**If CODE ticket**, proceed to 1.5 and continue through all phases as normal.
 
-#### 1.2 Study the patterns
+#### 1.5 Study the patterns
 
 Read the pattern reference files from the setup context. Match the existing test style:
 - Same test framework (Vitest, Jest, etc.)
@@ -88,7 +88,7 @@ Read the pattern reference files from the setup context. Match the existing test
 - Same assertion patterns
 - Same fixture/setup patterns
 
-#### 1.3 Write test files
+#### 1.6 Write test files
 
 For each acceptance criterion, write test cases that verify it:
 
@@ -98,7 +98,7 @@ For each acceptance criterion, write test cases that verify it:
 - **Name tests descriptively.** Use the pattern: `it('should [expected behavior] when [condition]')`.
 - **Keep tests independent.** Each test should set up its own state and not depend on other tests running first.
 
-#### 1.4 Run tests to confirm RED
+#### 1.7 Run tests to confirm RED
 
 Run the resolved test command from §1.3. Every new test should fail. This confirms:
 - Tests are actually being picked up by the runner
@@ -109,7 +109,7 @@ Run the resolved test command from §1.3. Every new test should fail. This confi
 
 **If tests fail to compile/run at all:** Fix syntax errors, missing imports, etc. The tests should run and produce failing assertions, not crash.
 
-#### 1.5 RED Gate Output
+#### 1.8 RED Gate Output
 
 Report to the user:
 - How many test files were created/modified
