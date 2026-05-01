@@ -31,6 +31,7 @@ Print the reference card below, then determine the user's current position in th
 |-------|-------------|-------------|
 | `/tld-auto` | Chains the full pipeline with 2 gates (red review, QA) | When tickets are small and straightforward |
 | `/npc-partial` | Build → STOP for manual QA on uncommitted diff → commit + tld-next on approval | Doc/content tickets where test command is `skip` and you want one QA pause |
+| `/npc-full` | Build → commit → tld-next, no review pause | Doc/content tickets where test command is `skip` and you trust the build |
 
 ### Recovery + Navigation
 
