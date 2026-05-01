@@ -192,9 +192,22 @@ Only after explicit user approval:
 - From the worktree, stage only the relevant files: `git add [specific files]`
 - Build the commit message from campaign `Commit format.Pattern` (e.g., `feat(PREFIX-XXX): title`), substituting the ticket ID and title. Append ` — side quest` to the title. Choose the commit type based on the work: `fix()` for bug fixes, `chore()` for polish/cleanup, `feat()` for small features — override the pattern's type when the default doesn't fit.
 - Append the `Co-author` trailer from campaign `Commit format.Co-author` (via HEREDOC, preserving the full `Co-Authored-By:` line).
-- Merge the worktree branch back into the working branch
+- Merge the worktree branch back into the working branch using **squash-merge**:
+  1. From the working branch root (NOT the worktree), run `git merge --squash <worktree-branch>`.
+  2. If the merge reports a conflict: **HARD STOP**. Do NOT auto-resolve. Print the conflicted files (`git status` output is fine), leave the merge in progress, and tell the user to resolve manually. After they resolve, they re-run the next step.
+  3. Run `git commit -m "side-quest(<ticket-id>): <one-line summary>"` (using the same `Co-author` trailer).
 - Clean up the worktree
 - Mark the ticket **Done** in Linear via `save_issue`
+
+**Why squash-merge?** Squash collapses every commit on the side-quest branch into a single revertable commit on the working branch. The mandatory `side-quest(<ticket-id>):` prefix makes side quests grep-able later. Hard-stopping on conflicts prevents the agent from silently mis-resolving a merge — the user sees the conflict and decides.
+
+**Strategy trade-offs (for reference — chosen strategy is `--squash`):**
+
+| Strategy | Atomicity | History clarity | Risk |
+|---|---|---|---|
+| `--squash` (chosen) | High — one revert undoes the whole side quest | High when the commit message is disciplined | Low — explicit, hard-stops on conflict |
+| `--ff-only` | Per-commit; harder to revert as a unit | Mixes side-quest commits into the working branch's flow | Medium — fails unpredictably if branches diverged |
+| `--no-ff` | High at the merge-commit level | Highest (visible subgraph) | Low, but adds noise to a linear history |
 
 ### Numbered shortcut recognition
 

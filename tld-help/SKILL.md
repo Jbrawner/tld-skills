@@ -18,7 +18,7 @@ Print the reference card below, then determine the user's current position in th
 
 | # | Skill | What it does | When to use |
 |---|-------|-------------|-------------|
-| 1 | `/tld-setup` | Loads next ticket from playbook + Linear | Start of every ticket |
+| 1 | `/tld-setup` | Loads next ticket from milestone + Linear | Start of every ticket |
 | 2 | `/tld-write-tests` | Writes failing tests from the AC | After setup (red phase) |
 | 3 | `/tld-build` | Implements code to make tests pass | After tests are written (green phase) |
 | 4 | `/tld-audit` | Security + architecture review | After build, before verify (optional) |
@@ -38,8 +38,8 @@ Print the reference card below, then determine the user's current position in th
 | `/tld-align` | Fixes implementation after test failures | After `/tld-run-test` fails |
 | `/tld-commit` | Picks up a pending commit after a detour | After a side quest when changes are uncommitted |
 | `/tld-skip` | Reverts the current ticket to Todo and finds the next one | When a ticket is practically blocked or out of order for today |
-| `/tld-save-point` | Recovers your position from playbook + Linear | Start of a new conversation |
-| `/tld-dashboard` | Shows progress across all steps and tickets | When you want the big picture |
+| `/tld-save-point` | Recovers your position from milestone + Linear | Start of a new conversation |
+| `/tld-dashboard` | Shows progress across all milestones and tickets | When you want the big picture |
 
 ### Planning
 
@@ -54,7 +54,7 @@ Print the reference card below, then determine the user's current position in th
 
 | Skill | What it does | When to use |
 |-------|-------------|-------------|
-| `/tld-gate` | Full regression at step boundaries | When `/tld-next` says a step is complete |
+| `/tld-gate` | Full regression at milestone boundaries | When `/tld-next` says a milestone is complete |
 | `/tld-side-quest` | Small fix in an isolated worktree | Polish, minor fix, or config tweak |
 
 ### Campaign Config

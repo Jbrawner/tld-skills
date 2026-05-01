@@ -198,6 +198,8 @@ Order section: {populated with N tickets | empty — add via /tld-ticket}
 {if no tickets} Add tickets with /tld-ticket, then /tld-setup to pick one up.
 ```
 
+⚠️ Linear places new milestones at the bottom of the project. If this milestone should appear elsewhere in the order, drag it into position in the Linear UI now (Linear API does not support `sortOrder` writes). See LIMITATIONS.md.
+
 ### Numbered shortcut recognition
 
 When you present the "What's next?" options at the end of your output, the user may respond with just a number (e.g., "1" or "2"). If the user's next message is a bare number matching one of the options you presented, treat it as if they typed the corresponding slash command and invoke that skill immediately.
