@@ -83,8 +83,15 @@ Run `/clear` then paste the command above to start the next ticket.
 
 **What's next?**
 
-> **1.** `/clear` and run the printed `/tld-setup {next-id}` (Recommended)
+> **1.** Start next ticket with clean context (Recommended)
 >    Best for: standard flow, ready to start the next ticket
+>    Step 1: type `/clear` · Step 2: run the command below
+
+```
+/tld-setup {next-id}
+```
+
+*(If the milestone just completed, use `/tld-gate {milestoneId}` as the command instead.)*
 
 > **2.** /npc-partial — slower variant with a diff-review pause
 >    Best for: less-confident builds where a diff check is worth a beat
