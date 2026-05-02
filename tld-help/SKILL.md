@@ -23,7 +23,7 @@ Print the reference card below, then determine the user's current position in th
 | 3 | `/tld-build` | Implements code to make tests pass | After tests are written (green phase) |
 | 4 | `/tld-audit` | Security + architecture review | After build, before verify (optional) |
 | 5 | `/tld-run-test` | Runs tests, drift check, manual QA, commits on approval | After build or audit |
-| 6 | `/tld-next` | Marks ticket Done, determines next step | After successful commit |
+| 6 | `/tld-next` | Marks ticket Done, determines next step · may mutate next-ticket labels via override loop | After successful commit |
 
 ### Automation
 
@@ -39,9 +39,9 @@ Print the reference card below, then determine the user's current position in th
 |-------|-------------|-------------|
 | `/tld-align` | Fixes implementation after test failures | After `/tld-run-test` fails |
 | `/tld-commit` | Picks up a pending commit after a detour | After a side quest when changes are uncommitted |
-| `/tld-skip` | Reverts the current ticket to Todo and finds the next one | When a ticket is practically blocked or out of order for today |
+| `/tld-skip` | Reverts to Todo (or Skipped state if Linear team has one) | When a ticket is practically blocked or out of order for today |
 | `/tld-cancel` | Marks the current ticket Canceled and removes it from the milestone Order | When a ticket is no longer needed and should not be picked up again |
-| `/tld-recenter` | Cuts a fresh branch off the latest `main` (refuses if working tree is dirty) | After a PR merges, before starting the next ticket |
+| `/tld-recenter` | Cuts a fresh branch off the latest default branch (detects via `origin/HEAD` → `main` → `master`); refuses if working tree is dirty | After a PR merges, before starting the next ticket |
 | `/tld-save-point` | Recovers your position from milestone + Linear | Start of a new conversation |
 | `/tld-dashboard` | Shows progress across all milestones and tickets | When you want the big picture |
 
@@ -76,24 +76,27 @@ Print the reference card below, then determine the user's current position in th
 
 | Skill | What it does | When to use |
 |-------|-------------|-------------|
-| `/tld-experience` | Turn a lived conversation moment into a candidate skill — drafts a SKILL.md, updates the four house-style docs, opens a PR | Right after a workflow you want to be a one-liner next time |
+| `/tld-experience` | Turn a lived conversation moment into a candidate skill — drafts a SKILL.md, updates supporting docs (CHANGELOG, tld-help, README always; STANDARDS / CONTRIBUTING / LIMITATIONS / RELEASING / ADAPTERS when applicable), opens a PR | Right after a workflow you want to be a one-liner next time |
 
 ### Standard Flow
 
 ```
-/tld-setup → /tld-write-tests → /tld-build → /tld-run-test → /tld-next
-     |                                 |              |
-     +--→ /tld-auto (all-in-one) ------+    (fail) → /tld-align → retry
-                                        |
-                                   /tld-audit (optional)
+/tld-setup → /tld-write-tests → /tld-build ──→ /tld-audit ──→ /tld-run-test → /tld-next ──→ /tld-setup (next ticket)
+     |                              │              (optional)         │              │
+     │                              ▼                                  │ (fail)       └──→ /tld-gate {milestoneId}
+     +─→ /tld-auto (all-in-one, runs audit inline as Phase 2.5)        ▼                    (when milestone is complete)
+                                                                  /tld-align ──→ retry
 ```
 
+`/tld-auto` chains write-tests → build → audit → run-test → next inside one skill, with two hard stops (RED review, QA gate). The standalone `/tld-audit` step on the manual path is optional but recommended after backend / migration / auth changes.
+
 ### Tips
-- Type just **1**, **2**, **3**, or **4** at any "What's next?" prompt to proceed
+- Type the option number (1–N depending on the block) at any "What's next?" prompt to proceed
 - `/tld-save-point` in a new conversation replaces the old /compact paste
 - `/tld-side-quest` keeps your main context clean
-- `/tld-audit` is optional but recommended for new endpoints or tables
+- `/tld-audit` is automatically marked **(Recommended)** by `/tld-setup` when the ticket touches the backend, has migration/auth/RLS in scope, or names an endpoint — run it then for a security pass before verify
 - `/tld-dashboard` for a quick progress check anytime
+- `/tld-help` doesn't list itself in the reference card above (it's the card)
 
 ---
 

@@ -79,7 +79,7 @@ Never write to `.tld/campaign.md` at any point — this skill does not touch the
 
 **If a next ticket is found:** set `next_action` = `/tld-setup {next-ticket-ID}`.
 
-**If no Todo ticket remains after the skipped one in this milestone's Order:** set `next_action` = `/tld-gate`. Note the milestone name — every ticket after the skipped one is already resolved.
+**If no Todo ticket remains after the skipped one in this milestone's Order:** set `next_action` = `/tld-gate {milestoneId}` — substitute the skipped ticket's `projectMilestone.id` so `/tld-gate` runs against the correct milestone (its no-arg fallback can pick the wrong one in Linear histories with re-opened tickets or parallel work). **Never emit the literal text `{milestoneId}` to the user** — substitute the actual id BEFORE rendering. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly. Note the milestone name — every ticket after the skipped one is already resolved.
 
 **Edge — malformed or missing Order:** Stop and output:
   "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it. Ticket {ID} was reverted to {skip-target} successfully."
@@ -135,7 +135,7 @@ Type **2** or **3** to invoke those options. For option 1, run `/clear` then pas
 >    Step 1: type `/clear` · Step 2: run the command below
 
 ```
-/tld-gate
+/tld-gate {milestoneId}
 ```
 
 > **2.** /tld-dashboard — review progress first

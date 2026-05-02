@@ -43,10 +43,8 @@ Each check is independent — run all of them and report pass / fail for each, e
 - Section `Stack` exists.
 - Section `Commit format` exists.
 
-**Project block fields:**
-- `Issue tracker` is non-empty.
+**Project block fields (required):**
 - `Project name` is non-empty.
-- `Team` is non-empty.
 - `Ticket prefix` is non-empty.
 
 **Commit format fields:**
@@ -55,7 +53,9 @@ Each check is independent — run all of them and report pass / fail for each, e
 **Tracker advisory:**
 - If `Issue tracker` ≠ `Linear`, add an advisory line to the report (not a failure): `⚠️ Tracker is '{tracker}', not Linear. The TLD pipeline calls Linear MCP tools by name and will hard-abort under a non-Linear tracker until a per-tracker adapter ships. See docs/ADAPTERS.md for the surface a future adapter must implement.`
 
-**Optional / informational checks** (do not fail on these; just report current state):
+**Optional / informational checks** (do not fail on these; just report current state — non-empty is preferred but advisory only):
+- `Issue tracker` — print the configured value if present, or note it is blank.
+- `Team` — print the configured value if present, or note it is blank.
 - `Stack.Database` — print the configured value if present, or note it is blank.
 - `Stack.Changelog path` — print the configured value if present, or note it is blank.
 - `Commit format.Co-author` — print the configured value if present, or note it is blank.
@@ -74,9 +74,7 @@ Report a compact pass / fail table grouped by section. Use ✅ for pass, ❌ for
 | Section: Test Commands | ✅ |
 | Section: Stack | ✅ |
 | Section: Commit format | ✅ |
-| Project: Issue tracker | ✅ Linear |
 | Project: Project name | ✅ {value} |
-| Project: Team | ✅ {value} |
 | Project: Ticket prefix | ✅ {value} |
 | Commit format: Pattern | ✅ {value} |
 
@@ -86,6 +84,8 @@ Report a compact pass / fail table grouped by section. Use ✅ for pass, ❌ for
 ### Informational
 | Field | Value |
 |-------|-------|
+| Issue tracker | {value or "(blank)"} |
+| Team | {value or "(blank)"} |
 | Stack.Database | {value or "(blank)"} |
 | Stack.Changelog path | {value or "(blank)"} |
 | Commit format.Co-author | {value or "(blank)"} |

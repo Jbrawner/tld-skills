@@ -51,7 +51,9 @@ Run the `/tld-build` skill end-to-end. It writes the implementation; it does not
 
 ### 3. Stage and commit
 
-After `/tld-build` completes, stage only the files modified by `/tld-build` (do NOT use `git add -A` or `git add .`). Build the commit subject from the campaign's Commit format `Pattern` field with the active ticket ID and title substituted. Use `feat({prefix}-{N}): {ticket title} — TLD verified` if the campaign Pattern is the default `feat({prefix}-XXX): title`, otherwise follow the campaign Pattern as-written. Append the campaign's `Co-author` trailer if one is configured. Never use `--amend`.
+After `/tld-build` completes, stage only the files modified by `/tld-build` (do NOT use `git add -A` or `git add .`). Build the commit subject from the campaign's Commit format `Pattern` field with the active ticket ID and title substituted. Use `feat({prefix}-{N}): {ticket title} — NPC` if the campaign Pattern is the default `feat({prefix}-XXX): title`, otherwise follow the campaign Pattern as-written and append ` — NPC` to the title. The `— NPC` suffix marks the commit as an NPC-flow landing (no test verification was run); do NOT use `— TLD verified` since the verify phase was deliberately skipped. Append the campaign's `Co-author` trailer if one is configured. Never use `--amend`.
+
+`/npc-full` skips the diff-review pause by design — once `/tld-build` reports a green build, the commit lands. There is no in-skill approval gate. If a user types `approve`, `commit`, `lgtm`, `looks good`, `ship it`, `go`, `proceed`, or `1` after build (the canonical approval keyword set — see [STANDARDS.md § Approval keyword set](../STANDARDS.md#approval-keyword-set)) it has no effect here because the commit has already happened. The keyword set still applies if the user types it at the final "What's next?" block to invoke option 1.
 
 Show the user the commit short SHA and subject inline. Proceed directly to step 4 — there is no review pause.
 
@@ -78,6 +80,8 @@ When you present the "What's next?" options at the end of your output, the user 
 
 Run `/clear` then paste the command above to start the next ticket.
 ```
+
+**Never emit the literal text `{milestoneId}` or `{next-id}` to the user** — substitute the actual values BEFORE rendering. If `/tld-next` could not capture the milestone id, fall back to a no-arg `/tld-gate` and warn the user explicitly.
 
 ---
 

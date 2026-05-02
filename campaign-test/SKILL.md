@@ -44,7 +44,7 @@ If `Issue tracker` ≠ `Linear`, print this advisory verbatim, then skip to step
 >
 > The TLD skills framework calls Linear MCP tools by name. The following skills will hard-abort on every invocation under a non-Linear tracker until a per-tracker adapter ships:
 >
-> - **TLD pipeline (state-touching):** `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-align`, `/tld-audit`, `/tld-commit`, `/tld-next`, `/tld-skip`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-save-point`, `/tld-dashboard`, `/tld-ticket`
+> - **TLD pipeline (state-touching):** `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-align`, `/tld-audit`, `/tld-commit`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-save-point`, `/tld-dashboard`, `/tld-ticket`
 > - **Planning:** `/campaign-plan`, `/milestone-create`, `/milestone-sync`
 >
 > **Manual workaround:** mirror the equivalent state changes in your tracker by hand (status transitions, ordered ticket list per phase). See [docs/ADAPTERS.md](../docs/ADAPTERS.md) for the full Linear MCP surface a future adapter must implement.
@@ -149,7 +149,7 @@ Print a grouped report using these glyphs:
 Group headings, in this order:
 
 - `### Schema` — always present.
-- `### Linear` — Linear only. For non-Linear tracker, replace with a single `### Tracker` section containing: `⏭ Tracker is {X}, not Linear — Linear reachability / team / project / prefix / label checks skipped. See LIMITATIONS.md.`
+- `### Linear` — Linear only.
 - `### Workspace labels` — Linear only. Omit entirely for non-Linear.
 - `### Optional checks` — only include rows for fields that were actually set. Do not print "skipped — blank" rows.
 

@@ -41,11 +41,13 @@ AskUserQuestion automatically provides an "Other" option; accept any free-text v
 
 If the user picks anything other than `Linear`, immediately print this advisory before moving on:
 
-> **Heads up:** The skills framework was built against Linear MCP. Other trackers are accepted in the schema but downstream TLD skills call Linear tools by name and will need manual adaptation. See LIMITATIONS.md.
+> **Heads up:** The skills framework was built against Linear MCP and only Linear has been exercised end to end. Other trackers (Jira, GitHub Issues, anything else) are accepted in the schema but **untested** — the TLD pipeline calls Linear MCP tools by name and will need some massaging while you use it (manual ticket-status flips, manual `## Order` updates, hand-rolled label workflow, etc.). It's still worth the try if you're already invested in another tracker — most of the framework's value (hard-stop discipline, drift checks, side-quest isolation, the campaign file itself) works regardless of where tickets live. See LIMITATIONS.md and docs/ADAPTERS.md for the full surface a future adapter would need to cover.
 
 **Project name** — free text, non-empty (re-ask if empty). In the prompt, explain that this is both the display name AND the identifier the framework will use to look the project up in the chosen tracker. Examples: for Linear it's the Linear project name (e.g. "Adventure Skills"); for Jira it would be the project key (e.g. "PROJ"); for GitHub Issues it would be the `owner/repo` slug.
 
-**Team** — free text. Label the prompt "Linear team" when tracker=Linear, otherwise "Team / workspace". Blank is allowed.
+**Team** — free text. Label the prompt "Linear team" when tracker=Linear, otherwise "Team / workspace". Blank is technically allowed, but if the user leaves it blank print this warning before moving on:
+
+> ⚠️ **Heads up:** Leaving Team blank will fail `/campaign-validate` (which requires a non-empty Team) and Linear team-existence checks in `/campaign-test`. Recommend filling it in now to avoid an error in the next setup steps.
 
 **Ticket prefix** — free text, non-empty (re-ask if empty). Hint: "The string before the dash in ticket IDs, e.g. `2ND` for tickets like `2ND-199`."
 
@@ -95,7 +97,7 @@ For each of the seven required labels below that is NOT in the existing set, cal
 
 Track how many you created vs. how many already existed. You'll report the counts in step 8.
 
-If a `create_issue_label` call fails partway through the six, keep going for the rest — the step is additive and rerunning `/campaign-init` (or re-running this step manually) will complete the missing ones.
+If a `create_issue_label` call fails partway through the seven, keep going for the rest — the step is additive and rerunning `/campaign-init` (or re-running this step manually) will complete the missing ones.
 
 ### 7. Write the file
 

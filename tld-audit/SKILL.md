@@ -186,15 +186,32 @@ Type **1**, **2**, or **3** to proceed.
 
 **HARD STOP: After outputting the above, you are DONE. Do NOT fix the findings yourself, do NOT invoke `/tld-run-test` or any other skill. Wait for the user to pick an option or type a command.**
 
-**If only MEDIUM/LOW or no findings:**
+**If MEDIUM severity findings exist (no HIGH):**
+
+**What's next?**
+
+> **1.** Fix the MEDIUM findings above, then re-run /tld-audit (Recommended)
+>    Best for: standard flow — medium findings deserve a closer look before shipping
+
+> **2.** /tld-side-quest — address findings in a separate ticket
+>    Best for: findings are real but out of scope for this ticket
+
+> **3.** Acknowledge and proceed to /tld-run-test
+>    Best for: you've reviewed each MEDIUM finding and consciously accept it
+
+Type **1**, **2**, or **3** to proceed.
+
+**HARD STOP: After outputting the above, you are DONE. Do NOT fix the findings yourself, do NOT invoke `/tld-run-test` or any other skill. MEDIUM findings require an explicit acknowledgement — silence is not approval. Wait for the user to pick an option or type a command.**
+
+**If only LOW or no findings:**
 
 **What's next?**
 
 > **1.** /tld-run-test — verify, manual QA, and commit
 >    Best for: everything looks clean, ready to verify
 
-> **2.** /tld-side-quest — handle a quick fix first
->    Best for: medium/low findings worth fixing inline
+> **2.** /tld-side-quest — handle a low-severity fix first
+>    Best for: low-severity findings worth fixing inline
 
 Type **1** or **2** to proceed.
 

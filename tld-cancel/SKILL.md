@@ -88,7 +88,7 @@ Never write to `.tld/campaign.md` at any point — this skill does not touch the
    - The resulting list, in line order, is the ticket sequence.
 3. The `{prefix}` comes from the Ticket prefix field of the campaign file — it is not hardcoded.
 4. Locate the canceled ticket's position in the parsed Order and capture it for the output (e.g., "was position 4 of 7").
-5. Remove the ticket's row from Order, then **renumber** the remaining rows so the list is contiguous (`1.`, `2.`, `3.`, …) starting at 1.
+5. Remove the ticket's row from Order. Linear rewrites Order line numbering on save — no manual renumber needed.
 6. Compose the updated milestone description: keep every other section (Purpose / Scope / Exit Criteria / Dependencies / Risk) byte-identical, replace only the `## Order` block.
 7. Call `save_milestone` with the milestone ID and the rewritten description.
 
@@ -105,7 +105,7 @@ Continue to step 7 anyway — the user still needs the next-step suggestion.
 
 **If a next ticket is found:** set `next_action` = `/tld-setup {next-ticket-ID}`.
 
-**If no Todo ticket remains in this milestone's Order:** set `next_action` = `/tld-gate {milestoneId}`. Note the milestone name — every ticket left in this milestone is already resolved.
+**If no Todo ticket remains in this milestone's Order:** set `next_action` = `/tld-gate {milestoneId}` — substitute the canceled ticket's `projectMilestone.id` so `/tld-gate` runs against the correct milestone (its no-arg fallback can pick the wrong one in Linear histories with re-opened tickets or parallel work). **Never emit the literal text `{milestoneId}` to the user** — substitute the actual id BEFORE rendering. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly. Note the milestone name — every ticket left in this milestone is already resolved.
 
 ### Numbered shortcut recognition
 

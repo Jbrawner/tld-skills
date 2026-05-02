@@ -94,7 +94,9 @@ Cross-reference Linear state + git state:
 - Uncommitted changes AND commit for this ticket exists → detour or side-quest artifacts; suggest `/tld-commit`
 
 **If no ticket is In Progress:**
-- Next up is from the milestone walk (case B above) — needs tld-setup
+- Cross-check first: look up the most recent TLD commit (`git log --oneline -10` filtered for the campaign's commit pattern), resolve that ticket via Linear, and check whether its `projectMilestone` is now fully resolved (every ticket in that milestone's Order is Done or Canceled).
+  - If yes AND there is still an unresolved milestone after it → **milestone just completed** — the user finished the last ticket and `/clear`'d before `/tld-gate`. Needs `/tld-gate` for the just-finished milestone before picking up the next one. Capture that milestone's `id` for the gate option block below.
+  - Otherwise → next up is from the milestone walk (case B above) — needs `/tld-setup`.
 
 **If every ticket in every milestone is resolved:** All done.
 
@@ -126,7 +128,28 @@ Present a compact status summary followed by the right options:
 
 Then present the appropriate "What's next?" options based on the detected phase:
 
-**If ticket is In Progress with uncommitted changes (pending commit):**
+**If ticket is In Progress with uncommitted changes AND a commit for this ticket already exists in `git log` (detour / side-quest artifact):**
+
+---
+
+The current ticket already has a commit, but there are extra uncommitted changes — likely a side-quest detour or manual edit since the commit. `/tld-commit` will re-verify and add a new commit for the pending work.
+
+**What's next?**
+
+> **1.** /tld-commit — re-verify and commit the new changes on top of the existing ticket commit
+>    Best for: detour finished, ready to land the additional pending work
+
+> **2.** /tld-side-quest — handle another quick fix first
+>    Best for: noticed another polish item before resuming the commit flow
+
+> **3.** /tld-dashboard — see where this pending work fits in the plan
+>    Best for: want to check progress before committing or detouring
+
+Type **1**, **2**, or **3** to proceed.
+
+**HARD STOP: After outputting the above, you are DONE. Do NOT invoke `/tld-commit` or any other skill. Wait for the user to pick an option or type a command.**
+
+**If ticket is In Progress with uncommitted changes AND no commit for this ticket exists yet (pending first commit):**
 
 ---
 
@@ -146,20 +169,6 @@ Type **1**, **2**, or **3** to proceed.
 **HARD STOP: After outputting the above, you are DONE. Do NOT invoke `/tld-commit` or any other skill. Wait for the user to pick an option or type a command.**
 
 **If ticket is In Progress with no changes (needs implementation):**
-
-Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recommended)** in the output block.
-
-**Default:** mark `/tld-auto` as Recommended.
-
-**Flip to `/tld-build`** if ANY of these are true:
-- Ticket has a `no-tests` or `build-only` label
-- All files in "Files to Create/Modify" fall under the campaign's `Stack.Landing directory`
-
-**Flip to `/tld-write-tests`** if ANY of these are true:
-- Ticket description or AC mentions any of: `auth`, `RLS`, `migration`, `payment`, `credentials`, `security`
-- "Files to Create/Modify" lists 5 or more files
-
-Evaluate the `/tld-build` flip first. If neither flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard`, `/tld-side-quest`, `/npc-partial`, or `/npc-full` (the NPC variants are intentionally listed last because they skip testing and are rarely the right call for real implementation tickets). Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
 
 ---
 
@@ -200,14 +209,15 @@ Type **1**, **2**, or **3** to proceed.
 
 **HARD STOP: After outputting the above, you are DONE. Do NOT invoke `/tld-setup` or any other skill. Wait for the user to pick an option or type a command.**
 
-**If a milestone is complete and needs a gate check:**
-(A milestone is complete when every ticket in its Order is Done or Canceled.)
+**If a milestone just completed and needs a gate check** (triggered by the cross-check in step 5: most recent commit's ticket is in a milestone that is now fully resolved, and there are still unresolved milestones after it):
+
+Use the milestone `id` captured in step 5's cross-check. Substitute it into the `{milestoneId}` placeholder in option 1 below — `/tld-gate`'s no-arg fallback can pick the wrong milestone in Linear histories with re-opened tickets or parallel work, so the explicit ID matters. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly.
 
 ---
 
 **What's next?**
 
-> **1.** /tld-gate — run milestone boundary validation
+> **1.** /tld-gate {milestoneId} — run milestone boundary validation
 >    Best for: standard flow, validate milestone cleanup
 
 > **2.** /tld-dashboard — see full milestone progress first

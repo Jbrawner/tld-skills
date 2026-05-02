@@ -65,6 +65,8 @@ Run, in order, stopping on first failure:
 1. `git checkout {main}` — fails if there are unmerged conflicts or the branch does not exist locally. On failure, report the git error verbatim and stop.
 2. `git pull --ff-only` — fast-forward only. If the local `{main}` has diverged from `origin/{main}` (shouldn't happen in normal flow, but might if the user committed directly to main), the pull will refuse and you should report: "Local `{main}` has diverged from `origin/{main}`. Resolve manually — this skill does not force or rebase."
 
+Note: this will fast-forward your local `main` branch to the remote tip. If you had any local-only commits on `main` (unusual but possible), they'll still be there — `--ff-only` refuses to lose history.
+
 Capture the number of new commits pulled by diffing `HEAD` against the previous `{main}` tip (e.g., count commits in `{prev-main-sha}..HEAD`).
 
 ### 5. Create the new branch

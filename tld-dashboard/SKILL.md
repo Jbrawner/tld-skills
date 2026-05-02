@@ -166,9 +166,11 @@ Type **1**, **2**, **3**, or **4** to proceed.
 
 **If a milestone is complete and a gate check is needed:**
 
+Before rendering the options block, capture the completed milestone's `id` from the `get_milestone` call made in step 3. Substitute it into the `{milestoneId}` placeholder in option 1 below — `/tld-gate`'s no-arg fallback can pick the wrong milestone in Linear histories with re-opened tickets or parallel work, so the explicit ID matters.
+
 **What's next?**
 
-> **1.** /tld-gate — run milestone boundary validation
+> **1.** /tld-gate {milestoneId} — run milestone boundary validation
 >    Best for: ready to close out the milestone
 
 > **2.** /tld-side-quest — handle cleanup first
@@ -178,9 +180,11 @@ Type **1** or **2** to proceed.
 
 **If all tickets across every milestone are resolved:**
 
+Before rendering the options block, capture the **last** milestone's `id` (the final entry in the `list_milestones` sortOrder walk from step 2). Substitute it into the `{milestoneId}` placeholder in option 1 below — even on a final project gate, passing the explicit ID prevents Mode B fallback from picking a re-opened earlier milestone.
+
 **What's next?**
 
-> **1.** /tld-gate — run a final project gate
+> **1.** /tld-gate {milestoneId} — run a final project gate
 >    Best for: full regression + drift check before launch
 
 > **2.** /tld-ticket — plan follow-up work

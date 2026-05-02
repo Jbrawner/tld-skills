@@ -40,9 +40,25 @@ Do NOT edit a block in a single SKILL.md and leave the others stale. Do NOT intr
 
 ---
 
+## CHANGE_LOG.md scope
+
+`CHANGE_LOG.md` (or whatever path the campaign's `Stack.Changelog path` field points at) is updated by the **TLD code path only**: `/tld-run-test`, `/tld-commit`, and `/tld-auto` each read the configured changelog path and add an entry as part of the commit step.
+
+`/tld-side-quest`, `/npc-partial`, and `/npc-full` deliberately **do not** update the changelog. The reasoning:
+
+- **Side quests** are scope-bounded polish or quick fixes — the squash commit's `side-quest({ticket-id}):` prefix already makes them grep-able, and a changelog entry per side quest would clutter the log with noise.
+- **NPC variants** ship content / docs / copy work where the campaign's test command is `skip`. Doc-only commits typically aren't user-visible behavior changes worth a changelog entry.
+
+**If your repo enforces a CI changelog gate that fires on every commit** (regardless of scope), the side-quest and NPC variants will fail CI on push. Two options:
+
+1. **Add the entry by hand before the commit** — both flows are stoppable. For `/tld-side-quest`, type `2` (describe adjustments) at the QA gate, edit the changelog in the worktree, then approve. For `/npc-partial`, edit the changelog while reviewing the diff at the hard stop, then approve. For `/npc-full`, there's no pause — switch to `/npc-partial` instead.
+2. **Use `/tld-commit` from the worktree / after the build** — `/tld-commit` is the lightweight commit re-entry skill and DOES run the changelog step, so the gate will pass.
+
+This is intentional and is **not** drift across the commit-emitting skills — the exemption is documented for the same reason the writer/reader matrix below is documented: future changes to the framework should preserve the exemption (or amend this paragraph if the rationale changes).
+
 ## Canonical shared blocks
 
-The 10 canonical reusable blocks (6 shared blocks + 4 paste-blocks) have moved to **[STANDARDS.md](STANDARDS.md)**. The rules around editing them (the "no-drift rule" above) still apply — STANDARDS.md is now the source of truth that skill copies must match.
+The 14 canonical reusable blocks (6 shared blocks + 8 paste-blocks) have moved to **[STANDARDS.md](STANDARDS.md)**. The rules around editing them (the "no-drift rule" above) still apply — STANDARDS.md is now the source of truth that skill copies must match.
 
 For the canonical set of approval keywords every gate skill accepts, see [STANDARDS.md § Approval keyword set](STANDARDS.md#approval-keyword-set).
 
@@ -150,15 +166,21 @@ Every TLD and campaign skill falls into exactly one category below. This matrix 
 | Category | Skills | Write target |
 |---|---|---|
 | **Writes `.tld/campaign.md`** | `/campaign-init`, `/campaign-edit` | Local file — creates or edits the four sections |
-| **Writes Linear structure** (milestones, tickets, milestone descriptions) | `/campaign-plan`, `/milestone-create`, `/milestone-sync`, `/tld-ticket` | Linear — creates/modifies milestones and tickets; writes `## Order` sections |
-| **Writes Linear ticket status** (state transitions) | `/tld-setup`, `/tld-next`, `/tld-skip`, `/tld-commit`, `/tld-run-test`, `/tld-side-quest` | Linear — flips ticket status only (Todo ↔ In Progress ↔ Done, plus side-quest branches) |
-| **Read-only** | `/tld-write-tests`, `/tld-build`, `/tld-align`, `/tld-audit`, `/tld-save-point`, `/tld-dashboard`, `/tld-help`, `/tld-gate`, `/campaign-show`, `/campaign-test` | Nothing — queries Linear and/or the campaign file |
-| **Aggregator** (writes indirectly, via sub-skills) | `/tld-auto` | Whatever its sub-skills write; /tld-auto itself writes nothing directly |
+| **Writes Linear structure** (milestones, tickets, milestone descriptions) | `/campaign-plan`, `/milestone-create`, `/milestone-sync`, `/tld-ticket`, `/tld-cancel` | Linear — creates/modifies milestones and tickets; writes `## Order` sections (`/tld-cancel` rewrites the active milestone's `## Order` to remove the canceled ticket) |
+| **Writes Linear ticket status** (state transitions) | `/tld-setup`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-commit`, `/tld-run-test`, `/tld-side-quest` | Linear — flips ticket status (Todo ↔ In Progress ↔ Done ↔ Canceled, plus side-quest branches). `/tld-cancel` appears here AND in "Writes Linear structure" because it does both. |
+| **Read-only** | `/tld-write-tests`, `/tld-build`, `/tld-align`, `/tld-audit`, `/tld-save-point`, `/tld-dashboard`, `/tld-help`, `/tld-gate`, `/campaign-show`, `/campaign-test`, `/campaign-validate` | Nothing — queries Linear and/or the campaign file |
+| **Local-git only** (no Linear, no campaign.md) | `/tld-recenter` | Local git — creates a fresh branch off `main`; refuses if working tree is dirty |
+| **Aggregator** (writes indirectly, via sub-skills) | `/tld-auto`, `/npc-partial`, `/npc-full` | Whatever sub-skills write; the aggregator itself writes nothing directly. NPC variants chain `/tld-build` → commit → `/tld-next`. |
+| **Writes external repo** (PR against the skills repo) | `/tld-experience` | `Jbrawner/tld-skills` — pushes a branch and opens a PR with a new SKILL.md. Does not touch the current repo's Linear or campaign.md. |
 | **Deletes only** | `/campaign-remove` | Local file — removes `.tld/campaign.md` |
 
 `/tld-gate` is read-only because ticket statuses are set by `/tld-next` before the gate runs; the gate verifies but does not transition.
 
 `/tld-run-test` appears under "Writes ticket status" because its QA gate optionally marks the current ticket Done on approval. If the user declines at that gate, the skill writes nothing.
+
+`/tld-cancel` is the only skill that crosses two write categories: it flips a ticket to Canceled (status) AND rewrites the milestone's `## Order` to remove the canceled ID (structure). Both transitions happen atomically in the same run.
+
+`/tld-recenter` is the only TLD skill that does NOT embed the canonical "Load project config" block. It operates purely on git state (`git status`, `git checkout`, `git pull --ff-only`, `git checkout -b`) and intentionally does not read `.tld/campaign.md` — there is no project config it needs. Every other skill in this matrix loads the campaign first.
 
 ### Error handling: Linear unreachable
 

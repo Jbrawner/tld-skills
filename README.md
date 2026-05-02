@@ -20,6 +20,27 @@ A set of Claude Code skills for **Test-Led Development (TLD)**. Drives a project
 
 ---
 
+## Two flows: TLD and NPC
+
+The framework ships with two parallel flows. Same ticket model, same hard stops, same Linear tracker — different verification.
+
+| | **TLD (core)** | **NPC ("no preview check")** |
+|---|---|---|
+| **Pipeline** | red → review → green → verify → commit | build → (optional QA pause) → commit |
+| **Tests** | mandatory; tests ARE the spec | none — explicitly skipped |
+| **Drift check** | yes — diff vs ticket AC | none |
+| **Best for** | features, bug fixes, anything that touches behavior | content edits, doc updates, copy changes, README tweaks |
+| **Trigger condition** | `Test Commands.Backend ≠ skip` AND ticket scope touches code | `Test Commands.Backend = skip` AND scope is content/docs only |
+| **Skills** | `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-auto`, `/tld-align` | `/npc-partial`, `/npc-full` |
+
+**TLD is the core.** Hard stops, drift detection, and tests-as-spec are the central guardrails — use TLD for any change with functional impact.
+
+**NPC has its place.** A typo fix in a marketing page or a README clarification doesn't benefit from a red phase (there's no behavior to test) and dragging it through one wastes time. NPC trades the test-as-spec guarantee for speed on content-shaped work. The diff is the spec; manual review is the verification.
+
+When in doubt, default to TLD. NPC should fire when the campaign's test command is literally `skip` AND the change is text/docs. Anything else — even something that "feels small" — belongs in TLD.
+
+---
+
 ## Install
 
 Two paths. Pick one.
@@ -87,7 +108,7 @@ The flow has four steps:
 /campaign-init
 ```
 
-Creates `.tld/campaign.md` at the repo root with the four required sections (Project, Test Commands, Stack, Commit format) and bootstraps the six required Linear workspace labels (`effort:low`, `effort:medium`, `effort:high`, `model:opus`, `model:sonnet`, `model:haiku`). It will ask you which Linear team and project to point at, what command runs your tests, and where your stack lives.
+Creates `.tld/campaign.md` at the repo root with the four required sections (Project, Test Commands, Stack, Commit format) and bootstraps the seven required Linear workspace labels (`effort:low`, `effort:medium`, `effort:high`, `model:opus`, `model:sonnet`, `model:haiku`, `side-quest`). It will ask you which Linear team and project to point at, what command runs your tests, and where your stack lives.
 
 ### 2. Verify Linear connectivity
 
@@ -95,7 +116,7 @@ Creates `.tld/campaign.md` at the repo root with the four required sections (Pro
 /campaign-test
 ```
 
-Pre-flight check. Verifies the campaign file is well-formed, that the Linear team and project actually exist, that your ticket prefix matches the Linear team, and that all six required labels are present. Read-mostly; the only write path is creating any missing labels, and only after you say yes.
+Pre-flight check. Verifies the campaign file is well-formed, that the Linear team and project actually exist, that your ticket prefix matches the Linear team, and that all seven required labels are present. Read-mostly; the only write path is creating any missing labels, and only after you say yes.
 
 ### 3. Create or sync milestone structure
 
@@ -201,7 +222,7 @@ For the full list, see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker a
 |---|---|
 | [LIMITATIONS.md](LIMITATIONS.md) | Known constraints — Linear-only, Vitest/Jest assumed, Supabase local DB assumed |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Test-led philosophy, hard-stop rules, the no-drift rule, and the full Campaign File + Linear Milestone contract (campaign schema, milestone description schema, the `## Order` parser algorithm, and the writer/reader matrix) |
-| [STANDARDS.md](STANDARDS.md) | Canonical text of the 10 reusable shared blocks that appear verbatim across multiple skills (the source of truth for `scripts/verify-block-alignment.py`) |
+| [STANDARDS.md](STANDARDS.md) | Canonical text of the 14 reusable shared blocks (6 shared + 8 paste-blocks) that appear verbatim across multiple skills (the source of truth for `scripts/verify-block-alignment.py`) |
 | [CHANGELOG.md](CHANGELOG.md) | Release history — what's added, changed, and removed |
 | [RELEASING.md](RELEASING.md) | How to cut a new release — the 4-step procedure, what the workflow automates, recovery if it fails, and PAT rotation |
 | [docs/ADAPTERS.md](docs/ADAPTERS.md) | Issue tracker adapter interface — every MCP call the TLD skills make, parameters and response fields, and edge cases (auto-linking, rate limits) for future Jira / GitHub Issues adapter authors |

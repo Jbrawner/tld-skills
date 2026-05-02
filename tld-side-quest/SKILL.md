@@ -187,17 +187,30 @@ This is the hard gate. Do nothing until the user responds.
 
 ### 6. Commit and close
 
-Only after explicit user approval:
+Only after explicit user approval. Run these steps in order; do not skip or reorder.
 
-- From the worktree, stage only the relevant files: `git add [specific files]`
-- Build the commit message from campaign `Commit format.Pattern` (e.g., `feat(PREFIX-XXX): title`), substituting the ticket ID and title. Append ` — side quest` to the title. Choose the commit type based on the work: `fix()` for bug fixes, `chore()` for polish/cleanup, `feat()` for small features — override the pattern's type when the default doesn't fit.
-- Append the `Co-author` trailer from campaign `Commit format.Co-author` (via HEREDOC, preserving the full `Co-Authored-By:` line).
-- Merge the worktree branch back into the working branch using **squash-merge**:
-  1. From the working branch root (NOT the worktree), run `git merge --squash <worktree-branch>`.
-  2. If the merge reports a conflict: **HARD STOP**. Do NOT auto-resolve. Print the conflicted files (`git status` output is fine), leave the merge in progress, and tell the user to resolve manually. After they resolve, they re-run the next step.
-  3. Run `git commit -m "side-quest(<ticket-id>): <one-line summary>"` (using the same `Co-author` trailer).
-- Clean up the worktree
-- Mark the ticket **Done** in Linear via `save_issue`
+**Step 6.1 — Capture context.** Note the working branch name (where the user was when /tld-side-quest fired) and the worktree branch name. Capture them as `{working-branch}` and `{worktree-branch}` for the rest of this step.
+
+**Step 6.2 — Commit inside the worktree.** From the worktree directory:
+1. `cd <worktree-path>` (or use git's `-C <worktree-path>` flag for each call).
+2. Stage only the relevant files: `git add [specific files]` — never `git add -A` or `git add .`.
+3. Build the commit subject from campaign `Commit format.Pattern` (e.g., `feat(PREFIX-XXX): title`), substituting the ticket ID and title. Append ` — side quest` to the title. Choose the commit type based on the work: `fix()` for bug fixes, `chore()` for polish/cleanup, `feat()` for small features — override the pattern's type when the default doesn't fit.
+4. Run `git commit` with that subject and the campaign's `Co-author` trailer (via HEREDOC, preserving the full `Co-Authored-By:` line).
+5. Verify the commit landed inside the worktree with `git log -1 --oneline`. The squash-merge in 6.3 needs committed history on the worktree branch — staged-but-uncommitted changes will not transfer.
+
+**Step 6.3 — Squash-merge into the working branch.** From the working branch root (NOT the worktree):
+1. `cd <working-branch-root>` (the original repo path, where the user was when the side quest started).
+2. Confirm you are on `{working-branch}` via `git rev-parse --abbrev-ref HEAD`. If not, switch: `git checkout {working-branch}`.
+3. Run `git merge --squash {worktree-branch}`.
+4. **If the merge reports a conflict: HARD STOP.** Do NOT auto-resolve. Print the conflicted files (`git status` output is fine), leave the merge in progress, and tell the user to resolve manually. After they resolve, they re-run step 6.4 themselves.
+
+**Step 6.4 — Land the squash commit.** Still on the working branch:
+1. `git commit -m "side-quest(<ticket-id>): <one-line summary>"` using the same `Co-author` trailer from step 6.2.
+2. Verify the commit landed with `git log -1 --oneline`.
+
+**Step 6.5 — Clean up the worktree.** Run `git worktree remove <worktree-path>`. Optionally delete the worktree branch with `git branch -D {worktree-branch}` if you do not want it kept around for reference.
+
+**Step 6.6 — Mark the ticket Done.** Call `save_issue` to set the ticket's state to "Done" in Linear.
 
 **Why squash-merge?** Squash collapses every commit on the side-quest branch into a single revertable commit on the working branch. The mandatory `side-quest(<ticket-id>):` prefix makes side quests grep-able later. Hard-stopping on conflicts prevents the agent from silently mis-resolving a merge — the user sees the conflict and decides.
 

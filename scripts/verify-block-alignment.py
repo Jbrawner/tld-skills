@@ -50,12 +50,24 @@ BLOCKS: list[tuple[str, str]] = [
         "**Case B — zero In-Progress tickets:** Stop and output:\n  \"No In-Progress ticket found. Run /tld-setup to pick one up.\"",
     ),
     (
+        "Require current ticket (strict, cancel variant)",
+        "Run /tld-setup to pick one up, or pass a specific ticket ID to cancel.",
+    ),
+    (
         "Local DB safety check",
         "local-DB safety check",
     ),
     (
+        "Flow selection (TLD vs NPC)",
+        "**Classify the ticket as TLD or NPC before rendering the options block.**",
+    ),
+    (
         "Author Order block",
         "Linear will rewrite each line to ",
+    ),
+    (
+        "Required workspace labels (Linear)",
+        "| `model:sonnet` | `#5E6AD2` |",
     ),
 ]
 
@@ -206,6 +218,13 @@ def main() -> int:
 
     print("Canonical block alignment verification")
     print("=" * 50)
+    print(
+        f"  ({len(skill_files)} SKILL.md files scanned. "
+        "tld-next is the legitimate exception for 'Numbered shortcut "
+        "recognition' — it uses its own per-option block by design "
+        "per STANDARDS.md, so a count of N-1 is expected.)"
+    )
+    print()
     for line in summary:
         print(line)
     print()

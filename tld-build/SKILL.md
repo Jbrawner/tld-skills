@@ -59,7 +59,32 @@ If the chosen command is empty, fall back to the Full command.
 If the Full command is also empty, stop and output:
   "No test command defined in .tld/campaign.md Test Commands. Run /campaign-edit to set one."
 
-Use the resolved command for any test run in this skill. Do not invent commands or read any playbook file.
+Use the resolved command for any test run in this skill. Do not invent commands.
+
+### 1c. Local DB safety check
+
+**Run the local-DB safety check before any test command or destructive database operation.**
+
+Read `Stack.Database` from `.tld/campaign.md` — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
+
+Verify the live database connection also points at local:
+1. Scan the repo for database URL references (Supabase config, `.env*`, `SUPABASE_URL`, `DATABASE_URL`, or equivalent for this project's stack).
+2. If any reference names a non-local host (anything that is not `127.0.0.1` or `localhost`), **HARD ABORT immediately**:
+
+```
+🛑 ABORT: Non-local database detected.
+
+Found: [the URL/host that's not local]
+Location: [where you found it]
+Campaign Stack.Database: [value from campaign.md]
+
+This skill runs tests or destructive operations against the database.
+Refusing to proceed against a non-local database.
+
+Fix: Ensure the configured database URL points at local (matches Stack.Database).
+```
+
+Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
 
 ### 2. Read the tests
 
@@ -125,7 +150,40 @@ Report:
 - Any warnings from the test run
 - This skill does NOT commit. The commit happens when `/tld-run-test` passes.
 
-Then present the options block:
+Then present the options block.
+
+**Pick the (Recommended) marker before rendering:**
+
+Read `.tld/campaign.md` for `Stack.Backend directory` (and treat any path containing "supabase/", "migrations/", or "api/" as backend-side too). Compute the touched-files set from `git diff --name-only` + `git diff --cached --name-only`.
+
+- **Mark `/tld-audit` as (Recommended)** if ANY of the following is true:
+  - At least one touched file is under `Stack.Backend directory`.
+  - At least one touched file path contains `migrations/`, `supabase/`, `api/`, `auth/`, or `rls/` (case-insensitive).
+  - The ticket description or AC mentions any of: `endpoint`, `route`, `RLS`, `policy`, `migration`, `auth`, `permission`, `secret`, `credentials`.
+- **Otherwise, mark `/tld-run-test` as (Recommended)** — frontend-only / docs-only / landing-only changes rarely benefit from the audit pass and the verify gate is the right next step.
+
+Only one option gets the `(Recommended)` marker. Resolve the marker BEFORE rendering — substitute the literal string ` (Recommended)` into the chosen option's title and substitute an empty string into the other option's title. Never emit the literal `{run-test-marker}` or `{audit-marker}` to the user. If for any reason you cannot determine which option to mark, omit both markers (render neither as Recommended) rather than leak a placeholder.
+
+Render whichever variant matches:
+
+**If `/tld-audit` is recommended:**
+
+---
+
+**What's next?**
+
+> **1.** /tld-run-test — verify, QA, commit on approval
+>    Best for: implementation done, ready for the gate
+
+> **2.** /tld-audit — security and architecture review first (Recommended)
+>    Best for: new endpoints, tables, auth changes, or data handling
+
+> **3.** /tld-side-quest — quick fix first
+>    Best for: noticed an adjacent issue to handle
+
+Type **1**, **2**, or **3** to proceed.
+
+**If `/tld-run-test` is recommended:**
 
 ---
 

@@ -52,18 +52,45 @@ Determine the affected directory scope:
 2. Classify the scope against campaign Stack paths:
    - All affected paths under `Stack.Backend directory` → backend-only.
    - All affected paths under `Stack.Frontend directory` → frontend-only.
+   - All affected paths under `Stack.Landing directory` → landing-only.
    - Mixed, neither, or empty → both/unsure.
 
 Pick the command from campaign Test Commands:
   - backend-only → Backend command.
   - frontend-only → Frontend command.
+  - landing-only → Landing command.
   - both/unsure → Full command.
 
 If the chosen command is empty, fall back to the Full command.
 If the Full command is also empty, stop and output:
   "No test command defined in .tld/campaign.md Test Commands. Run /campaign-edit to set one."
 
-Use the resolved command for any test run in this skill. Do not invent commands or read any playbook file.
+Use the resolved command for any test run in this skill. Do not invent commands.
+
+#### 1.3a Local DB safety check
+
+**Run the local-DB safety check before any test command or destructive database operation.**
+
+Read `Stack.Database` from `.tld/campaign.md` — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
+
+Verify the live database connection also points at local:
+1. Scan the repo for database URL references (Supabase config, `.env*`, `SUPABASE_URL`, `DATABASE_URL`, or equivalent for this project's stack).
+2. If any reference names a non-local host (anything that is not `127.0.0.1` or `localhost`), **HARD ABORT immediately**:
+
+```
+🛑 ABORT: Non-local database detected.
+
+Found: [the URL/host that's not local]
+Location: [where you found it]
+Campaign Stack.Database: [value from campaign.md]
+
+This skill runs tests or destructive operations against the database.
+Refusing to proceed against a non-local database.
+
+Fix: Ensure the configured database URL points at local (matches Stack.Database).
+```
+
+Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
 
 #### 1.4 Manual-QA classification (setup-time)
 
@@ -172,7 +199,7 @@ Write the implementation code to make all tests pass:
 
 Run the resolved test command from §1.3. All tests should pass.
 
-**If some tests fail:** Read the failure output. Fix the implementation (NOT the tests). Run again. Repeat until green. **Hard cap: 3 attempts** (inherited from /tld-build per 2ND-218).
+**If some tests fail:** Read the failure output. Fix the implementation (NOT the tests). Run again. Repeat until green. **Hard cap: 3 attempts**.
 
 **If tests still fail after the 3rd attempt, STOP.** Do NOT silently proceed to audit, drift, or commit. Report the failures inline, then present:
 
@@ -280,6 +307,20 @@ Read the `Changelog path` from `.tld/campaign.md`'s Stack section. If the value 
 
 ### Phase 4: Manual QA Gate + Commit + Transition
 
+#### 4.0 Manual-QA classification (verify-time)
+
+Re-classify the active ticket now that build is done. This catches the case where §1.4 classified the ticket as "code" but the build produced no changes (e.g., the implementation turned out to be a no-op or the spec was already satisfied), in which case Phase 4 should run the manual-walkthrough flow instead of the commit flow.
+
+**Manual-QA ticket** — classify as this if ANY of:
+- Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end", "manual verification"
+- "Files to Create/Modify" is "None", empty, or missing from the ticket
+- All AC items describe user actions (e.g., "Navigate to...", "Click...", "Verify that...", "Run seed then check...")
+- `git diff` and `git diff --cached` show no uncommitted changes
+
+**Code ticket** — everything else (the default).
+
+If the verify-time classification flips the ticket to manual-QA (most commonly because the build was a no-op), follow the same skip path as §1.4: jump to the manual walkthrough + Done flow at the end of Phase 4 and do not run the commit step. If the classification stays "code", proceed to 4.1 normally.
+
 #### 4.1 Generate manual test plan
 
 Before committing, present a manual QA checklist for the user. Analyze the ticket's acceptance criteria and the implementation to produce a test plan written as if for a manual QA tester who has never seen the code. **Use a table format for scannability — no walls of text.**
@@ -306,23 +347,8 @@ The test plan format:
 ```
 
 **Table formatting rules:**
-- **Run column:** Reference commands by number (e.g., "Cmd 1" or "Cmd 1, then 2"). The actual commands go in the Commands section below.
+- **Run column:** Show the exact command, URL, or action inline, wrapped in backticks (e.g., `` `curl http://127.0.0.1:54321/functions/v1/foo` ``). Keep it to one line — if the command is too long for a table cell, shorten the variable parts (e.g., `psql ... -f seed-X.sql`) and put the full command in a follow-up Commands section below. Inline is the default; the Commands section is only for commands too long to fit cleanly.
 - **Pass if column:** Keep it to one short sentence. Be specific — not "works correctly" but "returns 16 rows with country names".
-- **Commands section:** ALWAYS put commands in a numbered section below the table. Each command gets its own fenced code block (```sh) so the user can single-click copy. Format:
-  ```
-  ### Commands
-
-  **1.** Run the scenario seed script
-  ```sh
-  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f backend/supabase/seed-[your-scenario].sql
-  ```
-
-  **2.** Check dates are in future
-  ```sh
-  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -At -c "SELECT ..."
-  ```
-  ```
-- **One command per code block.** Never put multiple commands in the same block. Each block = one click to copy.
 
 Guidelines for the test plan:
 - **Be concrete.** Give exact URLs, curl commands, or UI paths. No "verify the endpoint works" — say `curl http://127.0.0.1:54321/functions/v1/[your-endpoint]` and what the response should contain.
@@ -381,7 +407,7 @@ Use `save_issue` to set the ticket's state to "Done" in Linear.
 
 #### 4.5 Determine what's next
 
-Do NOT read any playbook file. Runtime state lives in Linear. From the current ticket's `projectMilestone` (captured in §1.2):
+Runtime state lives in Linear. From the current ticket's `projectMilestone` (captured in §1.2):
 
 1. Call `get_milestone` on that milestone's ID.
 2. Parse the `## Order` section using the canonical unanchored algorithm:
@@ -393,7 +419,7 @@ Do NOT read any playbook file. Runtime state lives in Linear. From the current t
 Walk the Order from the current ticket's position forward. For each subsequent entry, look up its status via Linear. **Pick the first ticket whose status is `Todo`.** Skip `Done`, `Canceled`, and `In Progress` — those are not next-up candidates.
 
 - **Next Todo ticket found** → next action is `/tld-setup {next-id}`.
-- **No next Todo in this milestone's Order** (every subsequent entry is Done, Canceled, or In Progress) → next action is `/tld-gate` (milestone boundary gate).
+- **No next Todo in this milestone's Order** (every subsequent entry is Done, Canceled, or In Progress) → next action is `/tld-gate {milestoneId}` — substitute the captured `projectMilestone.id` from §1.2 so `/tld-gate` runs against the correct milestone (its no-arg fallback can pick the wrong one in Linear histories with re-opened tickets or parallel work). Never emit the literal text `{milestoneId}`. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly.
 - **Order section malformed or missing** → stop and output the same error `/tld-setup` uses: "Milestone's Order section is missing or malformed. Run /milestone-sync to regenerate." Do not attempt to guess.
 
 ### Numbered shortcut recognition
@@ -435,7 +461,7 @@ Then present the options. Use Phase 4.5's milestone-Order walk: if the next acti
 /tld-setup [next-ticket-ID]
 ```
 
-*(If no next Todo remains in the milestone's Order, use `/tld-gate` as the command instead.)*
+*(If no next Todo remains in the milestone's Order, use `/tld-gate {milestoneId}` as the command instead — substitute the milestone id captured in §1.2; never emit the literal `{milestoneId}`. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly.)*
 
 > **2.** /tld-dashboard — review overall progress first
 >    Best for: want the big picture before deciding

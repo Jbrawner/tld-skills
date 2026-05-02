@@ -95,11 +95,13 @@ Determine the affected directory scope:
 2. Classify the scope against campaign Stack paths:
    - All affected paths under `Stack.Backend directory` → backend-only.
    - All affected paths under `Stack.Frontend directory` → frontend-only.
+   - All affected paths under `Stack.Landing directory` → landing-only.
    - Mixed, neither, or empty → both/unsure.
 
 Pick the command from campaign Test Commands:
   - backend-only → Backend command.
   - frontend-only → Frontend command.
+  - landing-only → Landing command.
   - both/unsure → Full command.
 
 If the chosen command is empty, fall back to the Full command.
@@ -204,6 +206,7 @@ Before presenting options, check if this was the last ticket in its milestone:
 3. Use `list_issues` to query Linear for each ticket's status
 4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
 5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
+6. When appending option 4, substitute the milestone's actual `id` into the `{milestoneId}` placeholder BEFORE rendering — never emit the literal text `{milestoneId}` to the user. If you cannot capture the id (e.g., the `get_milestone` call failed), do NOT render option 4; fall back to the 3-option block.
 
 Then present the options:
 
@@ -220,8 +223,8 @@ Then present the options:
 > **3.** /tld-dashboard — review progress before deciding
 >    Best for: want to see where this ticket lands in the overall plan
 
-> **4.** /tld-gate — run milestone-boundary gate now
+> **4.** /tld-gate {milestoneId} — run milestone-boundary gate now
 >    Best for: this was the last ticket in the milestone; ready for milestone validation
->    *(only shown when every ticket in the current milestone is Done or Canceled)*
+>    *(only shown when every ticket in the current milestone is Done or Canceled; substitute the milestone's actual `id`)*
 
 Type **1**, **2**, **3**, or **4** to proceed.

@@ -14,7 +14,7 @@ The user may provide:
 - A specific ticket ID (e.g., `2ND-149`) — Mode A: use that ticket directly
 - Nothing — Mode B: find the next ticket automatically from Linear milestones
 
-Structure and order come from Linear. Local project config comes from `.tld/campaign.md`. There is no playbook file.
+Structure and order come from Linear. Local project config comes from `.tld/campaign.md`.
 
 ## Process
 
@@ -128,10 +128,12 @@ Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recom
 - All files in "Files to Create/Modify" fall under the campaign's `Stack.Landing directory`
 
 **Flip to `/tld-write-tests`** if ANY of these are true:
-- Ticket description or AC mentions any of: `auth`, `RLS`, `migration`, `payment`, `credentials`, `security`
+- Ticket description or AC mentions any of: `endpoint`, `route`, `RLS`, `policy`, `migration`, `auth`, `permission`, `secret`, `credentials`
 - "Files to Create/Modify" lists 5 or more files
 
-Evaluate the `/tld-build` flip first. If neither flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard`, `/tld-side-quest`, `/npc-partial`, or `/npc-full` (the NPC variants are intentionally listed last because they skip testing and are rarely the right call for real implementation tickets). Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
+Evaluate `/tld-build` first, then `/tld-write-tests`. If no flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard`, `/tld-side-quest`, `/npc-partial`, or `/npc-full` **in the TLD-ticket options block** — the NPC variants are intentionally listed last there because they skip testing and are rarely the right call for real implementation tickets. (The NPC-ticket options block does intentionally mark `/npc-partial` as Recommended — see "Flow selection (TLD vs NPC)" below; that is not a contradiction with this rule, it is the NPC-ticket case being handled separately.) Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
+
+`/tld-audit` is recommended at build-time (see `/tld-build`'s post-implementation hint), not at setup-time — it only has signal once a diff exists. Do not include it as a setup-time flip target.
 
 ### Numbered shortcut recognition
 
@@ -187,9 +189,23 @@ Then tell the user:
     7. Any other combination (including a ticket with only one of the two labels that doesn't match a rule above) → omit the hint line entirely.
     Skip the hint line entirely if neither label is present (the recommendation line itself is already omitted in that case).
 
-Then present the options block based on the ticket type classification from step 8.
+### Canonical paste-block: Flow selection (TLD vs NPC)
 
-**If ticket is a CODE ticket, present:** (apply the `(Recommended)` marker from step 9 to option 1 OR option 2, never both)
+**Classify the ticket as TLD or NPC before rendering the options block.**
+
+Read `.tld/campaign.md` for `Test Commands.Backend` (the canonical signal).
+
+**NPC ticket** — classify as this if BOTH:
+1. `Test Commands.Backend` is the literal string `skip` (case-insensitive).
+2. The ticket scope is content/docs only — no files in `Stack.Backend directory`, `Stack.Frontend directory`, or paths matching `migrations/`, `supabase/`, `api/`, `auth/`, `rls/`. "Files to Create/Modify" lists only `.md`, `.mdx`, `.txt`, `.json` content files, README updates, or files under a marketing/landing surface.
+
+**TLD ticket** — everything else (the default).
+
+When the classification is NPC, render the options block with `/npc-partial` and `/npc-full` as positions 1 and 2 (recommended); demote `/tld-auto` and `/tld-build` to lower positions. When the classification is TLD, keep the standard ordering with NPC variants listed last.
+
+Then present the options block based on the ticket type classification from step 8 AND the TLD/NPC flow-selection above.
+
+**If ticket is a CODE ticket AND classification is TLD, present:** (apply the `(Recommended)` marker from step 9 to exactly one of options 1, 2, or 3 — never more than one)
 
 ---
 
@@ -214,14 +230,37 @@ Then present the options block based on the ticket type classification from step
 >    Best for: noticed something else before starting this ticket
 
 > **6.** /npc-partial — build → diff-review pause → commit → next, skipping tests
->    Best for: doc/content tickets where Test Commands are `skip` and you want one QA pause
->    ⚠️ Rarely the right call for real implementation tickets — prefer 1, 2, or 3.
+>    Best for: Small text change, things that have no functionality impact
+>    Rarely the right call for real implementation tickets — prefer 1, 2, or 3.
 
 > **7.** /npc-full — build → commit → next, no pauses, skipping tests
->    Best for: doc/content tickets where Test Commands are `skip` and you trust the build
->    ⚠️ Rarely the right call for real implementation tickets — prefer 1, 2, or 3.
+>    Best for: Small text change, things that have no functionality impact
+>    Rarely the right call for real implementation tickets — prefer 1, 2, or 3.
 
 Type **1**, **2**, **3**, **4**, **5**, **6**, or **7** to proceed.
+
+**If ticket is a CODE ticket AND classification is NPC, present:**
+
+---
+
+**What's next?**
+
+> **1.** /npc-partial — build → diff-review pause → commit → next, skipping tests (Recommended)
+>    Best for: Small text change, things that have no functionality impact
+
+> **2.** /npc-full — build → commit → next, no pauses, skipping tests
+>    Best for: Small text change, things that have no functionality impact, you trust the build
+
+> **3.** /tld-build — build directly, then verify manually
+>    Best for: NPC scope but you want a closer look before committing
+
+> **4.** /tld-dashboard — review progress before diving in
+>    Best for: want the big picture before starting this ticket
+
+> **5.** /tld-side-quest — handle a quick fix first
+>    Best for: noticed something else before starting this ticket
+
+Type **1**, **2**, **3**, **4**, or **5** to proceed.
 
 **If ticket is a MANUAL-QA ticket, present:**
 
@@ -244,12 +283,12 @@ Type **1**, **2**, **3**, **4**, **5**, **6**, or **7** to proceed.
 >    Best for: noticed polish worth handling before starting the walkthrough
 
 > **5.** /npc-partial — build → diff-review pause → commit → next, skipping tests
->    Best for: doc/content tickets where Test Commands are `skip` and you want one QA pause
->    ⚠️ Rarely the right call for manual-QA tickets — prefer 1 or 2.
+>    Best for: Small text change, things that have no functionality impact
+>    Rarely the right call for manual-QA tickets — prefer 1 or 2.
 
 > **6.** /npc-full — build → commit → next, no pauses, skipping tests
->    Best for: doc/content tickets where Test Commands are `skip` and you trust the build
->    ⚠️ Rarely the right call for manual-QA tickets — prefer 1 or 2.
+>    Best for: Small text change, things that have no functionality impact
+>    Rarely the right call for manual-QA tickets — prefer 1 or 2.
 
 Type **1**, **2**, **3**, **4**, **5**, or **6** to proceed.
 
