@@ -107,7 +107,7 @@ Capture full output.
 Walk the tickets in the milestone's Order and look across their combined changes for consistency:
 
 **Database consistency (if any ticket in Order touched migrations):**
-- Run the stack's migration reset (for Supabase: `supabase db reset`) to verify all migrations apply cleanly in sequence.
+- Run the stack's local-DB reset command (read `Stack.Database` from `.tld/campaign.md` to identify the database, then run the appropriate reset — for Supabase that's `supabase db reset`; for plain Postgres it might be `dropdb && createdb && psql -f schema.sql`; for SQLite it might be `rm db.sqlite && npm run migrate`) to verify all migrations apply cleanly in sequence.
 - Check that tables, columns, constraints, and indexes match what tickets specified.
 - Verify RLS policies are in place for any new tables.
 

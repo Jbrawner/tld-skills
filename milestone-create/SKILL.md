@@ -156,7 +156,9 @@ After the loop, you have an ordered list of ticket identifiers for this mileston
 
 ### 8. Update the milestone's Order section
 
-Build the Order block:
+Use the canonical embed below (byte-identical with STANDARDS.md § Author Order block):
+
+**Build the Order block:**
 
 ```markdown
 ## Order
@@ -165,11 +167,9 @@ Build the Order block:
 3. ...
 ```
 
-Compose the new milestone description by replacing the placeholder `## Order` block from step 6 with the populated block. Leave the other five sections (Purpose / Scope / Exit Criteria / Dependencies / Risk) unchanged.
+Write the plain `1. {prefix}-XXX` form. Linear will rewrite each line to `1. [{prefix}-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms.
 
-Call `save_milestone` with the milestone ID from step 6 and the new description.
-
-Write the plain `1. {prefix}-XXX` form. Linear will rewrite each line to `1. [{prefix}-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms. See STANDARDS.md "Order-section parser" for the algorithm reader skills use.
+Compose the new milestone description by replacing the placeholder `## Order` block from step 6 with the populated block. Leave the other five sections (Purpose / Scope / Exit Criteria / Dependencies / Risk) unchanged. Call `save_milestone` with the milestone ID from step 6 and the new description.
 
 ### 9. Final output
 

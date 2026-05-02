@@ -111,7 +111,7 @@ For any other `save_issue` failure, report the error and stop — do not retry a
 - `path/to/similar-test.test.ts` — [why: test structure to follow]
 
 ## Test Command
-`[exact command from playbook step, or standard for this area]`
+`[exact command from .tld/campaign.md Test Commands section — Backend, Frontend, Landing, or Full]`
 
 ## Notes
 [Any gotchas, decisions, or context that isn't obvious from the AC]
@@ -203,7 +203,7 @@ These apply to ALL ticket types:
 
 1. **Every AC item must be testable.** If you can't write a test for it, rewrite it until you can. "Looks good" is not an AC item. "Button has 12px padding and #2563EB background" is.
 
-2. **Files to Create/Modify is mandatory.** The TLD pipeline uses this for scope control and drift checking. If you're not sure what files are involved, investigate before creating the ticket.
+2. **Files to Create/Modify is mandatory.** The TLD pipeline reads this field as a contract surface in three places: `/tld-setup`'s Manual-QA classification (an empty/missing list is one of the signals that flips a ticket to manual-QA mode), `/tld-setup`'s Recommendation hint (path prefixes decide whether `/tld-audit`, `/tld-build`, or `/tld-write-tests` gets the (Recommended) marker), and `/tld-run-test`'s drift check (compares the diff's file set against this list). If the field is missing or wrong, those three skills silently misclassify. If you're not sure what files are involved, investigate before creating the ticket — list each file with one path per bullet, prefixed with the campaign's `Stack.Backend directory` / `Stack.Frontend directory` / `Stack.Landing directory` as appropriate so the path-based rules can match.
 
 3. **Pattern References are mandatory.** There is always an existing file that does something similar. Find it. This is how the pipeline maintains code consistency.
 
@@ -228,7 +228,6 @@ After creating the ticket, confirm:
 
 **Type:** [Feature / Bug / QA / Polish]
 **Title:** [title]
-**Priority:** [priority]
 ```
 
 Then present options:

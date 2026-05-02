@@ -27,10 +27,12 @@ Query Linear for issues in the configured project with status = "In Progress".
 
 **Case A — exactly one In-Progress ticket:** That's the current ticket. Load via `get_issue` for `projectMilestone` and full context.
 
-**Case B — zero In-Progress tickets:** Fall back to context:
-1. Check the most recent conversation history for a `/tld-setup` output or ticket reference.
-2. Check the most recent git commit message for a ticket ID (format: `feat({prefix}-XXX): ...`).
-3. If still ambiguous, ask the user which ticket was just completed.
+**Case B — zero In-Progress tickets:** Suggest a candidate but **always confirm with the user before proceeding** — fall-back inference can pick the wrong ticket and `/tld-next` writes Done to Linear.
+1. Check the most recent conversation history for a `/tld-setup` output or ticket reference. Capture the candidate ticket ID.
+2. If conversation has no candidate, check the most recent git commit message for a ticket ID (format: `feat({prefix}-XXX): ...`). Capture that as the candidate.
+3. **Confirm via `AskUserQuestion`** — present the candidate ID + title (loaded via `get_issue`) as the default option, plus an "It's a different ticket" escape and a "Cancel — let me run /tld-setup first" escape. Default = the inferred candidate but require an explicit selection. Do NOT auto-proceed on silence. Question text: "No In-Progress ticket found. I think you just committed `{candidate ID}` — `{title}`. Confirm before I mark it Done?"
+4. If the user picks the escape ("different ticket"), call `AskUserQuestion` again with the most recent five Done-or-Todo tickets in this project as options + free-text fallback.
+5. If the user picks "Cancel", stop and output: "No ticket marked Done. Run `/tld-setup` to pick one up first."
 
 **Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion`. One option per In-Progress ticket; each option's label is the ticket ID + title. Question text: "Multiple tickets are In Progress — pick the one you just completed."
 
@@ -64,7 +66,7 @@ Never write to `.tld/campaign.md`.
 
 These values drive the recommendation line and the override cycles in step 7.
 
-**If no Todo ticket remains in this milestone's Order:** set `next_action` = `/tld-gate {milestoneId}` — substitute the just-completed ticket's `projectMilestone.id` so `/tld-gate` runs against the correct milestone (its no-arg fallback can pick the wrong one in Linear histories with re-opened tickets or parallel work). Note the milestone name — it just completed. No label read is needed in this case.
+**If no Todo ticket remains in this milestone's Order:** set `next_action` = `/tld-gate {milestoneId}` — substitute the just-completed ticket's `projectMilestone.id` so `/tld-gate` runs against the correct milestone (its no-arg fallback can pick the wrong one in Linear histories with re-opened tickets or parallel work). **Never emit the literal text `{milestoneId}` to the user** — substitute the actual id BEFORE rendering. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly. Note the milestone name — it just completed. No label read is needed in this case.
 
 **Edge — malformed Order:** If the Order section is missing or yields zero tickets, stop and output:
   "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it. Ticket {ID} was marked Done successfully."

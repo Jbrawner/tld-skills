@@ -40,10 +40,12 @@ Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recom
 - All files in "Files to Create/Modify" fall under the campaign's `Stack.Landing directory`
 
 **Flip to `/tld-write-tests`** if ANY of these are true:
-- Ticket description or AC mentions any of: `auth`, `RLS`, `migration`, `payment`, `credentials`, `security`
+- Ticket description or AC mentions any of: `endpoint`, `route`, `RLS`, `policy`, `migration`, `auth`, `permission`, `secret`, `credentials`
 - "Files to Create/Modify" lists 5 or more files
 
-Evaluate the `/tld-build` flip first. If neither flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard` or `/tld-side-quest`. Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
+Evaluate `/tld-build` first, then `/tld-write-tests`. If no flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard`, `/tld-side-quest`, `/npc-partial`, or `/npc-full` **in the TLD-ticket options block** — the NPC variants are intentionally listed last there because they skip testing and are rarely the right call for real implementation tickets. (The NPC-ticket options block does intentionally mark `/npc-partial` as Recommended — see "Flow selection (TLD vs NPC)" below; that is not a contradiction with this rule, it is the NPC-ticket case being handled separately.) Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
+
+`/tld-audit` is recommended at build-time (see `/tld-build`'s post-implementation hint), not at setup-time — it only has signal once a diff exists. Do not include it as a setup-time flip target.
 
 ### Manual-QA classification (setup-time)
 
@@ -70,9 +72,11 @@ Evaluate the `/tld-build` flip first. If neither flip rule matches, the default 
 
 ### Approval keyword set
 
-**When to use:** This is the source-of-truth definition. Skills that gate on user approval (`/tld-auto`, `/tld-run-test`, `/tld-commit`, `/tld-side-quest`) reference this section by name in their own prose — they do NOT re-embed the full definition. They cite it inline (e.g., "see STANDARDS.md § Approval keyword set for the full definition") and list the keywords in passing as part of their own gate language.
+**When to use:** This is the source-of-truth definition. Skills that gate on user approval (`/tld-auto`, `/tld-run-test`, `/tld-commit`, `/tld-side-quest`, `/npc-partial`, `/npc-full`) reference this section by name in their own prose — they do NOT re-embed the full definition. They cite it inline (e.g., "see STANDARDS.md § Approval keyword set for the full definition") and list the keywords in passing as part of their own gate language.
 
-Every gate skill that waits for explicit user approval (`/tld-auto`, `/tld-run-test`, `/tld-commit`, `/tld-side-quest`) accepts this canonical set of affirmative responses. Any of these — and only these — advance the gate:
+`/tld-experience` is intentionally **not** on this list. It is a user-invoked authoring tool (the user types `/tld-experience` after a moment they want to capture) and is never auto-suggested in another skill's "What's next?" block. Its internal approval gates exist for the author flow but do not need to advertise the canonical keyword set as a contract surface.
+
+Every gate skill that waits for explicit user approval (`/tld-auto`, `/tld-run-test`, `/tld-commit`, `/tld-side-quest`, `/npc-partial`, `/npc-full`) accepts this canonical set of affirmative responses. Any of these — and only these — advance the gate:
 
 - `approve`
 - `commit`
@@ -145,7 +149,7 @@ Do not fall back to cached state; there is none.
 
 ### Canonical paste-block: Require current ticket (strict)
 
-**When to use:** Action-mode skills (`/tld-align`, `/tld-auto`, `/tld-build`, `/tld-commit`, `/tld-run-test`, `/tld-skip`, `/tld-write-tests`) that should refuse to auto-discover. Zero In-Progress = STOP and tell the user to run `/tld-setup`. Use the discovery form (above) for skills that should auto-pick.
+**When to use:** Action-mode skills (`/tld-align`, `/tld-auto`, `/tld-build`, `/tld-commit`, `/tld-run-test`, `/tld-skip`, `/tld-write-tests`, `/npc-partial`, `/npc-full`) that should refuse to auto-discover. Zero In-Progress = STOP and tell the user to run `/tld-setup`. Use the discovery form (above) for skills that should auto-pick. `/tld-cancel` uses the cancel-variant below — it adds "or pass a specific ticket ID to cancel" to the Case-B output and changes the Case-C question text to "pick the one to cancel."
 
 ```
 Query Linear for issues in the configured project with status = "In Progress".
@@ -161,6 +165,91 @@ Do not guess, do not walk milestones — that is /tld-setup's job.
 If Linear is unreachable at any step, stop and output:
   "Cannot reach Linear — aborting. No offline mode."
 Do not fall back to cached state; there is none.
+```
+
+### Canonical paste-block: Require current ticket (strict, cancel variant)
+
+**When to use:** Used only by `/tld-cancel`. Same logic as the plain strict block above, but the Case-B output adds "or pass a specific ticket ID to cancel" because `/tld-cancel` is one of the few action skills that meaningfully accepts an explicit ticket ID, and the Case-C question text changes from "pick the one to act on" to "pick the one to cancel" to match the action being taken. All other case logic is identical.
+
+```
+Query Linear for issues in the configured project with status = "In Progress".
+
+**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
+
+**Case B — zero In-Progress tickets:** Stop and output:
+  "No In-Progress ticket found. Run /tld-setup to pick one up, or pass a specific ticket ID to cancel."
+Do not guess, do not walk milestones — that is /tld-setup's job.
+
+**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to cancel." Do not guess.
+
+If Linear is unreachable at any step, stop and output:
+  "Cannot reach Linear — aborting. No offline mode."
+Do not fall back to cached state; there is none.
+```
+
+### Note on Dependencies-section authorship
+
+**When to apply:** Skills that author a milestone description's `## Dependencies` section (`/campaign-plan`, `/milestone-create`, `/milestone-sync`).
+
+By design, these three skills produce different `## Dependencies` content because they have different context at write-time:
+
+| Skill | Context | Dependencies wording |
+|---|---|---|
+| `/campaign-plan` | Knows the full phase order — can substitute the previous phase's name | `{previous phase name, or "None — this is the starting milestone."}` |
+| `/milestone-create` | Knows only the new milestone, not what came before | `_Specify dependent milestones or "None" after creation._` (italic placeholder for the user to fill in) |
+| `/milestone-sync` (full template mode) | Authoring placeholders for the user to fill in later | `_Specify dependent milestones or "None"._` (italic placeholder) |
+
+This divergence is intentional and is **not** drift. Do not "harmonize" these strings to a single wording — each skill writes the most-specific Dependencies content it can given what it knows at the time.
+
+### Canonical paste-block: Author Order block
+
+**When to use:** Skills that author or rewrite a Linear milestone's `## Order` section (`/campaign-plan`, `/milestone-create`, `/milestone-sync`). All three must build the Order block the same way, otherwise the reader-side parser may end up pointed at a sequence that doesn't match what was written. Embed the block verbatim wherever a milestone description is being composed; surrounding Mode-specific logic (placeholder vs. populated, full-template vs. Order-only) stays local to the embedding skill.
+
+````
+**Build the Order block:**
+
+```markdown
+## Order
+1. {first ticket ID}
+2. {second ticket ID}
+3. ...
+```
+
+Write the plain `1. {prefix}-XXX` form. Linear will rewrite each line to `1. [{prefix}-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms.
+````
+
+### Canonical paste-block: Flow selection (TLD vs NPC)
+
+**When to use:** Setup-style skills (`/tld-setup`, `/tld-save-point`) that classify a ticket into TLD vs NPC and need to decide which option-block variant to render. Embed verbatim. The result determines whether the NPC variants get top-billing in the options block (NPC ticket) or whether they remain optional alternatives (TLD ticket).
+
+```
+**Classify the ticket as TLD or NPC before rendering the options block.**
+
+Read `.tld/campaign.md` for `Test Commands.Backend` (the canonical signal).
+
+**NPC ticket** — classify as this if BOTH:
+1. `Test Commands.Backend` is the literal string `skip` (case-insensitive).
+2. The ticket scope is content/docs only — no files in `Stack.Backend directory`, `Stack.Frontend directory`, or paths matching `migrations/`, `supabase/`, `api/`, `auth/`, `rls/`. "Files to Create/Modify" lists only `.md`, `.mdx`, `.txt`, `.json` content files, README updates, or files under a marketing/landing surface.
+
+**TLD ticket** — everything else (the default).
+
+When the classification is NPC, render the options block with `/npc-partial` and `/npc-full` as positions 1 and 2 (recommended); demote `/tld-auto` and `/tld-build` to lower positions. When the classification is TLD, keep the standard ordering with NPC variants listed last.
+```
+
+### Canonical paste-block: Required workspace labels (Linear)
+
+**When to use:** Skills that read or create the seven required Linear workspace labels (`/campaign-init`'s bootstrap step, `/campaign-test`'s connectivity check). Embed the table verbatim — it is the source of truth for label names, hex colors, and descriptions. The label list is referenced by name elsewhere (recommendation hints, dashboards) so any rename requires updating every reader at the same time.
+
+```
+| Name | Color | Description |
+|---|---|---|
+| `model:sonnet` | `#5E6AD2` | Recommended model for this ticket: Claude Sonnet. Default. |
+| `model:opus` | `#7B68EE` | Recommended model for this ticket: Claude Opus. Use for high-risk or pattern-setting work. |
+| `model:haiku` | `#9B59B6` | Recommended model for this ticket: Claude Haiku. Use for cheap, mechanical work. |
+| `effort:low` | `#26B87A` | Recommended reasoning effort: low. Mechanical edits, grep-replace, short additions. |
+| `effort:medium` | `#F2994A` | Recommended reasoning effort: medium. Normal skill authoring, structured writing. |
+| `effort:high` | `#EB5757` | Recommended reasoning effort: high. Architectural design, pattern-setting work, contracts. |
+| `side-quest` | `#14B8A6` | Small polish or quick-fix work handled via `/tld-side-quest` outside the main TLD flow. |
 ```
 
 ### Canonical paste-block: Local DB safety check

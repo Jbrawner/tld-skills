@@ -125,21 +125,20 @@ For any other `save_issue` failure, stop and report which tickets in which phase
 
 ### 8. Update each milestone's Order section
 
-For each phase in order:
+For each phase in order, build the Order block, compose the new description, and call `save_milestone`. Build the block using the canonical embed below (byte-identical with STANDARDS.md § Author Order block):
 
-1. Build the Order block:
+**Build the Order block:**
 
-   ```markdown
-   ## Order
-   1. {first ticket ID}
-   2. {second ticket ID}
-   3. ...
-   ```
+```markdown
+## Order
+1. {first ticket ID}
+2. {second ticket ID}
+3. ...
+```
 
-2. Compose the new milestone description by replacing the placeholder `## Order` block from step 6 with the populated block. Leave the other five sections (Purpose / Scope / Exit Criteria / Dependencies / Risk) unchanged.
-3. Call `save_milestone` with the milestone ID from step 6 and the new description.
+Write the plain `1. {prefix}-XXX` form. Linear will rewrite each line to `1. [{prefix}-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms.
 
-Write the plain `1. PREFIX-XXX` form. Linear will rewrite each line to `1. [PREFIX-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms. See STANDARDS.md "Order-section parser" for the algorithm reader skills use.
+Compose the new milestone description by replacing the placeholder `## Order` block from step 6 with the populated block. Leave the other five sections (Purpose / Scope / Exit Criteria / Dependencies / Risk) unchanged. Call `save_milestone` with the milestone ID from step 6 and the new description.
 
 ### 9. Final output
 

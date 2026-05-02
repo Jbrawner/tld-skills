@@ -46,18 +46,45 @@ Determine the affected directory scope:
 2. Classify the scope against campaign Stack paths:
    - All affected paths under `Stack.Backend directory` → backend-only.
    - All affected paths under `Stack.Frontend directory` → frontend-only.
+   - All affected paths under `Stack.Landing directory` → landing-only.
    - Mixed, neither, or empty → both/unsure.
 
 Pick the command from campaign Test Commands:
   - backend-only → Backend command.
   - frontend-only → Frontend command.
+  - landing-only → Landing command.
   - both/unsure → Full command.
 
 If the chosen command is empty, fall back to the Full command.
 If the Full command is also empty, stop and output:
   "No test command defined in .tld/campaign.md Test Commands. Run /campaign-edit to set one."
 
-Use the resolved command for any test run in this skill. Do not invent commands or read any playbook file.
+Use the resolved command for any test run in this skill. Do not invent commands.
+
+### 1c. Local DB safety check
+
+**Run the local-DB safety check before any test command or destructive database operation.**
+
+Read `Stack.Database` from `.tld/campaign.md` — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
+
+Verify the live database connection also points at local:
+1. Scan the repo for database URL references (Supabase config, `.env*`, `SUPABASE_URL`, `DATABASE_URL`, or equivalent for this project's stack).
+2. If any reference names a non-local host (anything that is not `127.0.0.1` or `localhost`), **HARD ABORT immediately**:
+
+```
+🛑 ABORT: Non-local database detected.
+
+Found: [the URL/host that's not local]
+Location: [where you found it]
+Campaign Stack.Database: [value from campaign.md]
+
+This skill runs tests or destructive operations against the database.
+Refusing to proceed against a non-local database.
+
+Fix: Ensure the configured database URL points at local (matches Stack.Database).
+```
+
+Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
 
 ### 2. Study the patterns
 
@@ -85,6 +112,18 @@ Run the resolved test command from step 1b. Every new test should fail. This con
 - The test assertions are correctly written (failing for the right reason)
 
 **If any new test passes:** That's a problem. Either the feature already exists (check if work was already done) or the test isn't actually testing what it should. Flag this to the user.
+
+> ⚠️ One or more new tests passed unexpectedly. The implementation may already exist, or the test isn't actually exercising the new behavior.
+>
+> **What's next?**
+>
+> > **1.** Investigate the passing tests — they may be testing existing code or be tautologies
+> >
+> > **2.** /tld-build — proceed anyway (only if you're sure the test is correct)
+> >
+> > **3.** /tld-side-quest — handle a quick adjustment to the test first
+>
+> **HARD STOP: Do NOT invoke /tld-build automatically. Wait for the user to pick an option or type a command.**
 
 **If tests fail to compile/run at all:** That's different from failing assertions. Fix syntax errors, missing imports, etc. The tests should run and produce failing assertions, not crash.
 

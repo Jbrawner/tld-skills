@@ -16,6 +16,8 @@ Run the content-ticket loop as a near-one-liner: implement the ticket, pause for
 
 Trigger phrases: `npc-partial`, `npc partial`, `npc partial flow`, "partial flow", "build pause commit next", "build then qa then commit".
 
+**Use `/npc-full` instead** if you trust the build enough to skip the diff-review pause and want the loop to keep moving from build straight through commit and `/tld-next` with no stops.
+
 ## Inputs
 
 What the user provides:
@@ -55,13 +57,13 @@ Pause and tell the user:
 
 > Build complete. The diff is uncommitted — review it now (`git diff`, browser preview, your eyes) before I commit and mark the ticket Done.
 >
-> Type `approve`, `lgtm`, `ship it`, `proceed`, or `1` to commit and run /tld-next. Anything else stops here so you can amend the working tree manually.
+> Type `approve`, `commit`, `lgtm`, `looks good`, `ship it`, `go`, `proceed`, or `1` to commit and run /tld-next. Anything else stops here so you can amend the working tree manually.
 
 Wait for an approval keyword (see `STANDARDS.md § Approval keyword set` for the canonical list — `approve`, `commit`, `lgtm`, `looks good`, `ship it`, `go`, `proceed`, or the bare `1`). Silence is not approval. Questions are not approval. If the user asks for changes, abort the npc flow — they edit the working tree manually, then run `/tld-commit` + `/tld-next` (or `/npc-full` again, depending on what they did) themselves.
 
 ### 4. Stage and commit
 
-After approval, stage only the files modified by `/tld-build` (do NOT use `git add -A` or `git add .`). Build the commit subject from the campaign's Commit format `Pattern` field with the active ticket ID and title substituted. Use `feat({prefix}-{N}): {ticket title} — TLD verified` if the campaign Pattern is the default `feat({prefix}-XXX): title`, otherwise follow the campaign Pattern as-written. Append the campaign's `Co-author` trailer if one is configured. Never use `--amend`.
+After approval, stage only the files modified by `/tld-build` (do NOT use `git add -A` or `git add .`). Build the commit subject from the campaign's Commit format `Pattern` field with the active ticket ID and title substituted. Use `feat({prefix}-{N}): {ticket title} — NPC` if the campaign Pattern is the default `feat({prefix}-XXX): title`, otherwise follow the campaign Pattern as-written and append ` — NPC` to the title. The `— NPC` suffix marks the commit as an NPC-flow landing (no test verification was run); do NOT use `— TLD verified` since the verify phase was deliberately skipped. Append the campaign's `Co-author` trailer if one is configured. Never use `--amend`.
 
 Show the user the commit short SHA and subject before continuing.
 
@@ -89,12 +91,21 @@ When you present the "What's next?" options at the end of your output, the user 
 Run `/clear` then paste the command above to start the next ticket.
 ```
 
+**Never emit the literal text `{milestoneId}` or `{next-id}` to the user** — substitute the actual values BEFORE rendering. If `/tld-next` could not capture the milestone id, fall back to a no-arg `/tld-gate` and warn the user explicitly.
+
 ---
 
 **What's next?**
 
-> **1.** `/clear` and run the printed `/tld-setup {next-id}` (Recommended)
+> **1.** Start next ticket with clean context (Recommended)
 >    Best for: standard flow, ready to start the next ticket
+>    Step 1: type `/clear` · Step 2: run the command below
+
+```
+/tld-setup {next-id}
+```
+
+*(If the milestone just completed, use `/tld-gate {milestoneId}` as the command instead.)*
 
 > **2.** /npc-full — same loop without the QA pause
 >    Best for: confident in the next build, want to skip the diff-review stop

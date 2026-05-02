@@ -85,7 +85,7 @@ For the **Issue tracker** field, present the same enum `/campaign-init` uses, in
 
 If the user picks anything other than `Linear`, print this advisory verbatim and then use AskUserQuestion to confirm before writing:
 
-> **Heads up:** The skills framework was built against Linear MCP. Other trackers are accepted in the schema but downstream TLD skills call Linear tools by name and will need manual adaptation. See LIMITATIONS.md.
+> **Heads up:** The skills framework was built against Linear MCP and only Linear has been exercised end to end. Other trackers (Jira, GitHub Issues, anything else) are accepted in the schema but **untested** — the TLD pipeline calls Linear MCP tools by name and will need some massaging while you use it (manual ticket-status flips, manual `## Order` updates, hand-rolled label workflow, etc.). It's still worth the try if you're already invested in another tracker — most of the framework's value (hard-stop discipline, drift checks, side-quest isolation, the campaign file itself) works regardless of where tickets live. See LIMITATIONS.md and docs/ADAPTERS.md for the full surface a future adapter would need to cover.
 
 Do not block the edit. If the user confirms, proceed to step 6. If they decline, abort the edit and return to step 3 so they can pick a different field (or stop).
 

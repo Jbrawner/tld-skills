@@ -59,7 +59,7 @@ If the chosen command is empty, fall back to the Full command.
 If the Full command is also empty, stop and output:
   "No test command defined in .tld/campaign.md Test Commands. Run /campaign-edit to set one."
 
-Use the resolved command for any test run in this skill. Do not invent commands or read any playbook file.
+Use the resolved command for any test run in this skill. Do not invent commands.
 
 ### 1c. Local DB safety check
 
@@ -170,23 +170,8 @@ Generate a manual QA checklist based on the ticket's acceptance criteria and the
 ```
 
 **Table formatting rules:**
-- **Run column:** Reference commands by number (e.g., "Cmd 1" or "Cmd 1, then 2"). The actual commands go in the Commands section below.
+- **Run column:** Show the exact command, URL, or action inline, wrapped in backticks (e.g., `` `curl http://127.0.0.1:54321/functions/v1/foo` ``). Keep it to one line — if the command is too long for a table cell, shorten the variable parts (e.g., `psql ... -f seed-X.sql`) and put the full command in a follow-up Commands section below. Inline is the default; the Commands section is only for commands too long to fit cleanly.
 - **Pass if column:** Keep it to one short sentence. Be specific — not "works correctly" but "returns 16 rows with country names".
-- **Commands section:** ALWAYS put commands in a numbered section below the table. Each command gets its own fenced code block (```sh) so the user can single-click copy. Format:
-  ```
-  ### Commands
-
-  **1.** Run the scenario seed script
-  ```sh
-  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f backend/supabase/seed-[your-scenario].sql
-  ```
-
-  **2.** Check dates are in future
-  ```sh
-  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -At -c "SELECT ..."
-  ```
-  ```
-- **One command per code block.** Never put multiple commands in the same block. Each block = one click to copy.
 
 Guidelines:
 - **Be concrete.** Give exact URLs, curl commands, or UI paths.
@@ -239,11 +224,15 @@ Type **1**, **2**, or **3** to proceed.
 
 **Do NOT interpret silence, partial responses, or questions as approval.**
 
+### 4.5. Update CHANGE_LOG.md
+
+Read the `Changelog path` from `.tld/campaign.md`'s Stack section. If the value is blank, skip this step. Otherwise, check whether the file at that path was updated; if not, add an entry now documenting what changed and test counts. Projects that use a CI changelog gate will fail without it.
+
 ### 5. Commit (code tickets) or Skip (manual-QA tickets)
 
 **For code tickets**, only after explicit user approval:
 
-1. Stage the relevant files: `git add [specific files]` — only files related to this ticket, not unrelated changes
+1. Stage the relevant files: `git add [specific files]` — only files related to this ticket, not unrelated changes. Include the changelog file from step 4.5 if it was updated.
 2. Commit using the `Pattern` from `.tld/campaign.md`'s Commit format section, substituting the ticket ID and title (append ` — TLD verified`). If the campaign's `Co-author` field is non-empty, include that line in the commit trailer; if blank, omit it.
 3. Verify the commit succeeded
 
@@ -266,6 +255,7 @@ Before presenting options, check if this was the last ticket in its milestone:
 3. Use `list_issues` to query Linear for each ticket's status
 4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
 5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
+6. When appending option 4, substitute the milestone's actual `id` into the `{milestoneId}` placeholder BEFORE rendering — never emit the literal text `{milestoneId}` to the user. If you cannot capture the id (e.g., the `get_milestone` call failed), do NOT render option 4; fall back to the 3-option block.
 
 Then present the options block:
 
@@ -282,9 +272,9 @@ Then present the options block:
 > **3.** /tld-dashboard — review progress before deciding
 >    Best for: want to see where this ticket lands in the overall plan
 
-> **4.** /tld-gate — run milestone-boundary gate now
+> **4.** /tld-gate {milestoneId} — run milestone-boundary gate now
 >    Best for: this was the last ticket in the milestone; ready for milestone validation
->    *(only shown when every ticket in the current milestone is Done or Canceled)*
+>    *(only shown when every ticket in the current milestone is Done or Canceled; substitute the milestone's actual `id`)*
 
 Type **1**, **2**, **3**, or **4** to proceed.
 
@@ -302,6 +292,7 @@ Before presenting options, check if this was the last ticket in its milestone:
 3. Use `list_issues` to query Linear for each ticket's status
 4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
 5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
+6. When appending option 4, substitute the milestone's actual `id` into the `{milestoneId}` placeholder BEFORE rendering — never emit the literal text `{milestoneId}` to the user. If you cannot capture the id (e.g., the `get_milestone` call failed), do NOT render option 4; fall back to the 3-option block.
 
 Then present the options block:
 
@@ -318,9 +309,9 @@ Then present the options block:
 > **3.** /tld-dashboard — review progress before deciding
 >    Best for: want to see where this ticket lands in the overall plan
 
-> **4.** /tld-gate — run milestone-boundary gate now
+> **4.** /tld-gate {milestoneId} — run milestone-boundary gate now
 >    Best for: this was the last ticket in the milestone; ready for milestone validation
->    *(only shown when every ticket in the current milestone is Done or Canceled)*
+>    *(only shown when every ticket in the current milestone is Done or Canceled; substitute the milestone's actual `id`)*
 
 Type **1**, **2**, **3**, or **4** to proceed.
 

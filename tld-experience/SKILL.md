@@ -6,7 +6,8 @@ description: |
   or describes a workflow they just walked through with Claude and wants to capture as a reusable command.
   Reads the surrounding conversation context, generalizes the experience into a SKILL.md, gates on approval,
   then commits and opens a PR against `Jbrawner/tld-skills`. Single-file skills only — no `scripts/` or
-  `assets/` subdirectories.
+  `assets/` subdirectories. (Exception: the framework-level `scripts/verify-block-alignment.py` lives at
+  the repo root and is maintained by hand, not authored through this flow.)
 ---
 
 # TLD Experience
@@ -88,10 +89,20 @@ Output the **complete** drafted SKILL.md. Show the user:
 ---
 ```
 
-Below the draft, list the docs that will be updated in step 7 so the user knows the full blast radius:
+Below the draft, list every doc that will be touched in step 7 so the user knows the full blast radius. Default coverage (always shown):
 - `~/.claude/skills/{slug}/SKILL.md` — new file
 - `CHANGELOG.md` — bullet under `### Added` in `[Unreleased]`
 - `tld-help/SKILL.md` — row in the matching table
+- `README.md` — entry in the relevant table or "Heads-up about command names" mapping (per step 7's README rules; default = edit)
+
+Conditional coverage (list each only if the new skill plausibly affects it — when uncertain, list it and let the user veto):
+- `STANDARDS.md` — only if the skill embeds a NEW canonical block or reuses an existing one in a context that requires updating the canonical block's "When to use" header
+- `CONTRIBUTING.md` — only if the skill changes the writer/reader matrix, the campaign/milestone schema, or the no-drift rule
+- `LIMITATIONS.md` — only if the skill exposes a new framework limitation or relaxes an existing one
+- `RELEASING.md` — only if the skill changes release tooling or the release procedure
+- `docs/ADAPTERS.md` — only if the skill calls a new tracker MCP method not already documented
+
+Print the final list (mandatory + applicable conditional rows) so the user sees exactly which files step 7 will edit.
 
 **HARD STOP.** Wait for an approval keyword from the user (see [STANDARDS.md § Approval keyword set](../STANDARDS.md#approval-keyword-set) for the full list — `approve`, `commit`, `lgtm`, `looks good`, `ship it`, `go`, `proceed`, or the bare `1` from the options block). Silence is not approval. Questions are not approval. If the user asks for changes, redraft and re-present.
 
@@ -115,42 +126,58 @@ Create the directory `~/.claude/skills/{slug}/` and write the approved SKILL.md 
 From the repo root, run:
 
 ```
-python scripts/verify-block-alignment.py
+python3 scripts/verify-block-alignment.py
 ```
 
 If exit code is non-zero, the embedded `## Numbered shortcut recognition` block (or any other canonical embed the user added during redraft) does not match [STANDARDS.md](../STANDARDS.md) byte-for-byte. Stop, surface the verifier output, point the user at the mismatched heading, and ask whether they want to edit the SKILL.md or pull the canonical block from STANDARDS.md. Do not auto-fix.
 
-### 7. Update the four docs
+### 7. Update the supporting docs
 
-Edit each file in place. Do not add new tables or sections — find the matching group and append a row or bullet.
+Edit each file in place. Do not add new tables or sections — find the matching group and append a row or bullet. The mandatory three (CHANGELOG, tld-help, README) always run; the conditional five (STANDARDS, CONTRIBUTING, LIMITATIONS, RELEASING, ADAPTERS) run only when the new skill plausibly affects them, matching the list shown to the user in step 3.
 
 **`CHANGELOG.md`:**
 - If a `## [Unreleased]` section does not exist, add one above the topmost released version (e.g., above `## [v0.1.1]`).
 - Under `### Added` inside `[Unreleased]`, append: `- /{slug} skill — {one-sentence purpose}.`
 
 **`tld-help/SKILL.md`:**
-- Pick the table whose role best matches: Core Flow, Automation, Recovery + Navigation, or Planning. If none fit, add a new `### Meta` table directly below the last existing table.
+- Pick the table whose role best matches one of `tld-help`'s seven existing groups: **Core Flow**, **Automation**, **Recovery + Navigation**, **Planning**, **Boundaries + Side Channel**, **Campaign Config**, or **Meta**. If none fit, add a new section heading directly below the last existing table — but first check whether one of the seven really doesn't apply, since adding new groups should be rare.
 - Append a row, columns: Skill (with leading slash, code-fenced), What it does, When to use.
 
 **`README.md`:**
-- Only edit this file if the new skill belongs to a new family — not `/tld-`, `/campaign-`, or `/milestone-`. If the new family did not exist before, append a row to the "Heads-up about command names" mapping table (Option A → Option B).
-- Otherwise, leave README.md alone.
+
+Apply the deterministic rule, in this order:
+
+1. If the slug starts with `tld-`, `campaign-`, `milestone-`, or `npc-` (the four currently-listed families), no README edit is needed — the family is already represented in the "Heads-up about command names" mapping table and skill-listing entries.
+2. If the slug starts with any other prefix, the skill belongs to a new family. Add a row to the "Heads-up about command names" mapping table (`/{prefix}-x` → `/tld:{prefix}-x`) AND append a one-line entry pointing at the skill in the "Resources" table.
+
+Record the rule outcome ("edit applied" or "no edit needed — slug starts with family prefix `{X}`") in the step 11 output so the user can confirm.
+
+**Install-path awareness for the SKILL.md write target (step 5):**
+
+The skill writes to `~/.claude/skills/{slug}/SKILL.md`. This path is correct for Option A installs (the symlinked clone of this repo). For Option B (plugin) installs, the source-of-truth repo lives elsewhere and the plugin path is read-only — Option B users cannot author new skills via this flow. If `~/.claude/skills/` does not resolve to a writable directory under a clone of `Jbrawner/tld-skills`, stop in step 5 with:
+
+> `~/.claude/skills/` is not a writable clone of `Jbrawner/tld-skills` — looks like a plugin install. Switch to the symlink install (see README "Install" section) or open the PR by hand against the source repo.
+
+Do not attempt to detect this by checking file permissions only — also check that `~/.claude/skills/.git` exists (or that the directory is a symlink to a clone). Plugin installs typically land under `~/.claude/plugins/` or similar and `~/.claude/skills/` will not exist.
 
 If any required edit cannot be applied (file shape changed, target heading missing), stop and report which doc needs manual handling. Do not commit a partial set.
 
 ### 8. Re-run the standards verifier
 
-Run `python scripts/verify-block-alignment.py` again. The doc edits should not affect canonical embeds, but a stray paste during step 7 can introduce drift. If exit code is non-zero, report and stop.
+Run `python3 scripts/verify-block-alignment.py` again. The doc edits should not affect canonical embeds, but a stray paste during step 7 can introduce drift. If exit code is non-zero, report and stop.
 
 ### 9. Commit
 
-Stage the new SKILL.md plus every doc updated in step 7:
+Stage the new SKILL.md plus every doc that step 7 actually edited. The mandatory three (CHANGELOG, tld-help, README) almost always land; the conditional five (STANDARDS, CONTRIBUTING, LIMITATIONS, RELEASING, ADAPTERS) land only when step 7 touched them. Build the `git add` argument list from the same set of files reported in step 3, minus any the user vetoed mid-flow:
 
 ```
-git add ~/.claude/skills/{slug}/SKILL.md CHANGELOG.md tld-help/SKILL.md
+git add ~/.claude/skills/{slug}/SKILL.md CHANGELOG.md tld-help/SKILL.md README.md \
+        [STANDARDS.md if edited] [CONTRIBUTING.md if edited] \
+        [LIMITATIONS.md if edited] [RELEASING.md if edited] \
+        [docs/ADAPTERS.md if edited]
 ```
 
-(Add `README.md` to the list only if it was edited in step 7.)
+Do not stage files step 7 left untouched — `git add` of an unchanged file is a no-op but a typo'd path is a hard error, so list only what was actually modified. Run `git status` after staging and confirm every modified path is present.
 
 Commit with message `feat(skill): add /{slug}` and no co-author trailer. Personal repo — co-author is unnecessary.
 
@@ -184,6 +211,8 @@ If `gh pr create` fails (auth, rate limit, network), surface the error and stop.
 - `~/.claude/skills/{slug}/SKILL.md` (new)
 - `CHANGELOG.md`
 - `tld-help/SKILL.md`
+- `README.md`
+- {list each conditional doc step 7 actually edited: `STANDARDS.md`, `CONTRIBUTING.md`, `LIMITATIONS.md`, `RELEASING.md`, `docs/ADAPTERS.md` — omit any not edited}
 ```
 
 Then present the "What's next?" options block.
