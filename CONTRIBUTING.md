@@ -172,6 +172,7 @@ Every TLD and campaign skill falls into exactly one category below. This matrix 
 | **Local-git only** (no Linear, no campaign.md) | `/tld-recenter` | Local git — creates a fresh branch off `main`; refuses if working tree is dirty |
 | **Aggregator** (writes indirectly, via sub-skills) | `/tld-auto`, `/npc-partial`, `/npc-full` | Whatever sub-skills write; the aggregator itself writes nothing directly. NPC variants chain `/tld-build` → commit → `/tld-next`. |
 | **Writes external repo** (PR against the skills repo) | `/tld-experience` | `Jbrawner/tld-skills` — pushes a branch and opens a PR with a new SKILL.md. Does not touch the current repo's Linear or campaign.md. |
+| **Writes release artifacts** (CHANGELOG bump + release branch + GitHub Release) | `/tld-release` | This repo — bumps `CHANGELOG.md`, opens a release-branch PR, and after merge runs `gh release create` to publish a tagged GitHub Release. Then watches the marketplace auto-bump workflow that runs in `Jbrawner/claude-skills`. Does not touch Linear or `.tld/campaign.md`. |
 | **Deletes only** | `/campaign-remove` | Local file — removes `.tld/campaign.md` |
 
 `/tld-gate` is read-only because ticket statuses are set by `/tld-next` before the gate runs; the gate verifies but does not transition.

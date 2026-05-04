@@ -2,6 +2,8 @@
 
 How to cut a new version of the `tld` plugin.
 
+**Quick path:** run `/tld-release` (optional arg: `patch` / `minor` / `major` / `vX.Y.Z`) to do all of this with hard stops at every destructive moment — CHANGELOG diff review, branch + PR, post-merge release publish, and an automatic watch on the marketplace auto-bump workflow. The detailed manual procedure below is the fallback if `/tld-release` fails or you want to do it by hand.
+
 ## Quick procedure
 
 1. **Bump CHANGELOG.md.** Change `## [vX.Y.Z-alpha] — Unreleased` to `## [vX.Y.Z] — YYYY-MM-DD` (today's date), then update the bottom link target to point at `Jbrawner/tld-skills/releases/tag/vX.Y.Z`.

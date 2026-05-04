@@ -230,12 +230,15 @@ When you present the "What's next?" options at the end of your output, the user 
 > **1.** Use the skill — type `/{slug}` to try it now
 >    Best for: confirm the new skill triggers and behaves as drafted
 
-> **2.** `/tld-experience` — capture another moment as a skill
+> **2.** `/tld-release` — cut a new release once your PR is merged so plugin users get the new skill
+>    Best for: you want this skill out to `/plugin update tld@claude-skills` users right away (not just Option-A symlink installs). Note: `/tld-release` refuses to run from a feature branch, so merge the PR first.
+
+> **3.** `/tld-experience` — capture another moment as a skill
 >    Best for: you have more workflow moments worth saving
 
-> **3.** Nothing — return to whatever you were doing
+> **4.** Nothing — return to whatever you were doing
 >    Best for: skill is created, PR is open, no immediate next step needed
 
-Type **1**, **2**, or **3** to proceed.
+Type **1**, **2**, **3**, or **4** to proceed.
 
 **HARD STOP: After outputting the above, you are DONE. Do NOT invoke any other skill. Wait for the user to pick an option or type a command.**
