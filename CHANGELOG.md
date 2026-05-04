@@ -6,6 +6,7 @@ All notable changes to Adventure Skills are recorded here. Versions follow seman
 
 ### Added
 
+- `/tld-release` skill — wraps the manual `RELEASING.md` procedure (CHANGELOG bump, release-branch PR, `gh release create`, marketplace auto-bump workflow watch) in one guided flow with hard stops at every destructive moment. Optional argument: `patch`, `minor`, `major`, or an explicit `vX.Y.Z`. Refuses to run when the working tree is dirty or when not on the default branch.
 - `/tld-experience` skill — turns a lived conversation moment into a candidate skill on a new branch with the three house-style docs updated and a PR opened against `Jbrawner/tld-skills`. Runs `scripts/verify-block-alignment.py` before committing so embedded canonical blocks (sections that must match `STANDARDS.md` byte-for-byte) cannot drift.
 - `/npc-partial` skill — content-ticket loop for skills/docs work with `skip` test commands. Runs `/tld-build` → HARD STOP for manual QA on the uncommitted diff → on approval commits and runs `/tld-next`. Skips `/tld-run-test` (no signal when the test command is `skip`) and lands the QA pause where it actually matters: between build and commit.
 - `/npc-full` skill — uninterrupted variant of `/npc-partial` for content/doc tickets where the campaign test command is `skip`. Runs `/tld-build` → commit → `/tld-next` end-to-end with no QA pause between build and commit. Use when you trust the build and want the loop to keep moving; pair with `/npc-partial` when you want the diff-review stop.

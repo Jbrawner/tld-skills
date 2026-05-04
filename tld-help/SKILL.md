@@ -77,6 +77,7 @@ Print the reference card below, then determine the user's current position in th
 | Skill | What it does | When to use |
 |-------|-------------|-------------|
 | `/tld-experience` | Turn a lived conversation moment into a candidate skill — drafts a SKILL.md, updates supporting docs (CHANGELOG, tld-help, README always; STANDARDS / CONTRIBUTING / LIMITATIONS / RELEASING / ADAPTERS when applicable), opens a PR | Right after a workflow you want to be a one-liner next time |
+| `/tld-release` | Cut a new tagged release: bumps CHANGELOG, opens a release PR, publishes the GitHub Release after merge, watches the marketplace auto-bump workflow. Optional arg: `patch` / `minor` / `major` / `vX.Y.Z` | When you're ready to ship a new version of the plugin to `/plugin update tld@claude-skills` users |
 
 ### Standard Flow
 
