@@ -6,16 +6,22 @@ All notable changes to Adventure Skills are recorded here. Versions follow seman
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+## [v0.3.0] — 2026-05-09
+
+### Added
+
 - `/campaign-portless` skill — one-shot portless setup so every repo / worktree gets a stable `<name>.localhost:1355` URL. Idempotent across the install / proxy / cert-trust / `/etc/hosts` layers; per-project run picks a name (worktree dir or repo basename), picks a free port, persists it in `.claude/launch.json`, symlinks `.env.local` from the main repo when a worktree is missing one (with a hard stop if the env file points at production), and registers the portless alias.
 - `/campaign-init` now offers `/campaign-portless` as option **4** in its "What's next?" block so local-dev URL setup is one click after scaffolding the campaign file.
 
 ### Changed
 
 - `/tld-release` now offers to switch to the default branch when run from a feature branch with a clean working tree, instead of refusing outright.
-
-### Fixed
-
-### Removed
 
 ## [v0.2.0] — 2026-05-03
 
@@ -70,5 +76,6 @@ First open-source release. Extracts the TLD (Test-Led Development) skills framew
 
 See `LIMITATIONS.md` for the full list. Headlines: Linear-only issue tracker, Vitest/Jest test runner assumption, Supabase local DB assumption, alpha quality.
 
+[v0.3.0]: https://github.com/Jbrawner/tld-skills/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/Jbrawner/tld-skills/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/Jbrawner/tld-skills/releases/tag/v0.1.0
