@@ -234,9 +234,28 @@ Capture the release URL.
 
 Poll `gh run list --repo Jbrawner/tld-skills --workflow=update-marketplace.yml --limit 1 --json status,conclusion,databaseId,url` every 10 seconds. Stop polling when `status` is `completed` or after 5 minutes (30 polls), whichever comes first.
 
-- **Success** (`conclusion: success`): get the auto-PR URL via `gh pr list --repo Jbrawner/claude-skills --state merged --search "Bump tld to {new-version}" --json url --limit 1` and include it in the report.
-- **Failure** (`conclusion: failure` or other non-success): include the run URL and point at [RELEASING.md § If the workflow fails](../RELEASING.md#if-the-workflow-fails) for recovery steps.
-- **Timeout** (still in_progress after 5 min): include the run URL and tell the user to check on it manually.
+- **Success** (`conclusion: success`): get the auto-PR URL via `gh pr list --repo Jbrawner/claude-skills --state merged --search "Bump tld to {new-version}" --json url --limit 1`. Capture it for the report, then proceed to the marketplace.json read-back below.
+- **Failure** (`conclusion: failure` or other non-success): include the run URL and point at [RELEASING.md § If the workflow fails](../RELEASING.md#if-the-workflow-fails) for recovery steps. Skip the read-back — the file did not get updated.
+- **Timeout** (still in_progress after 5 min): include the run URL and tell the user to check on it manually. Skip the read-back — the workflow may still finish later.
+
+### 11b. Read back the marketplace.json version
+
+Only run this on the Success path above. The auto-bump PR being merged is *necessary but not sufficient* — verify the actual published `marketplace.json` now lists `{new-version}` for the `tld` plugin.
+
+Run:
+
+```bash
+gh api repos/Jbrawner/claude-skills/contents/.claude-plugin/marketplace.json --jq '.content' \
+  | base64 -d \
+  | jq -r '.plugins[] | select(.name=="tld") | .version'
+```
+
+Compare the printed value to `{new-version}` with the leading `v` stripped (the file stores `0.3.0`, not `v0.3.0`).
+
+- **Match:** record `marketplace.json verified at {new-version}` for the report.
+- **Mismatch or empty / non-zero exit:** record `marketplace.json read-back FAILED — file shows {actual} but expected {new-version}` (or surface the gh / jq error verbatim). Do not retry automatically; the workflow + PR succeeded, so the discrepancy is worth surfacing rather than papering over.
+
+The read-back is a confirmation, not a gate — even on mismatch, the release itself has shipped. Continue to step 12.
 
 ### 12. Report
 
@@ -246,6 +265,7 @@ Poll `gh run list --repo Jbrawner/tld-skills --workflow=update-marketplace.yml -
 **Release:** {release-url}
 **Release branch PR:** {pr-url} (merged)
 **Marketplace auto-bump:** {success: linked PR / failure: workflow URL + recovery hint / timeout: workflow URL}
+**Marketplace.json read-back:** {match: "verified at {new-version}" / mismatch: "FAILED — shows {actual}" / skipped: "skipped — workflow did not succeed"}
 **Files touched:**
 - `CHANGELOG.md`
 {if tarball built: - `dist/tld-plugin-{new-version}.tar.gz`}

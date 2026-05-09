@@ -8,6 +8,8 @@ All notable changes to Adventure Skills are recorded here. Versions follow seman
 
 ### Changed
 
+- `/tld-release` step 11 now reads `marketplace.json` from `Jbrawner/claude-skills` after the auto-bump PR merges and verifies the `tld` plugin's `version` field actually equals the new release. The workflow + PR success path was *necessary but not sufficient* — a green workflow could still leave the file unchanged in some failure modes. The new step 11b prints `marketplace.json verified at {new-version}` on match (or surfaces the actual value on mismatch) so the release report is a confirmed end-to-end success without the user having to spot-check the file by hand.
+
 ### Fixed
 
 ### Removed
