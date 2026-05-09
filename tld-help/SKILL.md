@@ -71,6 +71,7 @@ Print the reference card below, then determine the user's current position in th
 | `/campaign-validate` | Schema-only check (no Linear calls) | Offline, or right after `/campaign-edit` to confirm the file parses |
 | `/campaign-test` | Pre-flight connection check for the campaign (schema + Linear reachability) | Before `/tld-setup`; after `/campaign-init` |
 | `/campaign-remove` | Deletes `.tld/campaign.md` (and the `.tld/` dir if empty) | Tearing down TLD config in this repo |
+| `/campaign-portless` | Wires portless so this repo or worktree gets a stable `<name>.localhost:1355` URL (installs portless / trusts certs on first run, then per-project: picks a name + free port, writes `.claude/launch.json`, symlinks worktree `.env.local`, registers the alias) | First time on a machine, or first time in a new repo / worktree that needs its own dev URL |
 
 ### Meta
 

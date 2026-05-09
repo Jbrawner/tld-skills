@@ -190,6 +190,9 @@ Never mark more than one option as Recommended.
 > **3.** /tld-setup — jump into the first ticket
 >    Best for: the tracker already has milestones + tickets ready to work
 
-Type **1**, **2**, or **3** to proceed.
+> **4.** /campaign-portless — give this repo a stable `<name>.localhost:1355` URL for its dev server
+>    Best for: finish local-dev setup so port collisions and worktree-URL confusion don't bite later
+
+Type **1**, **2**, **3**, or **4** to proceed.
 
 **HARD STOP: After outputting the above, you are DONE. Do NOT invoke any other skill. Wait for the user to pick an option or type a command.**
