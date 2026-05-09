@@ -6,6 +6,9 @@ All notable changes to Adventure Skills are recorded here. Versions follow seman
 
 ### Added
 
+- `/campaign-portless` skill — one-shot portless setup so every repo / worktree gets a stable `<name>.localhost:1355` URL. Idempotent across the install / proxy / cert-trust / `/etc/hosts` layers; per-project run picks a name (worktree dir or repo basename), picks a free port, persists it in `.claude/launch.json`, symlinks `.env.local` from the main repo when a worktree is missing one (with a hard stop if the env file points at production), and registers the portless alias.
+- `/campaign-init` now offers `/campaign-portless` as option **4** in its "What's next?" block so local-dev URL setup is one click after scaffolding the campaign file.
+
 ### Changed
 
 ### Fixed
