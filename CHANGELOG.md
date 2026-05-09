@@ -8,11 +8,15 @@ All notable changes to Adventure Skills are recorded here. Versions follow seman
 
 ### Changed
 
-- `/tld-release` step 11 now reads `marketplace.json` from `Jbrawner/claude-skills` after the auto-bump PR merges and verifies the `tld` plugin's `version` field actually equals the new release. The workflow + PR success path was *necessary but not sufficient* — a green workflow could still leave the file unchanged in some failure modes. The new step 11b prints `marketplace.json verified at {new-version}` on match (or surfaces the actual value on mismatch) so the release report is a confirmed end-to-end success without the user having to spot-check the file by hand.
-
 ### Fixed
 
 ### Removed
+
+## [v0.3.1] — 2026-05-09
+
+### Changed
+
+- `/tld-release` step 11 now reads `marketplace.json` from `Jbrawner/claude-skills` after the auto-bump PR merges and verifies the `tld` plugin's `version` field actually equals the new release. The workflow + PR success path was *necessary but not sufficient* — a green workflow could still leave the file unchanged in some failure modes. The new step 11b prints `marketplace.json verified at {new-version}` on match (or surfaces the actual value on mismatch) so the release report is a confirmed end-to-end success without the user having to spot-check the file by hand.
 
 ## [v0.3.0] — 2026-05-09
 
@@ -78,6 +82,7 @@ First open-source release. Extracts the TLD (Test-Led Development) skills framew
 
 See `LIMITATIONS.md` for the full list. Headlines: Linear-only issue tracker, Vitest/Jest test runner assumption, Supabase local DB assumption, alpha quality.
 
+[v0.3.1]: https://github.com/Jbrawner/tld-skills/releases/tag/v0.3.1
 [v0.3.0]: https://github.com/Jbrawner/tld-skills/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/Jbrawner/tld-skills/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/Jbrawner/tld-skills/releases/tag/v0.1.0
