@@ -11,6 +11,8 @@ All notable changes to Adventure Skills are recorded here. Versions follow seman
 
 ### Changed
 
+- `/tld-release` now offers to switch to the default branch when run from a feature branch with a clean working tree, instead of refusing outright.
+
 ### Fixed
 
 ### Removed

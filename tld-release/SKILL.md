@@ -42,7 +42,18 @@ a. **Working tree is clean.** `git status --porcelain` must be empty. If not:
 Commit, stash, or discard before running /tld-release. This skill never silently drops work.
 ```
 
-b. **On the default branch.** `git rev-parse --abbrev-ref HEAD` must equal `main` (or `master` if the repo has no `main`). If not:
+b. **On the default branch.** `git rev-parse --abbrev-ref HEAD` must equal `main` (or `master` if the repo has no `main`). If not, do not refuse outright — step 1a already guaranteed the working tree is clean, so a branch switch is safe (no work to lose). Instead, call `AskUserQuestion` with two options:
+
+| Header | Label | Description |
+|---|---|---|
+| Branch | **Switch to {main} and continue (Recommended)** | Run `git checkout {main} && git pull --ff-only`, then proceed to step 1c. |
+| Branch | **Stop** | Refuse with the 🛑 message below. |
+
+Mark "Switch and continue" as the recommended option (it is the right call after merging a release-able feature branch — the user is on the merged feature branch and just wants to cut the release). The user can always pick "Stop" or close the prompt to keep the explicit refuse path.
+
+**On "Switch and continue":** Run `git checkout {main}` then `git pull --ff-only`. If `git pull --ff-only` fails (diverged or any other error), surface the git error verbatim and stop. Do not force, do not rebase — same rule as step 1d.
+
+**On "Stop" or no answer:** Output verbatim:
 
 ```
 🛑 Refusing to release — not on the default branch.
