@@ -21,9 +21,9 @@ When you present the "What's next?" options at the end of your output, the user 
 **When to use:** End-of-ticket skills (`/tld-commit`, `/tld-run-test`) that need to decide whether the next option block should include a "run the milestone gate" choice.
 
 Before presenting options, check if this was the last ticket in its milestone:
-1. Read the current ticket via `get_issue` and note its `projectMilestone`
-2. Read that milestone's description via `get_milestone` and parse the `## Order` section for the ticket sequence
-3. Use `list_issues` to query Linear for each ticket's status
+1. Read the current ticket and note its milestone (the tracker's current-ticket + milestone lookup — see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira)
+2. Read that milestone's ordered ticket list (Linear: the `## Order` section of the milestone description; Jira: the milestone Story's child tickets by rank)
+3. Look up each ticket's status
 4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
 5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
 
@@ -116,6 +116,20 @@ If any required field in Project (Issue tracker, Project name, Team, Ticket pref
 The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 ```
 
+### Canonical paste-block: Tracker resolution
+
+**When to use:** Every skill that reads or writes ticket or milestone state embeds this block verbatim immediately after Load project config. It routes the skill's tracker operations to the right adapter and hard-stops on unsupported trackers. Skills that only touch the local campaign file (`/campaign-validate`, `/campaign-remove`, `/campaign-portless`, `/campaign-edit`, `/tld-recenter`, `/tld-release`) do not embed it.
+
+```
+This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+
+- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
+- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Any other tracker** — stop and output:
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+  Do not invent an adapter.
+```
+
 ### Canonical paste-block: Resolve next ticket (discovery)
 
 **When to use:** Discovery-mode skills (`/tld-setup` Mode B, `/tld-save-point`) that find a ticket by walking milestones when zero are In-Progress. Use the strict form (below) for action skills that should refuse to auto-pick a ticket.
@@ -123,27 +137,26 @@ The tracker, team, prefix, and project name from this block are the only ones th
 Every skill that needs "the current ticket" via discovery embeds this block verbatim (after Load project config).
 
 ```
-Query Linear for issues in the configured project with status = "In Progress".
+Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
 
-**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
+**Case A — exactly one In-Progress ticket assigned to me:** That is the current ticket. Load it for full description / AC / files / milestone.
 
-**Case B — zero In-Progress tickets:** Auto-discover by walking milestones:
-1. Call `list_milestones` for the configured project, sorted by `sortOrder` ascending.
+**Case B — zero In-Progress tickets assigned to me:** Auto-discover by walking milestones:
+1. List the configured project's milestones in order (Linear: by `sortOrder` ascending; Jira: the milestone Stories by rank).
 2. If the result is empty, stop and output:
      "No milestones in project '{project name}' — run /campaign-plan or /milestone-create to create one."
-3. Walk the milestones in order. For each milestone:
-   a. Call `get_milestone` to read its description.
-   b. Parse the `## Order` section using the unanchored regex algorithm (find `^## Order\s*$`, capture lines until the next `## ` header, take the first `({prefix}-\d+)` match per line).
-   c. If the `## Order` section is missing or yields zero ticket IDs, stop and output:
+3. Walk the milestones in order. For each milestone, read its ordered ticket list:
+   - Linear: read the description and parse the `## Order` section with the unanchored regex (find `^## Order\s*$`, capture lines until the next `## ` header, take the first `({prefix}-\d+)` match per line). If the `## Order` section is missing or yields zero ticket IDs, stop and output:
         "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it."
-   d. For each ticket ID in the parsed Order, look up its status. Return the first ticket whose status is neither Done nor Canceled.
-4. If every ticket in every milestone is Done or Canceled, stop and output:
+   - Jira: list the milestone Story's child tickets ordered by rank (see docs/JIRA.md).
+   Then, for each ticket in the ordered list, look up its status. Return the first ticket whose status is neither Done nor Canceled AND that is not already In Progress for someone other than me (a ticket claimed by another assignee is skipped).
+4. If every ticket in every milestone is resolved or claimed by others, stop and output:
      "All tickets in all milestones are resolved. Nothing to do."
 
-**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
+**Case C — two or more In-Progress tickets assigned to me:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
 
-If Linear is unreachable at any step, stop and output:
-  "Cannot reach Linear — aborting. No offline mode."
+If the tracker is unreachable at any step, stop and output:
+  "Cannot reach the issue tracker — aborting. No offline mode."
 Do not fall back to cached state; there is none.
 ```
 
@@ -152,18 +165,18 @@ Do not fall back to cached state; there is none.
 **When to use:** Action-mode skills (`/tld-align`, `/tld-auto`, `/tld-build`, `/tld-commit`, `/tld-run-test`, `/tld-skip`, `/tld-write-tests`, `/npc-partial`, `/npc-full`) that should refuse to auto-discover. Zero In-Progress = STOP and tell the user to run `/tld-setup`. Use the discovery form (above) for skills that should auto-pick. `/tld-cancel` uses the cancel-variant below — it adds "or pass a specific ticket ID to cancel" to the Case-B output and changes the Case-C question text to "pick the one to cancel."
 
 ```
-Query Linear for issues in the configured project with status = "In Progress".
+Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
 
-**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
+**Case A — exactly one In-Progress ticket assigned to me:** That is the current ticket. Load it for full description / AC / files / milestone.
 
-**Case B — zero In-Progress tickets:** Stop and output:
+**Case B — zero In-Progress tickets assigned to me:** Stop and output:
   "No In-Progress ticket found. Run /tld-setup to pick one up."
 Do not guess, do not walk milestones — that is /tld-setup's job.
 
-**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
+**Case C — two or more In-Progress tickets assigned to me:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
 
-If Linear is unreachable at any step, stop and output:
-  "Cannot reach Linear — aborting. No offline mode."
+If the tracker is unreachable at any step, stop and output:
+  "Cannot reach the issue tracker — aborting. No offline mode."
 Do not fall back to cached state; there is none.
 ```
 
@@ -172,18 +185,18 @@ Do not fall back to cached state; there is none.
 **When to use:** Used only by `/tld-cancel`. Same logic as the plain strict block above, but the Case-B output adds "or pass a specific ticket ID to cancel" because `/tld-cancel` is one of the few action skills that meaningfully accepts an explicit ticket ID, and the Case-C question text changes from "pick the one to act on" to "pick the one to cancel" to match the action being taken. All other case logic is identical.
 
 ```
-Query Linear for issues in the configured project with status = "In Progress".
+Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
 
-**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
+**Case A — exactly one In-Progress ticket assigned to me:** That is the current ticket. Load it for full description / AC / files / milestone.
 
-**Case B — zero In-Progress tickets:** Stop and output:
+**Case B — zero In-Progress tickets assigned to me:** Stop and output:
   "No In-Progress ticket found. Run /tld-setup to pick one up, or pass a specific ticket ID to cancel."
 Do not guess, do not walk milestones — that is /tld-setup's job.
 
-**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to cancel." Do not guess.
+**Case C — two or more In-Progress tickets assigned to me:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to cancel." Do not guess.
 
-If Linear is unreachable at any step, stop and output:
-  "Cannot reach Linear — aborting. No offline mode."
+If the tracker is unreachable at any step, stop and output:
+  "Cannot reach the issue tracker — aborting. No offline mode."
 Do not fall back to cached state; there is none.
 ```
 
@@ -203,7 +216,7 @@ This divergence is intentional and is **not** drift. Do not "harmonize" these st
 
 ### Canonical paste-block: Author Order block
 
-**When to use:** Skills that author or rewrite a Linear milestone's `## Order` section (`/campaign-plan`, `/milestone-create`, `/milestone-sync`). All three must build the Order block the same way, otherwise the reader-side parser may end up pointed at a sequence that doesn't match what was written. Embed the block verbatim wherever a milestone description is being composed; surrounding Mode-specific logic (placeholder vs. populated, full-template vs. Order-only) stays local to the embedding skill.
+**When to use:** Skills that author or rewrite a milestone's `## Order` section on a tracker that stores order as text (`/campaign-plan`, `/milestone-create`, `/milestone-sync`). All three must build the Order block the same way, otherwise the reader-side parser may end up pointed at a sequence that doesn't match what was written. Embed the block verbatim wherever a textual milestone description is being composed; surrounding Mode-specific logic (placeholder vs. populated, full-template vs. Order-only) stays local to the embedding skill. **On the Jira path this block does not apply** — Jira order is the child tickets' native rank, so the embedding skill skips it and instead creates the tickets in the intended order (see docs/JIRA.md).
 
 ````
 **Build the Order block:**
@@ -215,7 +228,7 @@ This divergence is intentional and is **not** drift. Do not "harmonize" these st
 3. ...
 ```
 
-Write the plain `1. {prefix}-XXX` form. Linear will rewrite each line to `1. [{prefix}-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms.
+Write the plain `1. {prefix}-XXX` form. On save, some trackers rewrite each line to a linked form `1. [{prefix}-XXX](url)` — that is expected, and the reader-side Order-section parser handles both forms.
 ````
 
 ### Canonical paste-block: Flow selection (TLD vs NPC)
@@ -236,9 +249,9 @@ Read `.tld/campaign.md` for `Test Commands.Backend` (the canonical signal).
 When the classification is NPC, render the options block with `/npc-partial` and `/npc-full` as positions 1 and 2 (recommended); demote `/tld-auto` and `/tld-build` to lower positions. When the classification is TLD, keep the standard ordering with NPC variants listed last.
 ```
 
-### Canonical paste-block: Required workspace labels (Linear)
+### Canonical paste-block: Required workspace labels
 
-**When to use:** Skills that read or create the seven required Linear workspace labels (`/campaign-init`'s bootstrap step, `/campaign-test`'s connectivity check). Embed the table verbatim — it is the source of truth for label names, hex colors, and descriptions. The label list is referenced by name elsewhere (recommendation hints, dashboards) so any rename requires updating every reader at the same time.
+**When to use:** Skills that read or create the seven required workspace labels (`/campaign-init`'s bootstrap step, `/campaign-test`'s connectivity check). Embed the table verbatim — it is the source of truth for label names, hex colors, and descriptions. The label list is referenced by name elsewhere (recommendation hints, dashboards) so any rename requires updating every reader at the same time. **On the Jira path the color and description columns do not apply** (Jira labels are bare strings) and there is no create step — labels exist implicitly when first used, so the bootstrap is a no-op. See docs/JIRA.md. The seven label *names* are identical on both trackers.
 
 ```
 | Name | Color | Description |

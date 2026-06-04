@@ -21,6 +21,16 @@ If any required field in Project (Issue tracker, Project name, Team, Ticket pref
   "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
 The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 
+**Tracker resolution:**
+
+This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+
+- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
+- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Any other tracker** — stop and output:
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+  Do not invent an adapter.
+
 ### 2. Local DB safety check
 
 **Run the local-DB safety check before any test command or destructive database operation.**
@@ -79,6 +89,8 @@ Do not silently select an arbitrary milestone.
 Load the gated milestone's full description via `get_milestone` (already done in Mode A).
 
 ### 4. Verify milestone completion
+
+> **Jira path:** the milestone's ticket set is the **Sub-tasks** of the milestone Story (`parent = "<storyKey>" ORDER BY Rank ASC`), not an `## Order` list. The milestone is complete when every such Sub-task is in the `done` status category. Wherever the steps below say "the milestone's Order tickets" (the regression scope in steps 6–7), read it as "the milestone Story's Sub-tasks." See docs/JIRA.md § Milestone and ordering.
 
 Parse the milestone description's `## Order` section using the canonical algorithm:
 1. Find the line matching `^## Order\s*$`.

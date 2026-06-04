@@ -42,12 +42,16 @@ BLOCKS: list[tuple[str, str]] = [
         "If any required field in Project (Issue tracker, Project name, Team, Ticket prefix) is missing, stop and output",
     ),
     (
+        "Tracker resolution",
+        "is not supported by the TLD skills. Supported: Linear, Jira.",
+    ),
+    (
         "Resolve next ticket (discovery)",
-        "**Case B — zero In-Progress tickets:** Auto-discover by walking milestones:",
+        "Auto-discover by walking milestones:",
     ),
     (
         "Require current ticket (strict)",
-        "**Case B — zero In-Progress tickets:** Stop and output:\n  \"No In-Progress ticket found. Run /tld-setup to pick one up.\"",
+        "No In-Progress ticket found. Run /tld-setup to pick one up.\"",
     ),
     (
         "Require current ticket (strict, cancel variant)",
@@ -63,10 +67,10 @@ BLOCKS: list[tuple[str, str]] = [
     ),
     (
         "Author Order block",
-        "Linear will rewrite each line to ",
+        "reader-side Order-section parser handles both forms",
     ),
     (
-        "Required workspace labels (Linear)",
+        "Required workspace labels",
         "| `model:sonnet` | `#5E6AD2` |",
     ),
 ]

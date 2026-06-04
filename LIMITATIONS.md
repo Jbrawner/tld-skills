@@ -2,15 +2,16 @@
 
 Adventure Skills v0.1.0 is alpha software. It was built by dogfooding the framework on a single private project ("mAIn Character") and then extracted for open-source release. Many assumptions that were invisible during dogfooding are surfaced here so you can decide whether the framework fits your project before you adopt it.
 
-## Issue tracker: Linear primary, others on your own
+## Issue tracker: Linear and Jira supported; others on your own
 
-Linear is the only tracker the v0.1 skills are wired to call. `/campaign-init` accepts Linear, Jira, GitHub Issues, and Other as the issue tracker, and `/campaign-edit` will not stop you from changing the field to any of those values — but the schema accepting a tracker name is not the same thing as the framework supporting it.
+The skills support two trackers, selected by the `Issue tracker` field in `.tld/campaign.md`:
 
-Downstream TLD skills call Linear MCP tools by name. The full list of 11 calls (with parameters and response fields) is in [docs/ADAPTERS.md](docs/ADAPTERS.md). Every skill that reads or writes ticket state — `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-commit`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-ticket`, `/tld-save-point`, `/tld-dashboard`, `/campaign-init`'s label bootstrap — will fail on non-Linear configs until adapter work lands.
+- **Linear** — the original tracker, exercised end to end. Contract in [docs/ADAPTERS.md](docs/ADAPTERS.md).
+- **Jira** (Cloud, via the Atlassian MCP connector) — supported alongside Linear. Mapping in [docs/JIRA.md](docs/JIRA.md). The state-touching skills branch on the tracker field and follow the Jira path when it is `Jira`.
 
-If you pick Jira, GitHub Issues, or anything else, `/campaign-init` writes the file successfully and prints an advisory, but you are on your own for the rest of the pipeline until per-tracker adapters exist. See [docs/ADAPTERS.md](docs/ADAPTERS.md) for the full interface contract — it specifies every MCP call the skills make, what parameters are passed, what response fields are read, and the edge cases (auto-linking, rate-limiting) an adapter must handle.
+`/campaign-init` and `/campaign-edit` also accept **GitHub Issues** and **Other**, but those remain unimplemented — the schema accepting a tracker name is not the same thing as the framework supporting it. If you pick one of those, `/campaign-init` writes the file and prints an advisory, but the pipeline has no path for them until an adapter lands. See [docs/ADAPTERS.md](docs/ADAPTERS.md) for the full interface contract every adapter must satisfy.
 
-Multi-tracker support is deferred to a future release.
+Jira carries its own caveats that Linear does not — order comes from Jira's native rank rather than a `## Order` text list, labels are free-text with no create step or typo protection, and the five Linear status classes collapse into three Jira status categories. These are detailed in [docs/JIRA.md](docs/JIRA.md). Two instance-specific behaviors (rank ordering through the connector, and how a Story parents its Task/Bug tickets) must be confirmed per Jira project; see the Phase 1 spike notes in that file.
 
 ## Linear MCP: milestone order is UI-only
 

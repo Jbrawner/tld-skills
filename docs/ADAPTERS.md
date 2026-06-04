@@ -1,8 +1,10 @@
 # Adapter Interface — Issue Tracker Calls
 
-The TLD skills framework is wired to Linear's MCP connector. Every skill that reads or writes ticket or milestone state calls one of the eleven functions listed here. This document specifies the contract each function must satisfy so that a contributor can implement an adapter for Jira, GitHub Issues, or another tracker without asking questions.
+The TLD skills speak in neutral operations (for example "fetch the ticket assigned to me that is in progress" and "get the next-ranked unfinished ticket under this milestone"). This document specifies how those operations resolve on **Linear**, the framework's original tracker. The **Jira** mapping lives in [JIRA.md](JIRA.md); a skill takes the Jira path when `.tld/campaign.md` → Project → `Issue tracker` is `Jira`, and the Linear path otherwise.
 
-The adapter contract is defined by what the skills actually pass and what they actually read — not by the full API each tracker exposes.
+Every skill that reads or writes ticket or milestone state calls one of the twelve functions listed here. The contract is defined by what the skills actually pass and what they actually read — not by the full API each tracker exposes.
+
+**Tracker-defined "ordered ticket list."** Several skills ask for "the milestone's tickets in order." On Linear that order is the `## Order` section parsed from the milestone description (see [`get_milestone`](#get_milestone) and [auto-linking](#auto-linking-in-milestone-descriptions)). On Jira there is no text list — order is Jira's native rank. Each tracker's doc says how the ordered list is produced; the skills do not assume a storage format.
 
 ## How to use this document
 
@@ -101,6 +103,7 @@ Returns a batch of issues matching a filter. Used to look up statuses for multip
 |-------|------|-------|
 | `project` | string | Scopes results to the configured project |
 | (status or IDs filter) | varies | Skills may filter by status ("In Progress") or by a set of ticket identifiers from a milestone's Order section |
+| `assignee` | string \| omitted | When present, scopes results to one user — the value `"me"` / the current user's ID. Used by the "current ticket" resolution so that, on a multi-person team, a skill finds only the ticket assigned to the person running it (see [`get_current_user`](#get_current_user)). Omitted when the skill wants all assignees. |
 
 #### Response fields the skills read
 
@@ -181,6 +184,29 @@ Creates a new issue or updates an existing one.
 | identifier | string | Human-readable ticket ID assigned by the tracker, e.g. `2ND-208`. Needed after creation so the skill can populate the milestone's `## Order` section. |
 
 **Label errors:** if a label name is not found in the workspace, the call should fail with a descriptive error. The skills surface this to the user and stop — they do not silently drop labels.
+
+---
+
+### `get_current_user`
+
+Returns the identity of the user the connector is authenticated as. Needed so "the current ticket" resolves to the ticket assigned to *this* person rather than anyone on the team — the multi-person concurrency fix. On a single-developer Linear setup this is the only assignee, so the scoping is behavior-preserving.
+
+**Used by:** the "Require current ticket" and "Resolve next ticket" logic in every state-touching skill (via the canonical blocks), to pass an `assignee` filter to `list_issues` and to decide whether an In-Progress ticket is "mine" or "claimed by someone else."
+
+#### Parameters the skills pass
+
+| Field | Type | Notes |
+|-------|------|-------|
+| (none) | — | Returns the authenticated user |
+
+#### Response fields the skills read
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | string | Stable user identifier — passed as the `assignee` filter to `list_issues` |
+| `displayName` | string | Human-readable name, shown when disambiguating |
+
+On Linear this is the viewer/`me` lookup; on Jira it is `myself`. See [JIRA.md](JIRA.md#concurrency-multiple-assignees).
 
 ---
 
@@ -328,6 +354,6 @@ The retry interval is implicit — the skill retries immediately after the first
 
 ## Scope
 
-This document covers the v0.1 skills. The 11 functions above are the complete set of tracker calls the framework makes. Implementing all 11 in a new adapter gives full pipeline coverage.
+The 12 functions above are the complete set of tracker calls the framework makes. Implementing all 12 in a new adapter gives full pipeline coverage.
 
-Adapter implementation (Jira, GitHub Issues, or others) is deferred to a future release. See [LIMITATIONS.md](../LIMITATIONS.md) for the current constraint summary.
+**Jira** is mapped in [JIRA.md](JIRA.md) and selected via the `Issue tracker` field in `.tld/campaign.md`. **GitHub Issues** and other trackers remain unimplemented — the contract here is what an adapter for them would need to satisfy. See [LIMITATIONS.md](../LIMITATIONS.md) for the current constraint summary.

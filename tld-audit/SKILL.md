@@ -23,19 +23,27 @@ You are running a security and architecture review of the current ticket's chang
 
 ## Process
 
+**Tracker resolution:**
+
+This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+
+- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
+- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Any other tracker** — stop and output:
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+  Do not invent an adapter.
+
 ### 1. Identify what changed
 
 Run `git diff --name-only` and `git diff --name-only --cached` to get the list of modified/new files. Also check the active ticket context from the conversation for the expected file list.
 
-**If the conversation lacks current-ticket context** (no ticket ID known, no description, no "Files to Create/Modify" list), fall back to Linear:
+**If the conversation lacks current-ticket context** (no ticket ID known, no description, no "Files to Create/Modify" list), fall back to the tracker. Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me:
 
-Query Linear for issues with status = "In Progress".
+- **Exactly one In-Progress ticket assigned to me:** Load it and use it as the current ticket. Extract title, description, AC, and Files to Create/Modify.
+- **Zero In-Progress tickets assigned to me:** Stop and output: "No ticket context and no In-Progress ticket assigned to you. Run /tld-setup to pick one up, or provide the ticket ID." Do not proceed — the audit needs a spec to compare against.
+- **Two or more In-Progress tickets assigned to me:** Stop and output the list of IDs and titles with: "Multiple tickets are In Progress — unclear which to audit. Resolve one first (complete, cancel, or tell me which ID)." Do not guess.
 
-- **Exactly one In-Progress ticket:** Load it via `get_issue` and use it as the current ticket. Extract title, description, AC, and Files to Create/Modify.
-- **Zero In-Progress tickets:** Stop and output: "No ticket context and no In-Progress ticket in Linear. Run /tld-setup to pick one up, or provide the ticket ID." Do not proceed — the audit needs a spec to compare against.
-- **Two or more In-Progress tickets:** Stop and output the list of IDs and titles with: "Multiple tickets are In Progress — unclear which to audit. Resolve one first (complete, cancel, or tell me which ID)." Do not guess.
-
-If Linear is unreachable, stop and output: "Cannot reach Linear — aborting. No offline mode."
+If the tracker is unreachable, stop and output: "Cannot reach the issue tracker — aborting. No offline mode."
 
 Group the changes by layer:
 - **Database** — migrations, seed files, SQL
