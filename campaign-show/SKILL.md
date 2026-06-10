@@ -22,6 +22,16 @@ If the file does not exist, stop and output:
   Do not proceed. Do not attempt to resolve project config from any other source.
 Parse the four sections: Project, Test Commands, Stack, Commit format.
 
+**Tracker resolution:**
+
+This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+
+- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
+- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Any other tracker** — stop and output:
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+  Do not invent an adapter.
+
 ### 2. Display the four sections
 
 Print the parsed values in this format. Render any blank field as `(blank)`:

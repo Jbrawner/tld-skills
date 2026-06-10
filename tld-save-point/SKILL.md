@@ -33,29 +33,38 @@ If any required field in Project (Issue tracker, Project name, Team, Ticket pref
   "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
 The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 
+**Tracker resolution:**
+
+This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+
+- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
+- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Any other tracker** — stop and output:
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+  Do not invent an adapter.
+
 ### 2. Resolve current position
 
-Query Linear for issues in the configured project with status = "In Progress".
+Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
 
-**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
+**Case A — exactly one In-Progress ticket assigned to me:** That is the current ticket. Load it for full description / AC / files / milestone.
 
-**Case B — zero In-Progress tickets:** Auto-discover by walking milestones:
-1. Call `list_milestones` for the configured project, sorted by `sortOrder` ascending.
+**Case B — zero In-Progress tickets assigned to me:** Auto-discover by walking milestones:
+1. List the configured project's milestones in order (Linear: by `sortOrder` ascending; Jira: the milestone Stories by rank).
 2. If the result is empty, stop and output:
      "No milestones in project '{project name}' — run /campaign-plan or /milestone-create to create one."
-3. Walk the milestones in order. For each milestone:
-   a. Call `get_milestone` to read its description.
-   b. Parse the `## Order` section using the unanchored regex algorithm (find `^## Order\s*$`, capture lines until the next `## ` header, take the first `({prefix}-\d+)` match per line).
-   c. If the `## Order` section is missing or yields zero ticket IDs, stop and output:
+3. Walk the milestones in order. For each milestone, read its ordered ticket list:
+   - Linear: read the description and parse the `## Order` section with the unanchored regex (find `^## Order\s*$`, capture lines until the next `## ` header, take the first `({prefix}-\d+)` match per line). If the `## Order` section is missing or yields zero ticket IDs, stop and output:
         "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it."
-   d. For each ticket ID in the parsed Order, look up its status. Return the first ticket whose status is neither Done nor Canceled.
-4. If every ticket in every milestone is Done or Canceled, stop and output:
+   - Jira: list the milestone Story's child tickets ordered by rank (see docs/JIRA.md).
+   Then, for each ticket in the ordered list, look up its status. Return the first ticket whose status is neither Done nor Canceled AND that is not already In Progress for someone other than me (a ticket claimed by another assignee is skipped).
+4. If every ticket in every milestone is resolved or claimed by others, stop and output:
      "All tickets in all milestones are resolved. Nothing to do."
 
-**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
+**Case C — two or more In-Progress tickets assigned to me:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
 
-If Linear is unreachable at any step, stop and output:
-  "Cannot reach Linear — aborting. No offline mode."
+If the tracker is unreachable at any step, stop and output:
+  "Cannot reach the issue tracker — aborting. No offline mode."
 Do not fall back to cached state; there is none.
 
 ### 3. Parse milestone Order (for context)

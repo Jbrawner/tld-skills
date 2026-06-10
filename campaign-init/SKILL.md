@@ -34,14 +34,18 @@ Walk the four fields in order using AskUserQuestion.
 
 **Issue tracker** — enum. Options in this order:
 - **Linear (Recommended)** — the framework was built against Linear MCP and ships with wired tooling.
-- **Jira** — schema accepts it; downstream skills will need adaptation.
+- **Jira** — supported via the Atlassian MCP connector (Jira Cloud). See docs/JIRA.md.
 - **GitHub Issues** — schema accepts it; downstream skills will need adaptation.
 
 AskUserQuestion automatically provides an "Other" option; accept any free-text value the user supplies there.
 
-If the user picks anything other than `Linear`, immediately print this advisory before moving on:
+If the user picks `Jira`, print this note before moving on:
 
-> **Heads up:** The skills framework was built against Linear MCP and only Linear has been exercised end to end. Other trackers (Jira, GitHub Issues, anything else) are accepted in the schema but **untested** — the TLD pipeline calls Linear MCP tools by name and will need some massaging while you use it (manual ticket-status flips, manual `## Order` updates, hand-rolled label workflow, etc.). It's still worth the try if you're already invested in another tracker — most of the framework's value (hard-stop discipline, drift checks, side-quest isolation, the campaign file itself) works regardless of where tickets live. See LIMITATIONS.md and docs/ADAPTERS.md for the full surface a future adapter would need to cover.
+> **Jira selected.** The TLD skills branch on the tracker field and follow the Jira mapping in docs/JIRA.md (Jira Cloud via the Atlassian MCP connector). Milestone = Story, ticket = Sub-task, order = Jira rank, status by category. The Atlassian connector must be authenticated in the session before the ticket-touching skills run. A couple of Jira behaviors differ from Linear (free-text labels with no create step, status changes via workflow transitions) — see docs/JIRA.md.
+
+If the user picks `GitHub Issues` or a free-text `Other` value (anything other than `Linear` or `Jira`), immediately print this advisory before moving on:
+
+> **Heads up:** Only Linear and Jira are wired end to end. Other trackers (GitHub Issues, anything else) are accepted in the schema but **unimplemented** — the TLD pipeline resolves tracker calls for Linear (docs/ADAPTERS.md) and Jira (docs/JIRA.md) only, and will need adapter work for anything else (manual ticket-status flips, hand-rolled label workflow, etc.). It's still worth the try if you're already invested in another tracker — most of the framework's value (hard-stop discipline, drift checks, side-quest isolation, the campaign file itself) works regardless of where tickets live. See LIMITATIONS.md and docs/ADAPTERS.md for the full surface a future adapter would need to cover.
 
 **Project name** — free text, non-empty (re-ask if empty). In the prompt, explain that this is both the display name AND the identifier the framework will use to look the project up in the chosen tracker. Examples: for Linear it's the Linear project name (e.g. "Adventure Skills"); for Jira it would be the project key (e.g. "PROJ"); for GitHub Issues it would be the `owner/repo` slug.
 
@@ -75,9 +79,11 @@ AskUserQuestion for each; all blank-allowed:
 - **Pattern** — non-empty (re-ask if empty). Hint: substitute the user's actual prefix into a sample like `feat/({PREFIX}-XXX): title`, so if they entered `2ND` as the prefix, the hint reads `feat/(2ND-XXX): title`.
 - **Co-author** — blank-allowed. Example: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
 
-### 6. Bootstrap workspace labels (Linear only)
+### 6. Bootstrap workspace labels
 
-If tracker ≠ Linear, skip this step entirely. Remember the tracker so you can note the skip in the output.
+**If tracker = Jira:** skip label creation. Jira labels are free-text and exist implicitly the moment they are first applied to an issue — there is no label registry to bootstrap and no `create_issue_label` equivalent (see docs/JIRA.md). The seven label *names* below are still what the pipeline applies; they just need no setup. Note the skip in the output.
+
+**If tracker is any other non-Linear value:** skip this step entirely. Remember the tracker so you can note the skip in the output.
 
 If tracker = Linear, the TLD framework needs seven workspace-level labels. They may already exist from a previous `/campaign-init` run; this step is idempotent.
 

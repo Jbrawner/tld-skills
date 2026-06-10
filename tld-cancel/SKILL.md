@@ -34,20 +34,30 @@ If any required field in Project (Issue tracker, Project name, Team, Ticket pref
   "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
 The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 
+**Tracker resolution:**
+
+This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+
+- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
+- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Any other tracker** — stop and output:
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+  Do not invent an adapter.
+
 ### 2. Find the current In-Progress ticket
 
-Query Linear for issues in the configured project with status = "In Progress".
+Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
 
-**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
+**Case A — exactly one In-Progress ticket assigned to me:** That is the current ticket. Load it for full description / AC / files / milestone.
 
-**Case B — zero In-Progress tickets:** Stop and output:
+**Case B — zero In-Progress tickets assigned to me:** Stop and output:
   "No In-Progress ticket found. Run /tld-setup to pick one up, or pass a specific ticket ID to cancel."
 Do not guess, do not walk milestones — that is /tld-setup's job.
 
-**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to cancel." Do not guess.
+**Case C — two or more In-Progress tickets assigned to me:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to cancel." Do not guess.
 
-If Linear is unreachable at any step, stop and output:
-  "Cannot reach Linear — aborting. No offline mode."
+If the tracker is unreachable at any step, stop and output:
+  "Cannot reach the issue tracker — aborting. No offline mode."
 Do not fall back to cached state; there is none.
 
 ### 3. Confirm cancellation
@@ -63,6 +73,8 @@ Use `AskUserQuestion` with default-No to gate the destructive action.
 If the user's response is ambiguous or any non-Yes value, default to **No**. Only proceed when the user explicitly picks "Yes, cancel it".
 
 ### 4. Resolve the Canceled status
+
+> **Jira path:** "Canceled" is a Done-category status told apart by name (e.g. `Canceled`, `Won't Do`, `Rejected`). Call `getTransitionsForJiraIssue` for the sub-task and pick the transition whose target status is in the `done` category and reads as a cancel status; apply it with `transitionJiraIssue`. If the workflow has no cancel-style status, HARD STOP with the same advice (use `/tld-skip`, or add a cancel status). There is no `## Order` text to edit — a canceled Sub-task is simply skipped by status. See docs/JIRA.md § Statuses. The Linear steps below do not apply.
 
 Call `list_issue_statuses` for the configured team. Scan the returned states for one whose `type` is `canceled` (or whose `name` is `Canceled`, case-insensitive).
 

@@ -29,6 +29,16 @@ If any required field in Project (Issue tracker, Project name, Team, Ticket pref
   "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
 The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 
+**Tracker resolution:**
+
+This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+
+- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
+- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Any other tracker** — stop and output:
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+  Do not invent an adapter.
+
 If the tracker is not `Linear`, stop and output:
   "/milestone-create writes Linear structure directly — it is not adapted to {tracker}. Create the milestone in your tracker manually, then use /milestone-sync to author its Order section."
 
@@ -71,6 +81,8 @@ AskUserQuestion with two options:
 Record the choice.
 
 ### 6. Create the milestone (first pass — placeholder Order)
+
+> **Jira path:** the milestone is a **Story** (`createJiraIssue`, issuetype `Story`) and its tickets are **Sub-tasks** under it (`parent` = the Story key), created in the intended order. There is no `## Order` section or six-section description to author — order is the Sub-tasks' native rank. Skip the Order-rewrite step entirely. See docs/JIRA.md § Milestone and ordering. The template and `save_milestone` call below are Linear-only.
 
 Call `save_milestone` with:
 
@@ -167,7 +179,7 @@ Use the canonical embed below (byte-identical with STANDARDS.md § Author Order 
 3. ...
 ```
 
-Write the plain `1. {prefix}-XXX` form. Linear will rewrite each line to `1. [{prefix}-XXX](url)` on save — that is expected, and the reader-side Order-section parser handles both forms.
+Write the plain `1. {prefix}-XXX` form. On save, some trackers rewrite each line to a linked form `1. [{prefix}-XXX](url)` — that is expected, and the reader-side Order-section parser handles both forms.
 
 Compose the new milestone description by replacing the placeholder `## Order` block from step 6 with the populated block. Leave the other five sections (Purpose / Scope / Exit Criteria / Dependencies / Risk) unchanged. Call `save_milestone` with the milestone ID from step 6 and the new description.
 

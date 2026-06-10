@@ -21,6 +21,16 @@ If any required field in Project (Issue tracker, Project name, Team, Ticket pref
   "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
 The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 
+**Tracker resolution:**
+
+This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+
+- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
+- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Any other tracker** — stop and output:
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+  Do not invent an adapter.
+
 ### 2. Local DB safety check
 
 **Run the local-DB safety check before any test command or destructive database operation.**
@@ -79,6 +89,8 @@ Do not silently select an arbitrary milestone.
 Load the gated milestone's full description via `get_milestone` (already done in Mode A).
 
 ### 4. Verify milestone completion
+
+> **Jira path:** the milestone's ticket set is the **Sub-tasks** of the milestone Story (`parent = "<storyKey>" ORDER BY Rank ASC`), not an `## Order` list. The milestone is complete when every such Sub-task is in the `done` status category. Wherever the steps below say "the milestone's Order tickets" (the regression scope in steps 6–7), read it as "the milestone Story's Sub-tasks." See docs/JIRA.md § Milestone and ordering.
 
 Parse the milestone description's `## Order` section using the canonical algorithm:
 1. Find the line matching `^## Order\s*$`.
@@ -156,7 +168,16 @@ Don't just report "drift detected" — tell the user exactly what to do about it
 **PASS** — All Order tickets resolved (Done or Canceled), all tests green, no consistency issues, no drift.
 **FAIL** — Report every issue with fix actions.
 
-This skill does NOT write to `.tld/campaign.md`. Runtime state lives in Linear; the gate reads, it does not transition.
+This skill does NOT write to `.tld/campaign.md`; runtime state lives in the tracker.
+
+**Linear path:** the gate reads, it does not transition. Ticket and milestone state is managed by the other skills.
+
+**Jira path — roll the hierarchy up on PASS only.** Jira is hierarchical (Epic → Story = milestone → Sub-task = ticket), and nothing else transitions the parent Story or its Epic, so the gate closes them out at the milestone boundary. On a **PASS** verdict only:
+
+1. Transition the gated milestone **Story** to a `done`-category status (its Sub-tasks are all resolved) — the real Done status, not the cancel status.
+2. If that Story has a parent **Epic** and every child Story of the Epic is now `done`, transition the **Epic** to `done` as well; otherwise leave the Epic alone.
+
+Use `getTransitionsForJiraIssue` → `transitionJiraIssue` (status changes are workflow transitions, not field writes). Only ascend — never transition sibling Stories or the Sub-tasks under another Story. On a **FAIL** verdict, transition nothing. Full procedure and guard rails: docs/JIRA.md § Hierarchy rollup.
 
 ### Numbered shortcut recognition
 
@@ -187,6 +208,9 @@ Local database confirmed — Stack.Database: [value from campaign]
 
 ## Verdict: [PASS / FAIL]
 [if FAIL: list all issues with fix actions]
+
+## Hierarchy rollup
+[Jira + PASS only: "Story [KEY] → Done" plus the Epic outcome, e.g. "Epic [KEY] → Done (last Story closed)" or "Epic [KEY] left open (N of M Stories done)" or "no parent Epic". Otherwise: "n/a — Linear" or "n/a — gate did not pass".]
 
 ## Next Milestone
 [name of next milestone, or "All milestones complete"]

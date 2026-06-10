@@ -21,6 +21,16 @@ If any required field in Project (Issue tracker, Project name, Team, Ticket pref
   "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
 The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 
+**Tracker resolution:**
+
+This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+
+- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
+- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Any other tracker** — stop and output:
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+  Do not invent an adapter.
+
 ### 2. Identify the current ticket
 
 Query Linear for issues in the configured project with status = "In Progress".
@@ -49,6 +59,8 @@ If no commit found for this ticket, stop and tell the user: "No commit found for
 
 Use `save_issue` to set the ticket's state to "Done".
 Never write to `.tld/campaign.md`.
+
+> **Jira path:** status changes go through a workflow transition, not a field write — call `getTransitionsForJiraIssue` for the sub-task and `transitionJiraIssue` to the Done-category status (see docs/JIRA.md § Statuses). For step 5, "what's next" is the next-ranked unfinished **Sub-task** under the same milestone Story (`parent = "<storyKey>" ORDER BY Rank ASC`, skip Done/Canceled, sub-tasks In Progress for someone else, and sub-tasks whose blockers are not all resolved; i.e. take the next-ranked sub-task whose `is blocked by` links all point at Done/Canceled issues), not an `## Order` walk; read its labels via `getJiraIssue` and apply label overrides (step 7) via `editJiraIssue`. Run the milestone gate (below) only when every sub-task of the Story is Done/Canceled. If the Story's only remaining sub-tasks are blocked (none ready, none done), do not gate: emit `/tld-setup` with no id, which walks the remaining Stories by rank for the next ready sub-task and returns the blocked one once its blocker clears.
 
 ### 5. Determine what's next
 

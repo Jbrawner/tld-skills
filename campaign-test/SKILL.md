@@ -38,16 +38,31 @@ Do not abort on schema failures — continue through the remaining checks so the
 
 ### 3. Tracker branch
 
-If `Issue tracker` ≠ `Linear`, print this advisory verbatim, then skip to step 7 (optional checks):
+Branch on `Issue tracker`:
 
-> ⚠️ **Tracker is `{Issue tracker}`, not Linear.**
+- **Linear** — continue to step 4.
+- **Jira** — run the Jira connectivity checks below, then skip to step 7 (optional local checks).
+- **Anything else** — print the unsupported advisory below, then skip to step 7.
+
+**Jira connectivity checks** (Atlassian MCP, Jira Cloud — see [docs/JIRA.md](../docs/JIRA.md)):
+
+1. **Connector authenticated + reachable:** call `atlassianUserInfo`. On failure, retry once; on a second failure print `❌ Atlassian MCP unreachable / not authenticated — authenticate the connector and re-run /campaign-test.` and HARD STOP (skip steps 4–8). On success, hold the `account_id`.
+2. **Resolve cloudId:** call `getAccessibleAtlassianResources` and pick the site whose `url` matches your workspace. If none → ❌ `No accessible Atlassian site — check the connector's authorized scopes.`
+3. **Project exists:** call `getVisibleJiraProjects` and look for a project whose `key` equals the configured `Ticket prefix` (the Jira project key — `Project name` is only a display label). Hold that key as `{key}` for the next check. If not found → ❌ `Jira project '{Ticket prefix}' not found — check the key with /campaign-edit.` ✅ otherwise.
+4. **Labels in use (advisory only):** Jira labels have no registry, so "missing" cannot be proven. Run `searchJiraIssuesUsingJql` with `project = "{key}" AND labels in ("model:sonnet", "model:opus", "model:haiku", "effort:low", "effort:medium", "effort:high", "side-quest")` and report which of the seven appear in use as ✅; report the rest as ⏭ `(not yet used — Jira creates labels on first apply)`. Informational only: do not fail on unused labels and do not offer to create them (there is no create step on Jira).
+
+Then skip to step 7.
+
+**Unsupported-tracker advisory** (tracker is neither Linear nor Jira) — print verbatim, then skip to step 7:
+
+> ⚠️ **Tracker is `{Issue tracker}`, not Linear or Jira.**
 >
-> The TLD skills framework calls Linear MCP tools by name. The following skills will hard-abort on every invocation under a non-Linear tracker until a per-tracker adapter ships:
+> The TLD skills resolve tracker calls for Linear ([docs/ADAPTERS.md](../docs/ADAPTERS.md)) and Jira ([docs/JIRA.md](../docs/JIRA.md)) only. Under any other tracker the following skills will hard-abort on every invocation until a per-tracker adapter ships:
 >
 > - **TLD pipeline (state-touching):** `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-align`, `/tld-audit`, `/tld-commit`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-save-point`, `/tld-dashboard`, `/tld-ticket`
 > - **Planning:** `/campaign-plan`, `/milestone-create`, `/milestone-sync`
 >
-> **Manual workaround:** mirror the equivalent state changes in your tracker by hand (status transitions, ordered ticket list per phase). See [docs/ADAPTERS.md](../docs/ADAPTERS.md) for the full Linear MCP surface a future adapter must implement.
+> **Manual workaround:** mirror the equivalent state changes in your tracker by hand (status transitions, ordered ticket list per phase). See [docs/ADAPTERS.md](../docs/ADAPTERS.md) for the full tracker-call surface a future adapter must implement.
 
 If `Issue tracker` = `Linear`, continue to step 4.
 

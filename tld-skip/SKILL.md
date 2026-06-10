@@ -34,23 +34,35 @@ If any required field in Project (Issue tracker, Project name, Team, Ticket pref
   "Campaign file is missing required Project field: {field}. Run /campaign-edit to fix."
 The tracker, team, prefix, and project name from this block are the only ones the skill uses for the rest of this run.
 
+**Tracker resolution:**
+
+This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+
+- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
+- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Any other tracker** — stop and output:
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+  Do not invent an adapter.
+
 ### 2. Find the current In-Progress ticket
 
-Query Linear for issues in the configured project with status = "In Progress".
+Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
 
-**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
+**Case A — exactly one In-Progress ticket assigned to me:** That is the current ticket. Load it for full description / AC / files / milestone.
 
-**Case B — zero In-Progress tickets:** Stop and output:
+**Case B — zero In-Progress tickets assigned to me:** Stop and output:
   "No In-Progress ticket found. Run /tld-setup to pick one up."
 Do not guess, do not walk milestones — that is /tld-setup's job.
 
-**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
+**Case C — two or more In-Progress tickets assigned to me:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
 
-If Linear is unreachable at any step, stop and output:
-  "Cannot reach Linear — aborting. No offline mode."
+If the tracker is unreachable at any step, stop and output:
+  "Cannot reach the issue tracker — aborting. No offline mode."
 Do not fall back to cached state; there is none.
 
 ### 3. Determine the skip-target status
+
+> **Jira path:** the skip target is any `To Do`-category status (prefer one named `Skipped` if the workflow has it, else `Backlog`/`To Do`). Move the sub-task with `getTransitionsForJiraIssue` → `transitionJiraIssue` (status changes are transitions, not field writes). Nothing else changes: there is no `## Order` text, and the sub-task keeps its rank position so it can be resumed. See docs/JIRA.md § Statuses. The Linear steps below do not apply.
 
 Call `list_issue_statuses` for the configured team. Scan the returned states:
 

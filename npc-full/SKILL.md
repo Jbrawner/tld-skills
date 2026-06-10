@@ -31,18 +31,18 @@ What you read on your own:
 
 ### 1. Verify the active ticket
 
-Query Linear for issues in the configured project with status = "In Progress".
+Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
 
-**Case A — exactly one In-Progress ticket:** That is the current ticket. Load it via `get_issue` for full description / AC / files / `projectMilestone`.
+**Case A — exactly one In-Progress ticket assigned to me:** That is the current ticket. Load it for full description / AC / files / milestone.
 
-**Case B — zero In-Progress tickets:** Stop and output:
+**Case B — zero In-Progress tickets assigned to me:** Stop and output:
   "No In-Progress ticket found. Run /tld-setup to pick one up."
 Do not guess, do not walk milestones — that is /tld-setup's job.
 
-**Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
+**Case C — two or more In-Progress tickets assigned to me:** Stop and call `AskUserQuestion` with one option per ticket (each option's label = ticket ID + title). Question text: "Multiple tickets are In Progress — pick the one to act on." Do not guess.
 
-If Linear is unreachable at any step, stop and output:
-  "Cannot reach Linear — aborting. No offline mode."
+If the tracker is unreachable at any step, stop and output:
+  "Cannot reach the issue tracker — aborting. No offline mode."
 Do not fall back to cached state; there is none.
 
 ### 2. Invoke /tld-build

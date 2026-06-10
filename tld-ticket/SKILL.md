@@ -31,6 +31,18 @@ You determine the ticket type from context and apply the right template.
 
 ## Process
 
+**Tracker resolution:**
+
+This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+
+- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
+- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Any other tracker** — stop and output:
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+  Do not invent an adapter.
+
+On the Jira path, a new ticket is created as a **Sub-task** under the active milestone Story (`createJiraIssue`, issuetype `Sub-task`, `parent` = the Story key), with the `model:*` / `effort:*` labels applied as plain Jira labels.
+
 ### 1. Determine ticket type
 
 Based on the user's description, classify as one of:
