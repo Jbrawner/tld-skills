@@ -48,7 +48,7 @@ Branch on `Issue tracker`:
 
 1. **Connector authenticated + reachable:** call `atlassianUserInfo`. On failure, retry once; on a second failure print `❌ Atlassian MCP unreachable / not authenticated — authenticate the connector and re-run /campaign-test.` and HARD STOP (skip steps 4–8). On success, hold the `account_id`.
 2. **Resolve cloudId:** call `getAccessibleAtlassianResources` and pick the site whose `url` matches your workspace. If none → ❌ `No accessible Atlassian site — check the connector's authorized scopes.`
-3. **Project exists:** call `getVisibleJiraProjects` and look for a project whose `key` equals the configured `Project name` (the Jira project key). If not found → ❌ `Jira project '{Project name}' not found — check the key with /campaign-edit.` ✅ otherwise.
+3. **Project exists:** call `getVisibleJiraProjects` and look for a project whose `key` equals the configured `Ticket prefix` (the Jira project key — `Project name` is only a display label). Hold that key as `{key}` for the next check. If not found → ❌ `Jira project '{Ticket prefix}' not found — check the key with /campaign-edit.` ✅ otherwise.
 4. **Labels in use (advisory only):** Jira labels have no registry, so "missing" cannot be proven. Run `searchJiraIssuesUsingJql` with `project = "{key}" AND labels in ("model:sonnet", "model:opus", "model:haiku", "effort:low", "effort:medium", "effort:high", "side-quest")` and report which of the seven appear in use as ✅; report the rest as ⏭ `(not yet used — Jira creates labels on first apply)`. Informational only: do not fail on unused labels and do not offer to create them (there is no create step on Jira).
 
 Then skip to step 7.

@@ -12,12 +12,12 @@ A skill takes the Jira path when `.tld/campaign.md` → Project → `Issue track
 
 | Linear concept | Jira (Cloud) mapping | Notes |
 |---|---|---|
-| Project (`Project name`) | Jira **project key** (e.g. `AS`, `MC`) | The `Project name` field in `.tld/campaign.md` holds the project key on the Jira path. |
+| Project (`Project name`) | Jira **project**, display name | `Project name` is a human label and may differ from the key (e.g. `AM.AI`). The **Jira project key comes from `Ticket prefix`**, not this field. |
 | Team | The Jira **project** | Jira's company-managed model has no separate sub-project team object; reuse the project. |
 | Milestone | **Story** | A milestone is a Story (issue type, hierarchy level 0) that groups one phase of work. |
 | Ticket | **Sub-task** under the Story | Each unit of work is a Sub-task (hierarchy level -1) whose `parent` is the milestone Story. |
 | Order of tickets | **Jira native rank** of the sub-tasks | `ORDER BY Rank ASC`. No hand-kept `## Order` list. |
-| Ticket prefix | Jira project key | Issue keys are already `PREFIX-NNN`, the same shape as Linear, so the existing `({prefix}-\d+)` parser is unchanged. |
+| Ticket prefix | **Jira project key** (e.g. `AMAI`, `LAB`, `AS`) | The key used for `acli --project`, JQL `project = <KEY>`, board URLs, and branch names. Issue keys are `PREFIX-NNN`, same shape as Linear, so the `({prefix}-\d+)` parser is unchanged. |
 | Status: Todo / In Progress / Done / Canceled | Jira **status category** (`To Do` / `In Progress` / `Done`) | "Canceled" is a Done-category status matched by name (see [statuses](#statuses)). |
 | `model:*` / `effort:*` / `side-quest` labels | Plain Jira **labels** | Free text, no color, no description (see [labels](#labels)). |
 | "Me" (current user) | `atlassianUserInfo` → `account_id`, or JQL `currentUser()` | Needed for the multi-person concurrency fix. |
