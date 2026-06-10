@@ -62,7 +62,7 @@ Skip to step 4.
 
 **Mode B — no ticket ID:**
 
-> **Jira path:** there is no `## Order` text to parse. Walk the milestone **Stories** by rank; for each, list its child **Sub-tasks** ordered by rank (`parent = "<storyKey>" ORDER BY Rank ASC`) and return the first sub-task that is not Done/Canceled **and** not already In Progress for someone other than you (a sub-task claimed by another assignee is skipped — the multi-person rule). Resolve "me" via `atlassianUserInfo`. See docs/JIRA.md § Milestone and ordering. The Linear `## Order` walk below does not apply.
+> **Jira path:** there is no `## Order` text to parse. Walk the milestone **Stories** by rank; for each, list its child **Sub-tasks** ordered by rank (`parent = "<storyKey>" ORDER BY Rank ASC`) and return the first sub-task that is not Done/Canceled, not already In Progress for someone other than you (a sub-task claimed by another assignee is skipped — the multi-person rule), and whose blockers are all Done/Canceled (its `is blocked by` links all resolved). A still-blocked sub-task is skipped: take the next ready sub-task by rank, and if every remaining unfinished sub-task is blocked, report the outstanding blockers instead of returning one. Resolve "me" via `atlassianUserInfo`. See docs/JIRA.md § Milestone and ordering. The Linear `## Order` walk below does not apply.
 
 1. Call `list_milestones` for the configured Linear project, sorted by `sortOrder` ascending.
 2. If the result is empty, stop and output:

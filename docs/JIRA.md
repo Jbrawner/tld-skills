@@ -35,7 +35,7 @@ Resolve "the next ticket" on Jira:
 1. Identify the active milestone Story.
 2. List that Story's Sub-tasks, ordered by rank ascending:
    `parent = "<storyKey>" AND issuetype = Sub-task ORDER BY Rank ASC`
-3. Pick the first sub-task that is **not** Done/Canceled **and not** already In Progress by someone other than the current user (see [concurrency](#concurrency-multiple-assignees)).
+3. Pick the first sub-task that is **not** Done/Canceled, **not** already In Progress by someone other than the current user (see [concurrency](#concurrency-multiple-assignees)), **and** whose blockers are all resolved (every `is blocked by` link points at a Done/Canceled issue). A still-blocked sub-task is **skipped**: take the next ready sub-task by rank. If every remaining unfinished sub-task in the Story is blocked, this Story has no ready ticket: surface the outstanding blockers (the blocker likely lives in another milestone Story) and let the caller's Story walk continue to the next Story by rank, rather than returning a blocked ticket.
 
 "Are all tickets in this milestone resolved?" (milestone completion check) = every Sub-task of the Story is in the Done status category.
 
