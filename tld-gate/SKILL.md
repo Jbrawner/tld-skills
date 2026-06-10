@@ -168,7 +168,16 @@ Don't just report "drift detected" — tell the user exactly what to do about it
 **PASS** — All Order tickets resolved (Done or Canceled), all tests green, no consistency issues, no drift.
 **FAIL** — Report every issue with fix actions.
 
-This skill does NOT write to `.tld/campaign.md`. Runtime state lives in Linear; the gate reads, it does not transition.
+This skill does NOT write to `.tld/campaign.md`; runtime state lives in the tracker.
+
+**Linear path:** the gate reads, it does not transition. Ticket and milestone state is managed by the other skills.
+
+**Jira path — roll the hierarchy up on PASS only.** Jira is hierarchical (Epic → Story = milestone → Sub-task = ticket), and nothing else transitions the parent Story or its Epic, so the gate closes them out at the milestone boundary. On a **PASS** verdict only:
+
+1. Transition the gated milestone **Story** to a `done`-category status (its Sub-tasks are all resolved) — the real Done status, not the cancel status.
+2. If that Story has a parent **Epic** and every child Story of the Epic is now `done`, transition the **Epic** to `done` as well; otherwise leave the Epic alone.
+
+Use `getTransitionsForJiraIssue` → `transitionJiraIssue` (status changes are workflow transitions, not field writes). Only ascend — never transition sibling Stories or the Sub-tasks under another Story. On a **FAIL** verdict, transition nothing. Full procedure and guard rails: docs/JIRA.md § Hierarchy rollup.
 
 ### Numbered shortcut recognition
 
@@ -199,6 +208,9 @@ Local database confirmed — Stack.Database: [value from campaign]
 
 ## Verdict: [PASS / FAIL]
 [if FAIL: list all issues with fix actions]
+
+## Hierarchy rollup
+[Jira + PASS only: "Story [KEY] → Done" plus the Epic outcome, e.g. "Epic [KEY] → Done (last Story closed)" or "Epic [KEY] left open (N of M Stories done)" or "no parent Epic". Otherwise: "n/a — Linear" or "n/a — gate did not pass".]
 
 ## Next Milestone
 [name of next milestone, or "All milestones complete"]

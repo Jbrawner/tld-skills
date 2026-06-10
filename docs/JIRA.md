@@ -73,6 +73,24 @@ Because Jira folds five Linear classes into three categories, "Done" and "Cancel
 
 ---
 
+## Hierarchy rollup (closing out parents on gate PASS)
+
+Jira is hierarchical: **Epic (level 1) → Story (level 0, = milestone) → Sub-task (level -1, = ticket)**. The TLD pipeline transitions **Sub-tasks** (tickets) as work proceeds, but nothing transitions the parent Story or the Epic above it — left alone they sit `In Progress` forever even after every child is `done`. `/tld-gate` runs at the milestone (Story) boundary, so it is where parent completion rolls **up** the hierarchy. **Rollup happens only on a PASS verdict** (every Sub-task resolved, tests green, no consistency issues, no drift); a FAIL transitions nothing.
+
+Close out from the gated Story upward:
+
+1. **Close the milestone Story.** Once every Sub-task of the Story is in the `done` category, transition the **Story** itself to a `done`-category status (the real Done status, not the cancel status). `getTransitionsForJiraIssue` on the Story key → pick the transition whose target status category is `done` → `transitionJiraIssue`. If the Story is already `done`, skip.
+2. **Close the parent Epic when its last Story finishes.** Read the gated Story's parent via `getJiraIssue` `fields.parent` (only when the parent is an Epic — `fields.parent.fields.issuetype.name == "Epic"`). List that Epic's child Stories with `searchJiraIssuesUsingJql`: `parent = "<epicKey>" AND issuetype = Story` (tight `fields` list, e.g. `["status","issuetype"]`). If **every** child Story is now in the `done` category, transition the **Epic** to `done` the same way. If any child Story is still unresolved, leave the Epic as-is.
+
+Guard rails:
+
+- **Only ascend; never touch siblings' open work.** Transition only the gated Story and, conditionally, its Epic. Never transition a sibling Story, the Sub-tasks under another Story, or any issue that still has unresolved children.
+- **No parent → stop cleanly.** If the Story has no parent Epic (`fields.parent` absent, or the milestone is a bare Story), do the Story close and skip the Epic step. Projects with no Story/Epic parentage yet (e.g. the imported `AS` flat-`Task` layout in the data note below) have nothing above to roll into — the rollup is then a no-op above the level that exists.
+- **Cancel ≠ done as a target.** A Sub-task or Story sitting in a cancel-named `done`-category status still counts as resolved when deciding "are all children finished," but a parent you transition should land in the real Done status, never the cancel status.
+- **Idempotent.** Re-running the gate after a successful rollup finds the parents already `done` and transitions nothing.
+
+---
+
 ## Labels
 
 The seven required TLD labels (`model:sonnet`, `model:opus`, `model:haiku`, `effort:low`, `effort:medium`, `effort:high`, `side-quest`) map to plain Jira labels — the same strings. Jira labels differ from Linear labels:
