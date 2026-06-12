@@ -24,7 +24,7 @@ What the user provides:
 - Nothing — the active In-Progress ticket is the implicit input
 
 What you read on your own:
-- The In-Progress ticket from Linear (mirroring `/tld-build` and `/tld-next` resolution)
+- The In-Progress ticket from the issue tracker (mirroring `/tld-build` and `/tld-next` resolution)
 - `.tld/campaign.md` for the commit format (Pattern + Co-author trailer)
 
 ## Process
@@ -59,7 +59,7 @@ Show the user the commit short SHA and subject inline. Proceed directly to step 
 
 ### 4. Invoke /tld-next
 
-Run `/tld-next` immediately after the commit. It marks the ticket Done in Linear, parses the milestone `## Order`, and surfaces either the next ticket or a milestone-gate command.
+Run `/tld-next` immediately after the commit. It marks the ticket Done in the tracker, resolves what's next from the milestone's tracker-defined ticket order (Linear `## Order` or Jira rank — `/tld-next` handles both paths), and surfaces either the next ticket or a milestone-gate command.
 
 ### 5. Surface the next setup command
 
@@ -88,14 +88,7 @@ Run `/clear` then paste the command above to start the next ticket.
 **What's next?**
 
 > **1.** Start next ticket with clean context (Recommended)
->    Best for: standard flow, ready to start the next ticket
->    Step 1: type `/clear` · Step 2: run the command below
-
-```
-/tld-setup {next-id}
-```
-
-*(If the milestone just completed, use `/tld-gate {milestoneId}` as the command instead.)*
+>    Best for: standard flow — `/clear`, then run the `/tld-setup {next-id}` command shown above (or `/tld-gate {milestoneId}` if the milestone just completed)
 
 > **2.** /npc-partial — slower variant with a diff-review pause
 >    Best for: less-confident builds where a diff check is worth a beat
