@@ -116,15 +116,23 @@ done
 
 Stop at the first hit. Remember this port — you'll write it to `.claude/launch.json` in step 8 and register it as the alias target in step 9.
 
-### 7. Symlink `.env.local` if the worktree is missing one
+### 7. Symlink `.env.local` to the main repo (and reconcile if stale)
 
-This step is conditional. Skip if:
-- Not in a worktree (regular repo — env file lives where it lives)
-- The worktree already has a `.env.local`
+Skip if not in a worktree (regular repo — env file lives where it lives).
 
-Otherwise, check whether the main repo's worktree (`git rev-parse --git-common-dir`'s parent) has a `.env.local`. If yes:
+In a worktree, determine the main repo path via `git rev-parse --git-common-dir`'s parent. If the main repo has no `.env.local`, skip (nothing to symlink to). Otherwise inspect what's in the worktree at `<worktree>/.env.local`:
 
-**HARD STOP.** Read the main repo's `.env.local` (just the keys ending in `_URL` or containing `URL`). If any value points at something that looks like production (a non-`localhost` / non-`127.0.0.1` host, or a `.supabase.co` / `.vercel.app` / similar managed-service host), stop and tell the user:
+| State at `<worktree>/.env.local` | Action |
+|---|---|
+| Already a symlink to `<main>/.env.local` | Skip — done |
+| Already a symlink to something else | Surface to the user, ask whether to repoint |
+| Missing | Create symlink (after the prod-URL safety check below) |
+| Plain file, identical to main's `.env.local` (`diff` exit 0) | Replace with symlink — no data loss |
+| Plain file, differs from main's `.env.local` | **HARD STOP.** Show the user the diff via `diff <main> <worktree>` and ask one of: (a) merge unique keys back into main's `.env.local` and then symlink (recommended when the unique keys are standard dev values like local-Supabase service-role JWTs, not per-developer secrets), or (b) leave as plain file (keeps stale-drift bug). Always back up the worktree's existing file to `<worktree>/.env.local.bak.<timestamp>` before any destructive change. |
+
+**Prod-URL safety check** (run before any symlink creation):
+
+Read the main repo's `.env.local` for keys ending in `_URL` or containing `URL`. If any value points at something that looks like production — non-`localhost` / non-`127.0.0.1` host, `.supabase.co` / `.vercel.app` / similar managed-service host — **HARD STOP**:
 
 > The main repo's `.env.local` looks like it might point at production:
 >
@@ -136,13 +144,15 @@ Otherwise, check whether the main repo's worktree (`git rev-parse --git-common-d
 >   1. Replace the prod URL with a local one (e.g. `http://127.0.0.1:54421`) and re-run me, or
 >   2. Create a worktree-specific `.env.local` by hand and re-run me.
 
-Do not symlink. Do not proceed past this step until the user resolves it.
-
-If every URL looks local, create the symlink:
+Otherwise create the symlink:
 
 ```
 ln -s {main-repo-path}/.env.local {worktree-path}/.env.local
 ```
+
+**Why this matters:** `.env.local` is gitignored, so it doesn't update when a worktree pulls / rebases. If each worktree carries its own physical copy, a change in the main repo's `.env.local` (e.g., a new port a downstream tool listens on) silently fails to propagate. Symlinking makes the main repo's file the single source of truth and ends the drift class of bug entirely.
+
+Also symlink `supabase/functions/.env.local` if present in the main repo and missing / stale in the worktree — same logic, same `*.local` gitignore reason.
 
 ### 8. Write or update `.claude/launch.json`
 
