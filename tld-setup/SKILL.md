@@ -6,7 +6,7 @@ description: |
 
 # TLD Setup
 
-You are preparing the next ticket for test-led development. Your job is to identify the right ticket, pull its full context from Linear, and give the user everything they need to review before running `/tld-write-tests` or `/tld-auto`.
+You are preparing the next ticket for test-led development. Your job is to identify the right ticket, pull its full context from Linear, and give the user everything they need to review before running `/tld-write-tests` or `/tld-partial-auto`.
 
 ## Inputs
 
@@ -133,7 +133,7 @@ Record the classification. Use it in step 10 to pick the right options block.
 
 Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recommended)** in the output block.
 
-**Default:** mark `/tld-auto` as Recommended.
+**Default:** mark `/tld-partial-auto` as Recommended.
 
 **Flip to `/tld-build`** if ANY of these are true:
 - Ticket has a `no-tests` or `build-only` label
@@ -143,7 +143,7 @@ Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recom
 - Ticket description or AC mentions any of: `endpoint`, `route`, `RLS`, `policy`, `migration`, `auth`, `permission`, `secret`, `credentials`
 - "Files to Create/Modify" lists 5 or more files
 
-Evaluate `/tld-build` first, then `/tld-write-tests`. If no flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard`, `/tld-side-quest`, `/npc-partial`, or `/npc-full` **in the TLD-ticket options block** — the NPC variants are intentionally listed last there because they skip testing and are rarely the right call for real implementation tickets. (The NPC-ticket options block does intentionally mark `/npc-partial` as Recommended — see "Flow selection (TLD vs NPC)" below; that is not a contradiction with this rule, it is the NPC-ticket case being handled separately.) Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
+Evaluate `/tld-build` first, then `/tld-write-tests`. If no flip rule matches, the default stays `/tld-partial-auto`. Only one option gets the marker. Never mark `/tld-dashboard`, `/tld-side-quest`, `/npc-partial`, or `/npc-full` **in the TLD-ticket options block** — the NPC variants are intentionally listed last there because they skip testing and are rarely the right call for real implementation tickets. (The NPC-ticket options block does intentionally mark `/npc-partial` as Recommended — see "Flow selection (TLD vs NPC)" below; that is not a contradiction with this rule, it is the NPC-ticket case being handled separately.) Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
 
 `/tld-audit` is recommended at build-time (see `/tld-build`'s post-implementation hint), not at setup-time — it only has signal once a diff exists. Do not include it as a setup-time flip target.
 
@@ -191,12 +191,12 @@ Then tell the user:
 - Render a compact recommendation block from the ticket's `labels` array. Extract the value after `model:` from any `model:*` label (expected: `opus`, `sonnet`, `haiku`) and the value after `effort:` from any `effort:*` label (expected: `low`, `medium`, `high`). Then:
   - Output a single line in the form **Recommended:** model `{model}` · effort `{effort}` — using `·` as the separator. Omit the `model `{model}`` portion if there is no `model:*` label; omit the `effort `{effort}`` portion if there is no `effort:*` label; if neither label is present, omit the entire line (and the warning line below) — do NOT render a placeholder.
   - Directly below that line, ONLY if a `model:*` label is present AND the currently running Claude Code model's family does not match the recommendation, add a warning line in the form: ⚠️ Current model is `{current}` — run `/model {recommended}` to match. Determine the current family by reading the environment preamble (which names the model like "Opus 4.7", "Sonnet 4.6", or "Haiku 4.5") and mapping that family to `opus` / `sonnet` / `haiku` (lowercase) for comparison. If the current family matches the `model:*` value, omit the warning line entirely. If there is no `model:*` label, omit the warning line entirely (never compare effort — effort is display-only and has no Claude Code runtime setting).
-  - Directly below the recommendation line (and the warning line, if shown), add a **tailored hint line** that nudges the user toward manual stepping or `/tld-auto` based on the model+effort combination. The line starts with `Consider:` and is a single sentence. Use this mapping, evaluated in order — the first matching rule wins:
-    1. `model:haiku` (any effort) → `Consider: Haiku-scoped work is mechanical — /tld-auto is fine.`
-    2. `model:opus` + `effort:high` → `Consider: Opus + high suggests pattern-setting / architectural work — manual stepping may give more control than /tld-auto.`
-    3. `model:sonnet` + `effort:high` → `Consider: Sonnet + high is meaningful design — either manual stepping or /tld-auto with careful review works.`
+  - Directly below the recommendation line (and the warning line, if shown), add a **tailored hint line** that nudges the user toward manual stepping or `/tld-partial-auto` based on the model+effort combination. The line starts with `Consider:` and is a single sentence. Use this mapping, evaluated in order — the first matching rule wins:
+    1. `model:haiku` (any effort) → `Consider: Haiku-scoped work is mechanical — /tld-partial-auto is fine.`
+    2. `model:opus` + `effort:high` → `Consider: Opus + high suggests pattern-setting / architectural work — manual stepping may give more control than /tld-partial-auto.`
+    3. `model:sonnet` + `effort:high` → `Consider: Sonnet + high is meaningful design — either manual stepping or /tld-partial-auto with careful review works.`
     4. `effort:high` (any other model, e.g. model label missing) → `Consider: effort:high — lean toward manual stepping.`
-    5. `model:sonnet` + `effort:low` → `Consider: Sonnet + low is mechanical — /tld-auto is fine.`
+    5. `model:sonnet` + `effort:low` → `Consider: Sonnet + low is mechanical — /tld-partial-auto is fine.`
     6. `model:sonnet` + `effort:medium` → omit the hint line entirely (this is the default case, no nudge needed).
     7. Any other combination (including a ticket with only one of the two labels that doesn't match a rule above) → omit the hint line entirely.
     Skip the hint line entirely if neither label is present (the recommendation line itself is already omitted in that case).
@@ -213,7 +213,7 @@ Read `.tld/campaign.md` for `Test Commands.Backend` (the canonical signal).
 
 **TLD ticket** — everything else (the default).
 
-When the classification is NPC, render the options block with `/npc-partial` and `/npc-full` as positions 1 and 2 (recommended); demote `/tld-auto` and `/tld-build` to lower positions. When the classification is TLD, keep the standard ordering with NPC variants listed last.
+When the classification is NPC, render the options block with `/npc-partial` and `/npc-full` as positions 1 and 2 (recommended); demote `/tld-partial-auto` and `/tld-build` to lower positions. When the classification is TLD, keep the standard ordering with NPC variants listed last.
 
 Then present the options block based on the ticket type classification from step 8 AND the TLD/NPC flow-selection above.
 
@@ -227,7 +227,7 @@ Then present the options block based on the ticket type classification from step
 >    Best for: complex tickets, new patterns, unfamiliar territory
 >    Flow: write-tests → build → (audit) → run-test → next
 
-> **2.** /tld-auto — automated pipeline
+> **2.** /tld-partial-auto — automated pipeline
 >    Best for: small, straightforward tickets you're confident about
 >    Gates: 2 stops (test review, QA approval)
 
@@ -284,7 +284,7 @@ Type **1**, **2**, **3**, **4**, or **5** to proceed.
 >    Best for: first-time QA, tickets with many verification steps
 >    Flow: checklist → approve each → mark Done
 
-> **2.** /tld-auto — QA gate in one pass
+> **2.** /tld-partial-auto — QA gate in one pass
 >    Best for: quick re-verification or simple QA tickets
 >    Trade-off: approve everything or nothing
 

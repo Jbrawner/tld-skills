@@ -42,7 +42,7 @@ Do NOT edit a block in a single SKILL.md and leave the others stale. Do NOT intr
 
 ## CHANGE_LOG.md scope
 
-`CHANGE_LOG.md` (or whatever path the campaign's `Stack.Changelog path` field points at) is updated by the **TLD code path only**: `/tld-run-test`, `/tld-commit`, and `/tld-auto` each read the configured changelog path and add an entry as part of the commit step.
+`CHANGE_LOG.md` (or whatever path the campaign's `Stack.Changelog path` field points at) is updated by the **TLD code path only**: `/tld-run-test`, `/tld-commit`, and `/tld-partial-auto` each read the configured changelog path and add an entry as part of the commit step.
 
 `/tld-side-quest`, `/npc-partial`, and `/npc-full` deliberately **do not** update the changelog. The reasoning:
 
@@ -167,15 +167,17 @@ Every TLD and campaign skill falls into exactly one category below. This matrix 
 |---|---|---|
 | **Writes `.tld/campaign.md`** | `/campaign-init`, `/campaign-edit` | Local file — creates or edits the four sections |
 | **Writes Linear structure** (milestones, tickets, milestone descriptions) | `/campaign-plan`, `/milestone-create`, `/milestone-sync`, `/tld-ticket`, `/tld-cancel` | Linear — creates/modifies milestones and tickets; writes `## Order` sections (`/tld-cancel` rewrites the active milestone's `## Order` to remove the canceled ticket) |
-| **Writes Linear ticket status** (state transitions) | `/tld-setup`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-commit`, `/tld-run-test`, `/tld-side-quest` | Linear — flips ticket status (Todo ↔ In Progress ↔ Done ↔ Canceled, plus side-quest branches). `/tld-cancel` appears here AND in "Writes Linear structure" because it does both. |
+| **Writes Linear ticket status** (state transitions) | `/tld-setup`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-commit`, `/tld-run-test`, `/tld-pr`, `/tld-side-quest` | Linear — flips ticket status (Todo ↔ In Progress ↔ Done ↔ Canceled, plus side-quest branches). `/tld-cancel` appears here AND in "Writes Linear structure" because it does both. `/tld-pr` marks the ticket Done as part of landing it (see the landing-step note below the table). |
 | **Read-only** | `/tld-write-tests`, `/tld-build`, `/tld-align`, `/tld-audit`, `/tld-save-point`, `/tld-dashboard`, `/tld-help`, `/tld-gate`, `/campaign-show`, `/campaign-test`, `/campaign-validate` | Nothing — queries Linear and/or the campaign file |
 | **Local-git only** (no Linear, no campaign.md) | `/tld-recenter` | Local git — creates a fresh branch off `main`; refuses if working tree is dirty |
-| **Aggregator** (writes indirectly, via sub-skills) | `/tld-auto`, `/npc-partial`, `/npc-full` | Whatever sub-skills write; the aggregator itself writes nothing directly. NPC variants chain `/tld-build` → commit → `/tld-next`. |
+| **Aggregator** (writes indirectly, via sub-skills) | `/tld-partial-auto`, `/tld-full-auto`, `/npc-partial`, `/npc-full` | Whatever sub-skills write. `/tld-partial-auto` and the NPC variants chain `/tld-build` → commit → `/tld-next`. `/tld-full-auto` runs the pipeline only to a verified checkpoint and stops before commit — it never commits, pushes, opens a PR, or marks Done itself. `/tld-full-auto` is the one aggregator that also writes a tracker resource of its own: a best-effort ticket comment (LOW audit findings on a clean run; the stop reason on any stop). |
 | **Writes external repo** (PR against the skills repo) | `/tld-experience` | `Jbrawner/tld-skills` — pushes a branch and opens a PR with a new SKILL.md. Does not touch the current repo's Linear or campaign.md. |
 | **Writes release artifacts** (CHANGELOG bump + release branch + GitHub Release) | `/tld-release` | This repo — bumps `CHANGELOG.md`, opens a release-branch PR, and after merge runs `gh release create` to publish a tagged GitHub Release. Then watches the marketplace auto-bump workflow that runs in `Jbrawner/claude-skills`. Does not touch Linear or `.tld/campaign.md`. |
 | **Deletes only** | `/campaign-remove` | Local file — removes `.tld/campaign.md` |
 
 `/tld-gate` is read-only because ticket statuses are set by `/tld-next` before the gate runs; the gate verifies but does not transition.
+
+`/tld-pr` is the TLD family's landing step: it commits the verified work (if not already committed), marks the ticket Done, pushes the feature branch, and opens a pull request — then stops before merge. It is the only ticket-flow skill that pushes a branch or opens a PR in the current repo (the `/tld-experience` and `/tld-release` tooling aside); merging is never automated. It refuses to run on the default branch.
 
 `/tld-run-test` appears under "Writes ticket status" because its QA gate optionally marks the current ticket Done on approval. If the user declines at that gate, the skill writes nothing.
 

@@ -31,7 +31,7 @@ The framework ships with two parallel flows. Same ticket model, same hard stops,
 | **Drift check** | yes — diff vs ticket AC | none |
 | **Best for** | features, bug fixes, anything that touches behavior | content edits, doc updates, copy changes, README tweaks |
 | **Trigger condition** | `Test Commands.Backend ≠ skip` AND ticket scope touches code | `Test Commands.Backend = skip` AND scope is content/docs only |
-| **Skills** | `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-auto`, `/tld-align` | `/npc-partial`, `/npc-full` |
+| **Skills** | `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-partial-auto`, `/tld-align` | `/npc-partial`, `/npc-full` |
 
 **TLD is the core.** Hard stops, drift detection, and tests-as-spec are the central guardrails — use TLD for any change with functional impact.
 
