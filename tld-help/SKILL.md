@@ -27,9 +27,13 @@ Print the reference card below, then determine the user's current position in th
 
 ### Automation
 
+**Reading the names:** the **prefix** says who lands the commit — `tld-*` = *you* control commit/push/PR (hands-on, code tickets), `npc-*` = the skill commits *for* you (hands-off, content/doc tickets). The **suffix** says how many human stops — `partial` = more stops, `full` = fewest stops the family's safety allows.
+
 | Skill | What it does | When to use |
 |-------|-------------|-------------|
-| `/tld-auto` | Chains the full pipeline with 2 gates (red review, QA) | When tickets are small and straightforward |
+| `/tld-partial-auto` | Chains the full pipeline with 2 human gates (test-spec review + QA), commits on approval, marks Done | Code tickets you want automated but with review checkpoints |
+| `/tld-full-auto` | Runs the pipeline hands-off to a verified checkpoint, then STOPS before commit and preps your manual check; only flags real problems | Code tickets you want driven to ready-to-land unattended, keeping the commit/PR in your hands |
+| `/tld-pr` | Lands a verified ticket: commit → push → open PR, then stops before merge | After `/tld-full-auto`'s checkpoint (or any committed ticket) when you're ready to ship |
 | `/npc-partial` | Build → STOP for manual QA on uncommitted diff → commit + tld-next on approval | Doc/content tickets where test command is `skip` and you want one QA pause |
 | `/npc-full` | Build → commit → tld-next, no review pause | Doc/content tickets where test command is `skip` and you trust the build |
 
@@ -38,7 +42,8 @@ Print the reference card below, then determine the user's current position in th
 | Skill | What it does | When to use |
 |-------|-------------|-------------|
 | `/tld-align` | Fixes implementation after test failures | After `/tld-run-test` fails |
-| `/tld-commit` | Picks up a pending commit after a detour | After a side quest when changes are uncommitted |
+| `/tld-commit` | Commits the current ticket; asks **commit only** (stay In Progress) vs **commit and progress** (mark Done + next). No push/PR. | Per-ticket landing in a multi-ticket story; or finishing a commit after a detour |
+| `/tld-pr` | Lands a verified ticket: commit → push → open PR, stops before merge | Story end — one PR for all the story's tickets |
 | `/tld-skip` | Reverts to Todo (or Skipped state if Linear team has one) | When a ticket is practically blocked or out of order for today |
 | `/tld-cancel` | Marks the current ticket Canceled and removes it from the milestone Order | When a ticket is no longer needed and should not be picked up again |
 | `/tld-recenter` | Cuts a fresh branch off the latest default branch (detects via `origin/HEAD` → `main` → `master`); refuses if working tree is dirty | After a PR merges, before starting the next ticket |
@@ -86,11 +91,12 @@ Print the reference card below, then determine the user's current position in th
 /tld-setup → /tld-write-tests → /tld-build ──→ /tld-audit ──→ /tld-run-test → /tld-next ──→ /tld-setup (next ticket)
      |                              │              (optional)         │              │
      │                              ▼                                  │ (fail)       └──→ /tld-gate {milestoneId}
-     +─→ /tld-auto (all-in-one, runs audit inline as Phase 2.5)        ▼                    (when milestone is complete)
+     ├─→ /tld-partial-auto (all-in-one, 2 gates, commits on approval) ▼                    (when milestone is complete)
+     └─→ /tld-full-auto (hands-off → verified checkpoint) ─→ your manual check ─→ /tld-commit (per ticket)  ⟶  /tld-pr (PR at story end)
                                                                   /tld-align ──→ retry
 ```
 
-`/tld-auto` chains write-tests → build → audit → run-test → next inside one skill, with two hard stops (RED review, QA gate). The standalone `/tld-audit` step on the manual path is optional but recommended after backend / migration / auth changes.
+Two ways to automate a code ticket. `/tld-partial-auto` chains write-tests → build → audit → run-test → next inside one skill with two hard stops (RED review, QA gate) and commits on approval. `/tld-full-auto` runs the same pipeline hands-off, stops only on real problems, and ends at a verified, uncommitted checkpoint — you do your manual check, then land it: in a multi-ticket story, `/tld-commit` each ticket (choose "commit and progress" to mark it Done and advance) and run `/tld-pr` once at the end to open a single PR for the branch; or use `/tld-pr` directly to commit + push + PR a standalone ticket (it stops before merge). The standalone `/tld-audit` step on the manual path is optional but recommended after backend / migration / auth changes.
 
 ### Tips
 - Type the option number (1–N depending on the block) at any "What's next?" prompt to proceed

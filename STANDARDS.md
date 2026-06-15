@@ -18,7 +18,7 @@ When you present the "What's next?" options at the end of your output, the user 
 
 ### Milestone completion check
 
-**When to use:** End-of-ticket skills (`/tld-commit`, `/tld-run-test`) that need to decide whether the next option block should include a "run the milestone gate" choice.
+**When to use:** End-of-ticket skills (`/tld-run-test`) that need to decide whether the next option block should include a "run the milestone gate" choice. (`/tld-commit` and `/tld-pr` determine "what's next" with their own inline milestone walk rather than embedding this block, because they may mark the ticket Done themselves.)
 
 Before presenting options, check if this was the last ticket in its milestone:
 1. Read the current ticket and note its milestone (the tracker's current-ticket + milestone lookup — see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira)
@@ -33,7 +33,7 @@ Before presenting options, check if this was the last ticket in its milestone:
 
 Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recommended)** in the output block.
 
-**Default:** mark `/tld-auto` as Recommended.
+**Default:** mark `/tld-partial-auto` as Recommended.
 
 **Flip to `/tld-build`** if ANY of these are true:
 - Ticket has a `no-tests` or `build-only` label
@@ -43,13 +43,13 @@ Skip for manual-QA tickets. For code tickets, pick which option to mark **(Recom
 - Ticket description or AC mentions any of: `endpoint`, `route`, `RLS`, `policy`, `migration`, `auth`, `permission`, `secret`, `credentials`
 - "Files to Create/Modify" lists 5 or more files
 
-Evaluate `/tld-build` first, then `/tld-write-tests`. If no flip rule matches, the default stays `/tld-auto`. Only one option gets the marker. Never mark `/tld-dashboard`, `/tld-side-quest`, `/npc-partial`, or `/npc-full` **in the TLD-ticket options block** — the NPC variants are intentionally listed last there because they skip testing and are rarely the right call for real implementation tickets. (The NPC-ticket options block does intentionally mark `/npc-partial` as Recommended — see "Flow selection (TLD vs NPC)" below; that is not a contradiction with this rule, it is the NPC-ticket case being handled separately.) Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
+Evaluate `/tld-build` first, then `/tld-write-tests`. If no flip rule matches, the default stays `/tld-partial-auto`. Only one option gets the marker. Never mark `/tld-dashboard`, `/tld-side-quest`, `/npc-partial`, or `/npc-full` **in the TLD-ticket options block** — the NPC variants are intentionally listed last there because they skip testing and are rarely the right call for real implementation tickets. (The NPC-ticket options block does intentionally mark `/npc-partial` as Recommended — see "Flow selection (TLD vs NPC)" below; that is not a contradiction with this rule, it is the NPC-ticket case being handled separately.) Do not add a "Why recommended" line. The existing "Best for:" lines already explain the tradeoff.
 
 `/tld-audit` is recommended at build-time (see `/tld-build`'s post-implementation hint), not at setup-time — it only has signal once a diff exists. Do not include it as a setup-time flip target.
 
 ### Manual-QA classification (setup-time)
 
-**When to use:** Setup-time skills (`/tld-setup`, `/tld-auto`) that need to classify a ticket before deciding which flow to run. Uses 3 trigger bullets — no git-state check (a fresh ticket has no diff yet).
+**When to use:** Setup-time skills (`/tld-setup`, `/tld-partial-auto`) that need to classify a ticket before deciding which flow to run. Uses 3 trigger bullets — no git-state check (a fresh ticket has no diff yet).
 
 **Manual-QA ticket** — classify as this if ANY of:
 - Ticket description or notes contain "manual QA", "no code changes", "walk through", "validate end-to-end", "manual verification"
@@ -72,11 +72,11 @@ Evaluate `/tld-build` first, then `/tld-write-tests`. If no flip rule matches, t
 
 ### Approval keyword set
 
-**When to use:** This is the source-of-truth definition. Skills that gate on user approval (`/tld-auto`, `/tld-run-test`, `/tld-commit`, `/tld-side-quest`, `/npc-partial`, `/npc-full`) reference this section by name in their own prose — they do NOT re-embed the full definition. They cite it inline (e.g., "see STANDARDS.md § Approval keyword set for the full definition") and list the keywords in passing as part of their own gate language.
+**When to use:** This is the source-of-truth definition. Skills that gate on user approval (`/tld-partial-auto`, `/tld-run-test`, `/tld-commit`, `/tld-pr`, `/tld-side-quest`, `/npc-partial`, `/npc-full`) reference this section by name in their own prose — they do NOT re-embed the full definition. They cite it inline (e.g., "see STANDARDS.md § Approval keyword set for the full definition") and list the keywords in passing as part of their own gate language.
 
 `/tld-experience` is intentionally **not** on this list. It is a user-invoked authoring tool (the user types `/tld-experience` after a moment they want to capture) and is never auto-suggested in another skill's "What's next?" block. Its internal approval gates exist for the author flow but do not need to advertise the canonical keyword set as a contract surface.
 
-Every gate skill that waits for explicit user approval (`/tld-auto`, `/tld-run-test`, `/tld-commit`, `/tld-side-quest`, `/npc-partial`, `/npc-full`) accepts this canonical set of affirmative responses. Any of these — and only these — advance the gate:
+Every gate skill that waits for explicit user approval (`/tld-partial-auto`, `/tld-run-test`, `/tld-commit`, `/tld-pr`, `/tld-side-quest`, `/npc-partial`, `/npc-full`) accepts this canonical set of affirmative responses. Any of these — and only these — advance the gate:
 
 - `approve`
 - `commit`
@@ -162,7 +162,7 @@ Do not fall back to cached state; there is none.
 
 ### Canonical paste-block: Require current ticket (strict)
 
-**When to use:** Action-mode skills (`/tld-align`, `/tld-auto`, `/tld-build`, `/tld-commit`, `/tld-run-test`, `/tld-skip`, `/tld-write-tests`, `/npc-partial`, `/npc-full`) that should refuse to auto-discover. Zero In-Progress = STOP and tell the user to run `/tld-setup`. Use the discovery form (above) for skills that should auto-pick. `/tld-cancel` uses the cancel-variant below — it adds "or pass a specific ticket ID to cancel" to the Case-B output and changes the Case-C question text to "pick the one to cancel."
+**When to use:** Action-mode skills (`/tld-align`, `/tld-partial-auto`, `/tld-build`, `/tld-commit`, `/tld-pr`, `/tld-run-test`, `/tld-skip`, `/tld-write-tests`, `/npc-partial`, `/npc-full`) that should refuse to auto-discover. Zero In-Progress = STOP and tell the user to run `/tld-setup`. Use the discovery form (above) for skills that should auto-pick. `/tld-cancel` uses the cancel-variant below — it adds "or pass a specific ticket ID to cancel" to the Case-B output and changes the Case-C question text to "pick the one to cancel."
 
 ```
 Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
@@ -246,7 +246,7 @@ Read `.tld/campaign.md` for `Test Commands.Backend` (the canonical signal).
 
 **TLD ticket** — everything else (the default).
 
-When the classification is NPC, render the options block with `/npc-partial` and `/npc-full` as positions 1 and 2 (recommended); demote `/tld-auto` and `/tld-build` to lower positions. When the classification is TLD, keep the standard ordering with NPC variants listed last.
+When the classification is NPC, render the options block with `/npc-partial` and `/npc-full` as positions 1 and 2 (recommended); demote `/tld-partial-auto` and `/tld-build` to lower positions. When the classification is TLD, keep the standard ordering with NPC variants listed last.
 ```
 
 ### Canonical paste-block: Required workspace labels

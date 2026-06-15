@@ -59,7 +59,7 @@ Then skip to step 7.
 >
 > The TLD skills resolve tracker calls for Linear ([docs/ADAPTERS.md](../docs/ADAPTERS.md)) and Jira ([docs/JIRA.md](../docs/JIRA.md)) only. Under any other tracker the following skills will hard-abort on every invocation until a per-tracker adapter ships:
 >
-> - **TLD pipeline (state-touching):** `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-align`, `/tld-audit`, `/tld-commit`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-gate`, `/tld-auto`, `/tld-side-quest`, `/tld-save-point`, `/tld-dashboard`, `/tld-ticket`
+> - **TLD pipeline (state-touching):** `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-align`, `/tld-audit`, `/tld-commit`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-gate`, `/tld-partial-auto`, `/tld-side-quest`, `/tld-save-point`, `/tld-dashboard`, `/tld-ticket`
 > - **Planning:** `/campaign-plan`, `/milestone-create`, `/milestone-sync`
 >
 > **Manual workaround:** mirror the equivalent state changes in your tracker by hand (status transitions, ordered ticket list per phase). See [docs/ADAPTERS.md](../docs/ADAPTERS.md) for the full tracker-call surface a future adapter must implement.

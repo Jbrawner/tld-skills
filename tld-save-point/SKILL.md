@@ -98,7 +98,7 @@ Cross-reference Linear state + git state:
 
 **If a ticket is In Progress:**
 - Uncommitted changes + no commit for this ticket yet → mid-implementation (tld-build was done, needs tld-run-test)
-- No uncommitted changes + no commit for this ticket → just set up, needs tld-write-tests or tld-auto
+- No uncommitted changes + no commit for this ticket → just set up, needs tld-write-tests or tld-partial-auto
 - No uncommitted changes + commit for this ticket exists → ready for tld-next
 - Uncommitted changes AND commit for this ticket exists → detour or side-quest artifacts; suggest `/tld-commit`
 
@@ -186,7 +186,7 @@ Type **1**, **2**, or **3** to proceed.
 > **1.** /tld-write-tests — step-by-step flow
 >    Best for: complex tickets, new patterns, unfamiliar territory
 
-> **2.** /tld-auto — automated pipeline
+> **2.** /tld-partial-auto — automated pipeline
 >    Best for: small, straightforward tickets you're confident about
 
 > **3.** /tld-dashboard — review progress before diving in
@@ -197,7 +197,7 @@ Type **1**, **2**, or **3** to proceed.
 
 Type **1**, **2**, **3**, or **4** to proceed.
 
-**HARD STOP: After outputting the above, you are DONE. Do NOT invoke `/tld-write-tests`, `/tld-auto`, or any other skill. Wait for the user to pick an option or type a command.**
+**HARD STOP: After outputting the above, you are DONE. Do NOT invoke `/tld-write-tests`, `/tld-partial-auto`, or any other skill. Wait for the user to pick an option or type a command.**
 
 **If no ticket is In Progress (needs setup):**
 

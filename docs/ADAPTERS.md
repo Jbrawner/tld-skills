@@ -47,7 +47,7 @@ Returns all milestones for a project, sorted by sequence order ascending.
 
 Returns one milestone's full record, including its description.
 
-**Used by:** `/tld-setup`, `/tld-auto`, `/tld-dashboard`, `/tld-next`, `/tld-gate`, `/tld-skip`, `/milestone-sync`
+**Used by:** `/tld-setup`, `/tld-partial-auto`, `/tld-dashboard`, `/tld-next`, `/tld-gate`, `/tld-skip`, `/milestone-sync`
 
 #### Parameters the skills pass
 
@@ -95,7 +95,7 @@ Creates or updates a milestone. If `id` is provided, updates the existing one; o
 
 Returns a batch of issues matching a filter. Used to look up statuses for multiple tickets without N separate `get_issue` calls.
 
-**Used by:** `/tld-setup` (Mode B status batch), `/tld-dashboard`, `/tld-auto`, `/tld-next`
+**Used by:** `/tld-setup` (Mode B status batch), `/tld-dashboard`, `/tld-partial-auto`, `/tld-next`
 
 #### Parameters the skills pass
 
@@ -123,7 +123,7 @@ Returns a batch of issues matching a filter. Used to look up statuses for multip
 
 Returns one issue's full record. The primary call for loading a ticket before implementation.
 
-**Used by:** `/tld-setup`, `/tld-auto`, `/tld-build`, `/tld-run-test`, `/tld-next`, `/tld-commit`, `/tld-save-point`, `/tld-skip`, and any skill that reads ticket detail
+**Used by:** `/tld-setup`, `/tld-partial-auto`, `/tld-build`, `/tld-run-test`, `/tld-next`, `/tld-commit`, `/tld-save-point`, `/tld-skip`, and any skill that reads ticket detail
 
 #### Parameters the skills pass
 
@@ -157,7 +157,7 @@ Returns one issue's full record. The primary call for loading a ticket before im
 
 Creates a new issue or updates an existing one.
 
-**Used by:** `/tld-setup` (mark In Progress), `/tld-auto` (mark Done), `/tld-next` (mark Done), `/tld-skip` (revert to Todo/Skipped), `/milestone-create` (create tickets)
+**Used by:** `/tld-setup` (mark In Progress), `/tld-partial-auto` (mark Done), `/tld-next` (mark Done), `/tld-skip` (revert to Todo/Skipped), `/milestone-create` (create tickets)
 
 #### Parameters for creating a ticket
 

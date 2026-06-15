@@ -4,8 +4,11 @@ description: |
   Pick up a pending commit after a side quest detour or interrupted flow. Use this skill whenever the user says
   "tld-commit", "commit the ticket", "finish the commit", "approve the commit", or needs to resume committing
   changes that passed verification but weren't committed yet (e.g., because they ran a side quest first).
-  This is a lightweight re-entry into the commit flow — it re-runs tests to confirm nothing broke, then waits
-  for approval before committing.
+  This is a lightweight re-entry into the commit flow — it re-runs tests to confirm nothing broke, then asks
+  how to land it: a plain **commit only** (leaves the ticket In Progress — the right choice for most tickets
+  in a multi-ticket story, where you commit per ticket and open one PR at the end) or **commit and progress**
+  (commit, mark the ticket Done, and surface the next ticket). It never pushes or opens a PR — use /tld-pr for
+  the story-end PR.
 ---
 
 # TLD Commit
@@ -145,7 +148,7 @@ Stop here. Do not commit.
 
 Read the `Changelog path` from `.tld/campaign.md`'s Stack section. If the value is blank, skip this step. Otherwise, check whether the file at that path was updated; if not, add an entry now. Projects that use a CI changelog gate will fail without it.
 
-### 5. Present for approval
+### 5. Choose how to land it
 
 If tests pass, show the user what will be committed:
 
@@ -162,31 +165,35 @@ All [N] tests passing
 [resolved from .tld/campaign.md Commit format Pattern, with the ticket ID and title substituted in, and ` — TLD verified` appended]
 ```
 
-Then present the options:
+Then ask **how to land it** — a plain commit, or commit and progress the ticket:
 
 ---
 
 **What's next?**
 
-> **1.** Approve — commit the changes
->    Best for: everything looks right, ready to commit
+> **1.** Commit only — commit the changes, leave the ticket In Progress
+>    Best for: most tickets in a multi-ticket story — commit per ticket now, open one PR at the end. Also right for a mid-ticket checkpoint when more work remains.
 
-> **2.** /tld-side-quest — handle another quick fix first
+> **2.** Commit and progress — commit, mark the ticket Done, and move to the next ticket
+>    Best for: this ticket is fully complete and you want to advance
+
+> **3.** /tld-side-quest — handle another quick fix first
 >    Best for: noticed another polish item before committing
 
-> **3.** Describe what looks wrong — I'll help fix it
+> **4.** Describe what looks wrong — I'll help fix it
 >    Best for: spotted something that needs correction
 
-Type **1**, **2**, or **3** to proceed.
+Type **1**, **2**, **3**, or **4** to proceed.
 
 ### >>> MANDATORY APPROVAL GATE — STOP HERE <<<
 
-**HARD STOP.** Do NOT commit until the user explicitly approves. Wait for one of:
-- Any canonical approval keyword: "approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" (see STANDARDS.md § Approval keyword set) → proceed to step 6
+**HARD STOP.** Do NOT commit until the user explicitly picks a landing mode. Wait for one of:
+- "1", or any canonical approval keyword ("approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed" — see STANDARDS.md § Approval keyword set) → **Commit only**: do step 6, then stop (ticket stays In Progress; skip step 7)
+- "2", "progress", or "commit and progress" → **Commit and progress**: do step 6, then step 7
+- "3" or "side quest" → invoke `/tld-side-quest`, come back later with `/tld-commit`
 - User describes a problem → suggest `/tld-align` or manual fix
-- "2" or "side quest" → invoke `/tld-side-quest`, come back later with `/tld-commit`
 
-**Do NOT interpret silence, partial responses, or questions as approval.**
+**Do NOT interpret silence, partial responses, or questions as approval.** When the bare keyword "commit" is used, treat it as **Commit only** (option 1); only the explicit "2" / "commit and progress" advances the ticket.
 
 ### Numbered shortcut recognition
 
@@ -194,47 +201,80 @@ When you present the "What's next?" options at the end of your output, the user 
 
 ### 6. Commit
 
-Only after explicit user approval:
+Only after the user picks a landing mode (Commit only or Commit and progress):
 
 1. Stage the relevant files: `git add [specific files]` — only files related to this ticket
 2. Commit using the `Pattern` from `.tld/campaign.md`'s Commit format section, substituting the ticket ID and title (append ` — TLD verified`). If the campaign's `Co-author` field is non-empty, include that line in the commit trailer; if blank, omit it.
 3. Verify the commit succeeded
 
-**Do NOT push.** Confirm with user before pushing (GitHub Actions budget).
+**Do NOT push and do NOT open a PR.** `/tld-commit` never pushes or PRs — that is `/tld-pr`'s job (the story-end landing).
 
-### 7. Output
+### 7. Progress the ticket (Commit and progress mode only)
 
-Report:
-- Commit hash
-- Files committed
+**Skip this entire step if the user chose Commit only** — the commit is done and the ticket stays In Progress.
 
-### Milestone completion check
+If the user chose **Commit and progress**:
+1. Mark the ticket Done in the tracker via `save_issue` (set state to "Done").
+2. Determine what's next from the current ticket's milestone:
+   - Read the milestone's ordered ticket list (Linear: the `## Order` section parsed with the unanchored `({prefix}-\d+)` algorithm; Jira: the milestone Story's child tickets by rank).
+   - Walk the Order from the current ticket forward and pick the first ticket whose status is `Todo` (skip Done / Canceled / In Progress).
+   - **Next Todo found** → next action is `/tld-setup {next-id}`.
+   - **No next Todo** (every later entry is Done / Canceled / In Progress) → next action is `/tld-gate {milestoneId}` — substitute the milestone's actual `id`; never emit the literal `{milestoneId}`. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly.
+   - **Order section malformed or missing** → note it (the commit and Done already landed): "Committed and marked {ticket} Done, but couldn't resolve the next ticket — the milestone Order section is malformed. Run /milestone-sync to repair it." Do not invoke `/milestone-sync` yourself.
 
-Before presenting options, check if this was the last ticket in its milestone:
-1. Read the current ticket and note its milestone (the tracker's current-ticket + milestone lookup — see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira)
-2. Read that milestone's ordered ticket list (Linear: the `## Order` section of the milestone description; Jira: the milestone Story's child tickets by rank)
-3. Look up each ticket's status
-4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
-5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
-6. When appending option 4, substitute the milestone's actual `id` into the `{milestoneId}` placeholder BEFORE rendering — never emit the literal text `{milestoneId}` to the user. If you cannot capture the id (e.g., the `get_milestone` call failed), do NOT render option 4; fall back to the 3-option block.
+### 8. Output
 
-Then present the options:
+**Never emit the literal text `{milestoneId}` or `{next-id}`** — substitute the actual values before rendering.
+
+**If Commit only:**
+
+```
+## Committed — [TICKET-ID] — [title]
+- Commit: [short-sha]
+- Files: [list]
+- Ticket: still In Progress (not advanced — run /tld-commit again and pick "commit and progress" when this ticket is done)
+```
+
+Then present:
 
 ---
 
 **What's next?**
 
-> **1.** /tld-next — mark ticket done, move to next
->    Best for: ticket is fully complete
+> **1.** Keep working on this ticket
+>    Best for: that was a checkpoint and there's more to do here
 
-> **2.** /tld-side-quest — quick fix first
->    Best for: noticed something to polish before moving on
+> **2.** /tld-commit — land it and progress when the ticket is done
+>    Best for: this ticket is now complete
 
-> **3.** /tld-dashboard — review progress before deciding
->    Best for: want to see where this ticket lands in the overall plan
+> **3.** /tld-pr — open a PR for the branch
+>    Best for: end of the story — push the branch and open the PR for review
 
-> **4.** /tld-gate {milestoneId} — run milestone-boundary gate now
->    Best for: this was the last ticket in the milestone; ready for milestone validation
->    *(only shown when every ticket in the current milestone is Done or Canceled; substitute the milestone's actual `id`)*
+Type **1**, **2**, or **3** to proceed.
 
-Type **1**, **2**, **3**, or **4** to proceed.
+**If Commit and progress:**
+
+```
+## Landed — [TICKET-ID] — [title]
+- Commit: [short-sha]
+- Files: [list]
+- Tracker: marked Done
+- Next: /tld-setup [next-id]   (or /tld-gate [milestoneId] if the milestone just completed)
+```
+
+Then present:
+
+---
+
+**What's next?**
+
+> **1.** Start the next ticket with clean context (Recommended)
+>    Best for: standard flow — `/clear`, then run `/tld-setup {next-id}` (or `/tld-gate {milestoneId}` if the milestone just completed)
+
+> **2.** /tld-pr — open a PR for the work so far
+>    Best for: end of the story — push the branch and open one PR for all its tickets
+
+> **3.** /tld-dashboard — review milestone progress first
+>    Best for: want the big picture before continuing
+
+Type **1**, **2**, or **3** to proceed.

@@ -33,7 +33,7 @@ STANDARDS = REPO_ROOT / "STANDARDS.md"
 BLOCKS: list[tuple[str, str]] = [
     ("Numbered shortcut recognition", "### Numbered shortcut recognition"),
     ("Milestone completion check", "### Milestone completion check"),
-    ("Recommendation hint", "**Default:** mark `/tld-auto` as Recommended."),
+    ("Recommendation hint", "**Default:** mark `/tld-partial-auto` as Recommended."),
     ("Manual-QA classification (setup-time)", "Manual-QA classification (setup-time)"),
     ("Manual-QA classification (verify-time)", "Manual-QA classification (verify-time)"),
     ("Approval keyword set", "### Approval keyword set"),

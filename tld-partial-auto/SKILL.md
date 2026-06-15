@@ -1,7 +1,7 @@
 ---
-name: tld-auto
+name: tld-partial-auto
 description: |
-  Automated TLD pipeline with two review gates. Use this skill whenever the user says "tld-auto", "tld auto", "auto run", "run the full cycle", or wants to execute the full test-led development pipeline (write tests, review gate, build, verify, commit, QA gate, mark done) with minimal interaction. Requires /tld-setup to have been run first. Chains all TLD phases automatically but STOPS after the RED phase for user review and again before marking Done for manual QA.
+  Automated TLD pipeline with two review gates. Use this skill whenever the user says "tld-partial-auto", "tld auto", "auto run", "run the full cycle", or wants to execute the full test-led development pipeline (write tests, review gate, build, verify, commit, QA gate, mark done) with minimal interaction. Requires /tld-setup to have been run first. Chains all TLD phases automatically but STOPS after the RED phase for user review and again before marking Done for manual QA.
 ---
 
 # TLD Auto
@@ -262,7 +262,7 @@ Type **1**, **2**, or **3** to proceed.
 
 **HARD STOP. Do NOT proceed past HIGH findings without explicit user approval.**
 
-**If MEDIUM findings exist (but no HIGH), STOP and surface them for explicit acknowledgement** — matching standalone `/tld-audit`'s behavior. tld-auto must not silently swallow MEDIUM findings. Present:
+**If MEDIUM findings exist (but no HIGH), STOP and surface them for explicit acknowledgement** — matching standalone `/tld-audit`'s behavior. tld-partial-auto must not silently swallow MEDIUM findings. Present:
 
 ---
 
