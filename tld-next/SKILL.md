@@ -88,13 +88,13 @@ These values drive the recommendation line and the override cycles in step 7.
 When the user responds to a "What's next?" block with a bare number, map it based on which block was presented:
 
 **Next-ticket case (4-option block):**
-- `1` → end the skill. The user runs `/clear` + the printed `/tld-setup {id}` command manually. Do NOT invoke `/tld-setup` yourself.
+- `1` → end the skill. The user runs `/compact` + the printed `/tld-setup {id}` command manually. Do NOT invoke `/tld-setup` yourself.
 - `2` → apply the Change-model cycle, update labels via `save_issue`, re-render the block. Wait again.
 - `3` → apply the Change-effort cycle, update labels via `save_issue`, re-render the block. Wait again.
 - `4` → prompt the user inline for model + effort values, update labels via `save_issue`, re-render the block. Wait again.
 
 **Milestone-gate case (3-option block):**
-- `1` → end the skill. The user runs `/clear` + the printed `/tld-gate {milestoneId}` command manually. Do NOT invoke `/tld-gate` yourself.
+- `1` → end the skill. The user runs `/compact` + the printed `/tld-gate {milestoneId}` command manually. Do NOT invoke `/tld-gate` yourself.
 - `2` → invoke `/tld-dashboard`.
 - `3` → invoke `/tld-side-quest`.
 
@@ -106,7 +106,7 @@ Report:
 - What's next (next ticket ID or milestone gate)
 - If next action is another ticket, a recommendation line in the form `Recommended: model:{X} | effort:{Y}`, using the values parsed in step 5. When a label source is "default" (no `model:*` or `effort:*` label on the next ticket), render that side as `{value} (default)` — e.g., `Recommended: model: sonnet (default) | effort: medium (default)`.
 
-Context is saved in Linear. The recommended flow is to clear this conversation's stale context and start the next action fresh.
+Context is saved in Linear. The recommended flow is to compact this conversation's stale context and start the next action fresh.
 
 ### 7. Present options
 
@@ -125,7 +125,7 @@ Recommended: model:{X} | effort:{Y}
 
 > **1.** Proceed as recommended (Recommended)
 >    Best for: labels look right, ready to start the next ticket
->    Step 1: type `/clear` · Step 2: run the command below
+>    Step 1: type `/compact` · Step 2: run the command below
 
 ```
 /tld-setup {next-ticket-ID}
@@ -140,7 +140,7 @@ Recommended: model:{X} | effort:{Y}
 > **4.** Proceed with custom model+effort — collect values inline
 >    Best for: want to set both to specific values in one shot
 
-Type **2**, **3**, or **4** to adjust the recommendation and re-display. For option 1, run `/clear` then paste the command above.
+Type **2**, **3**, or **4** to adjust the recommendation and re-display. For option 1, run `/compact` then paste the command above.
 
 #### Handling overrides (options 2, 3, 4)
 
@@ -161,7 +161,7 @@ Each of these updates the **next** ticket's Linear labels (not the just-complete
 
 After the update succeeds, re-render the "What's next?" block above with the refreshed `Recommended: …` line. The loop continues until the user picks option 1.
 
-**HARD STOP: Options 2, 3, 4 loop in-skill — apply the override, re-render, wait. Option 1 ends the skill: do NOT invoke `/tld-setup` or any other skill. The user runs `/clear` then pastes the printed `/tld-setup {id}` command manually.**
+**HARD STOP: Options 2, 3, 4 loop in-skill — apply the override, re-render, wait. Option 1 ends the skill: do NOT invoke `/tld-setup` or any other skill. The user runs `/compact` then pastes the printed `/tld-setup {id}` command manually.**
 
 **If next action is milestone gate:**
 
@@ -171,7 +171,7 @@ After the update succeeds, re-render the "What's next?" block above with the ref
 
 > **1.** Run milestone-boundary gate with clean context (Recommended)
 >    Best for: standard flow, ready to validate the completed milestone
->    Step 1: type `/clear` · Step 2: run the command below
+>    Step 1: type `/compact` · Step 2: run the command below
 
 ```
 /tld-gate {milestoneId}
@@ -183,6 +183,6 @@ After the update succeeds, re-render the "What's next?" block above with the ref
 > **3.** /tld-side-quest — handle a quick fix before the gate
 >    Best for: noticed polish to handle before validation
 
-Type **2** or **3** to invoke those options. For option 1, run `/clear` then paste the command above.
+Type **2** or **3** to invoke those options. For option 1, run `/compact` then paste the command above.
 
 **HARD STOP: After outputting the above, you are DONE. Do NOT invoke `/tld-gate` or any other skill. Wait for the user to pick an option or type a command.**
