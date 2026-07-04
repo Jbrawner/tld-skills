@@ -47,7 +47,7 @@ If the user picks `GitHub Issues` or a free-text `Other` value (anything other t
 
 > **Heads up:** Only Linear and Jira are wired end to end. Other trackers (GitHub Issues, anything else) are accepted in the schema but **unimplemented** — the TLD pipeline resolves tracker calls for Linear (docs/ADAPTERS.md) and Jira (docs/JIRA.md) only, and will need adapter work for anything else (manual ticket-status flips, hand-rolled label workflow, etc.). It's still worth the try if you're already invested in another tracker — most of the framework's value (hard-stop discipline, drift checks, side-quest isolation, the campaign file itself) works regardless of where tickets live. See LIMITATIONS.md and docs/ADAPTERS.md for the full surface a future adapter would need to cover.
 
-**Project name** — free text, non-empty (re-ask if empty). In the prompt, explain that this is both the display name AND the identifier the framework will use to look the project up in the chosen tracker. Examples: for Linear it's the Linear project name (e.g. "Adventure Skills"); for Jira it would be the project key (e.g. "PROJ"); for GitHub Issues it would be the `owner/repo` slug.
+**Project name** — free text, non-empty (re-ask if empty). In the prompt, explain that this is both the display name AND the identifier the framework will use to look the project up in the chosen tracker. Examples: for Linear it's the Linear project name (e.g. "Adventure Skills"); for Jira it's the display project name (the Jira project key is taken from the Ticket prefix field below, e.g. prefix "PROJ" for tickets like "PROJ-123"); for GitHub Issues it would be the `owner/repo` slug.
 
 **Team** — free text. Label the prompt "Linear team" when tracker=Linear, otherwise "Team / workspace". Blank is technically allowed, but if the user leaves it blank print this warning before moving on:
 
@@ -77,7 +77,7 @@ AskUserQuestion for each; all blank-allowed:
 ### 5. Collect the Commit format section
 
 - **Pattern** — non-empty (re-ask if empty). Hint: substitute the user's actual prefix into a sample like `feat/({PREFIX}-XXX): title`, so if they entered `2ND` as the prefix, the hint reads `feat/(2ND-XXX): title`.
-- **Co-author** — blank-allowed. Example: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
+- **Co-author** — blank-allowed. Example: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
 
 ### 6. Bootstrap workspace labels
 
