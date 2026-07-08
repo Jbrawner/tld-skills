@@ -276,7 +276,18 @@ Walk the resolved step list **in order**. For each step:
 3. **Determine the step's outcome** (§5) and route on it.
 4. On `done`: **mark the step's checklist item done** — `agent-checklist check --key <sanitized-skill>_step`
    (the key from §3.5, e.g. `tld_build_step`). This is what advances the shared done-signal the orchestrator
-   reads. Then, if the step has `stop_after: true`, go to §6 (pause); otherwise advance to the next step.
+   reads. Then, if the step has `stop_after: true` **or the step ended at its own human-approval gate**, go
+   to §6 (pause); otherwise advance to the next step.
+
+**Claim the ticket after the first step (required for the chain to hold).** The first step (`tld-setup`)
+marks the ticket **In Progress** but does **not** assign it. Every later step resolves "the current ticket"
+as *the single ticket that is In Progress **and assigned to me*** (see the Step-chaining contract below).
+So the moment the first step has identified the active ticket, **assign it to the current user** if it is
+not already — on Linear via `save_issue` (assignee = me), on Jira via `editJiraIssue` (or `assignJiraIssue`)
+to the current `accountId` from `atlassianUserInfo`. This is also the ownership stamp the orchestrator's
+claim uses (set-only-if-empty). Skip this only if the ticket is already assigned to the current user. If
+the claim is not made, the second step will resolve **zero** In-Progress-assigned-to-me tickets and stop
+with "No In-Progress ticket found," breaking the chain mid-run.
 
 When the last step returns `done` and its item is checked, the pipeline is complete — every step item in
 the checklist reads `done`, which is the orchestrator's "ticket done" signal — go to §7 (report).
@@ -327,24 +338,44 @@ from this step once the blocker clears. Do not revert or clean up the worktree.
 > question on the ticket and stop cleanly and resumably.** It never silently drops the question, and it
 > never guesses the answer.
 
-### 6. `stop_after` — pause for human review
+**A step's own human-approval gate is a pause, not an outcome to auto-clear.** Some steps end at a
+**mandatory human-approval gate** even on a clean result — `tld-commit` ("No commit happens without the
+user's explicit approval") and `tld-run-test`'s commit gate. This is **not** a `done` the runner may
+advance past, and **not** a `failed`/`needs_user` problem: the work is fine, but landing it is the human's
+call, always (the whole TLD family keeps the human in control of the landing). When a step ends at its own
+approval gate, treat it exactly like `stop_after`: mark the step's checklist item done for the work it
+finished, then **pause and hand the gate to the user** (§6). Never type the approval keyword yourself,
+never reach around the step to `git commit`, and never mark the ticket Done on the step's behalf. The
+pipeline resumes from the next step once the user has approved and the step has landed its work.
 
-When a step that completed `done` has `stop_after: true`, do **not** advance. Pause and present:
+> **Why the "runs straight through, no pauses" pipeline still pauses at commit.** The spec's recommended
+> leaf pipeline ends `… tld-commit → tld-writeup → tld-next`. `tld-commit`'s approval gate means an
+> unattended run **cannot** silently commit through it — the commit step is inherently human-gated. A
+> project that truly wants no pause at the landing must say so out of band (a pre-approved commit mode);
+> absent that, the runner stops at the commit gate and lets the human land it, then resumes into
+> `tld-writeup` and `tld-next`.
+
+### 6. Pause for human review (`stop_after` and approval gates)
+
+Pause when **either** a step that completed `done` has `stop_after: true`, **or** a step ended at its own
+mandatory human-approval gate (§5). Do **not** advance. Present:
 
 ```
 ## ⏸ Pipeline paused after {step-skill} — {ticket}
 
-{the step's own output / result summary}
+{the step's own output / result summary — including its approval gate verbatim, if it has one}
 
 Steps done:      {list}
-Paused after:    {step-skill}  (stop_after)
+Paused after:    {step-skill}  ({stop_after | awaiting your approval to land})
 Remaining steps: {list}
 
-Review the result above. To continue, run /tld-orchestrate again — it resumes from the next step.
+Review the result above. {If the step has an approval gate: approve it there to land the work.}
+To continue, run /tld-orchestrate again — it resumes from the next step.
 ```
 
-Then STOP the turn. This flag is the per-project lifecycle: some projects run straight through, others
-pause after tests or before commit, all from the same config.
+Then STOP the turn. This is the per-project lifecycle: some projects run straight through, others pause
+after tests or before commit — from the `stop_after` flags — and the landing gates (`tld-commit`) always
+pause regardless, so the human owns every commit.
 
 ### 7. Resume (resumable, never restart)
 
@@ -402,6 +433,38 @@ For a stop (`blocked` / `needs_user` / broken circuit), output instead:
 **Worktree:** {uncommitted files left in place — nothing reverted}
 **Resume:** run /tld-orchestrate again — it resumes from {step}.
 ```
+
+## Step-chaining contract (verified)
+
+The TLD leaf skills were built to chain, and they chain cleanly as pipeline steps — verified by
+read-through of `tld-setup`, `tld-write-tests`, `tld-build`, `tld-audit`, `tld-run-test`, `tld-commit`,
+and `tld-next`. What makes them safe to invoke as **independent** Skill-tool calls is that **context does
+not pass through the conversation** — every step reconstructs its own context from durable state. Three
+channels carry the handoff:
+
+| Channel | What it carries | Who writes it / reads it |
+|---|---|---|
+| **Tracker status** | Which ticket is active | `tld-setup` sets **In Progress** at the front; the middle steps resolve *the single ticket In Progress **and assigned to me***; `tld-next` transitions it to **Done** at the back |
+| **Git worktree** | The actual work | Uncommitted changes and commits flow build → run-test → commit; `tld-next` confirms the commit exists |
+| **Shared session** | Loaded ticket context | `tld-audit` uses in-conversation context first, tracker as fallback — both are present because the runner drives every step in one session |
+
+Two preconditions fall out of that contract, and the runner enforces both:
+
+1. **Self-assignment (§4 claim).** The middle steps key on "In Progress **and assigned to me**," but
+   `tld-setup` only sets In Progress — it never assigns. The runner assigns the ticket to the current user
+   right after the first step identifies it; without that, the second step resolves zero tickets and the
+   chain breaks. (This is Linear-first behavior that bites the Jira adapter, where sub-tasks are often
+   unassigned.)
+2. **Landing gates stay human (§5–§6).** `tld-commit` and `tld-run-test` end at a mandatory approval gate
+   by design. The runner treats those as pauses and hands them to the user — it never auto-approves a
+   commit or marks the ticket Done on a step's behalf.
+
+Blocker signalling is likewise readable off the step's terminal gate: `tld-setup` prints
+`Blocked — {id} is {status}`; build/commit end at a `/tld-align` remediation gate; audit gates on its
+CHECK category; run-test gates on red/drift; a non-local DB hard-aborts. §5's "read the outcome by
+meaning" routing consumes exactly these shapes. The durable, machine-readable `handoff_state` record is
+written by `tld-writeup` (DROSS-1); until that step runs, per-step outcomes come from interpreting each
+step's gate.
 
 ## Guardrails
 
