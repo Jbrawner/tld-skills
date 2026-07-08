@@ -3,8 +3,10 @@ name: campaign-edit
 description: |
   Edit a field in this repo's `.tld/campaign.md` configuration file. Use this skill whenever the user says
   "campaign-edit", "campaign edit", "edit campaign", "update campaign", "change field", "update project config",
-  or wants to modify a setting in the per-repo campaign file. Edits fields across all four sections: Project,
-  Test Commands, Stack, and Commit format. There is at most one campaign per repo, so no picker — the file is
+  or wants to modify a setting in the per-repo campaign file. Edits fields across the four required sections
+  (Project, Test Commands, Stack, Commit format) and can add / replace / remove the optional v0.2 sections
+  (Pipelines, Allowed statuses), always preserving any it is not editing byte-for-byte. Canonical schema:
+  docs/CAMPAIGN_SCHEMA.md. There is at most one campaign per repo, so no picker — the file is
   at `{cwd}/.tld/campaign.md`.
 ---
 
@@ -64,12 +66,15 @@ Print every current value in a single table grouped by section so the user can s
 
 ### 3. Pick a category
 
-Use AskUserQuestion: "Which category do you want to edit?" with these four options:
+Use AskUserQuestion: "Which category do you want to edit?" with these options:
 
 - **Project** — Issue tracker, Project name, Team, Ticket prefix
 - **Test Commands** — Backend, Frontend, Landing, Full
 - **Stack** — Backend directory, Frontend directory, Landing directory, Database, Changelog path
 - **Commit format** — Pattern, Co-author
+- **Pipelines / Allowed statuses (v0.2)** — the optional v0.2 sections; add, replace, or remove a whole section (see step 4b)
+
+If the user picks the v0.2 category, go to **step 4b** instead of steps 4–6.
 
 ### 4. Pick a field within the category
 
@@ -98,13 +103,28 @@ For every other field, present an open-ended AskUserQuestion. Show the current v
 - **Commit pattern:** must be non-empty. Reject and re-ask if empty.
 - All other fields: accept any value including empty (which becomes the new blank value, written as `- Field: ` with nothing after the colon).
 
+### 4b. Add / replace / remove a v0.2 section
+
+Only reached when the user picked the v0.2 category in step 3. These are whole-section operations, not
+field edits. Canonical shapes: docs/CAMPAIGN_SCHEMA.md.
+
+1. Ask which section: **`## Pipelines`** or **`## Allowed statuses`**.
+2. Ask the operation: **Add** (section absent), **Replace** (section present), or **Remove**.
+3. Collect and validate:
+   - **Pipelines** — collect the full fenced ```` ```yaml ```` block. Reject if it has no yaml fence.
+   - **Allowed statuses** — collect the list. Reject if empty. Default suggestion: `In Progress`, `In PR`, `In Release`, `Done`.
+   - **Remove** — no value to collect; the section is deleted on write.
+4. Proceed to step 7 to write, preserving every other section byte-for-byte.
+
+The only legal section headings are the six in the v0.2 schema. Do not create any heading outside that set.
+
 ### 7. Write the updated file back
 
-Rewrite `{cwd}/.tld/campaign.md` preserving all four sections and every other field byte-for-byte except the one line you are changing. Keep the section headers and bullet labels exactly as they are in the schema.
+Rewrite `{cwd}/.tld/campaign.md` preserving **every section currently present** — the four required sections plus any optional v0.2 sections (`## Pipelines`, `## Allowed statuses`) — and every field byte-for-byte, except the one line (or, for step 4b, the one whole section) you are changing. Keep the section headers and bullet labels exactly as they are in the schema. **Never drop a `## Pipelines` or `## Allowed statuses` block that was in the file just because this edit targeted a different field** — a field edit must round-trip the v0.2 sections untouched.
 
 If the user changed **Project name**, also update the `# Campaign: {Project name}` title line at the top of the file.
 
-Do NOT introduce new sections, re-order sections, or add fields that are not in the schema.
+Do NOT introduce sections outside the v0.2 allowlist (`Project`, `Test Commands`, `Stack`, `Commit format`, `Pipelines`, `Allowed statuses`), do NOT re-order the existing sections, and do NOT add fields that are not in the schema.
 
 ### 8. Confirm
 

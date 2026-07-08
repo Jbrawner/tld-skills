@@ -1,8 +1,9 @@
 ---
 name: campaign-test
 description: |
-  Pre-flight connection check for this repo's `.tld/campaign.md`. Validates the 4-section schema on every
-  run, and when tracker = Linear also verifies Linear reachability, team / project existence, ticket-prefix
+  Pre-flight connection check for this repo's `.tld/campaign.md`. Validates the schema on every run (the
+  required four sections, plus the optional v0.2 sections and reject-unknown per docs/CAMPAIGN_SCHEMA.md),
+  and when tracker = Linear also verifies Linear reachability, team / project existence, ticket-prefix
   match, and the seven required workspace labels. Read-mostly: the only write path is creating missing
   workspace labels, and only after an explicit user Yes via AskUserQuestion (default No). Use this skill
   whenever the user says "campaign-test", "campaign test", "test connections", "verify setup", or wants to
@@ -25,14 +26,16 @@ If the file does not exist, stop and output:
   Do not proceed. Do not attempt to resolve project config from any other source.
 Parse the four sections: Project, Test Commands, Stack, Commit format.
 
-### 2. Validate the 4-section schema (every run, regardless of tracker)
+### 2. Validate the schema (v0.2, every run, regardless of tracker)
 
-These checks run for every tracker. Each is an independent pass / fail reported in the `### Schema` section of the final output.
+These checks run for every tracker. Each is an independent pass / fail reported in the `### Schema` section of the final output. The canonical schema is docs/CAMPAIGN_SCHEMA.md — keep this pass consistent with `/campaign-validate`.
 
-- All four sections present: `Project`, `Test Commands`, `Stack`, `Commit format`.
+- All four required sections present: `Project`, `Test Commands`, `Stack`, `Commit format`.
 - `Project name` is non-empty.
 - `Ticket prefix` is non-empty.
 - Commit `Pattern` is non-empty.
+- **No unknown sections:** every `## ` heading is one of the six allowed — `Project`, `Test Commands`, `Stack`, `Commit format`, `Pipelines`, `Allowed statuses`. Any other heading is a ❌ (`Unknown section '{heading}' — see docs/CAMPAIGN_SCHEMA.md`).
+- **Optional v0.2 sections (only when present):** if `## Pipelines` exists it must contain a ```` ```yaml ```` block; if `## Allowed statuses` exists it must be a non-empty list. A file with neither is a valid v0.1 file and passes these vacuously.
 
 Do not abort on schema failures — continue through the remaining checks so the user sees a full picture on a single run.
 

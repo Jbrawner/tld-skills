@@ -1,8 +1,10 @@
 ---
 name: campaign-validate
 description: |
-  Schema-only validator for this repo's `.tld/campaign.md`. Checks the four-section structure
-  and required fields without reaching out to Linear or any other external system. Use this
+  Schema-only validator for this repo's `.tld/campaign.md`. Checks the required four-section
+  structure and required fields, accepts the optional v0.2 sections (`Pipelines`, `Allowed
+  statuses`) when present, and rejects genuinely unknown sections — all without reaching out to
+  Linear or any other external system. Canonical schema: docs/CAMPAIGN_SCHEMA.md. Use this
   skill whenever the user says "campaign-validate", "campaign validate", "validate schema",
   "check the campaign file offline", or wants to confirm the local config parses correctly
   without paying for a Linear round-trip. Read-only — never writes to disk, never modifies
@@ -33,15 +35,24 @@ If the file does not exist, stop and output:
   Do not proceed. Do not attempt to resolve project config from any other source.
 Parse the four sections: Project, Test Commands, Stack, Commit format.
 
-### 2. Validate the 4-section schema
+### 2. Validate the schema (v0.2)
 
-Each check is independent — run all of them and report pass / fail for each, even if an earlier check failed. The user wants a complete picture of what's broken, not a fail-fast halt at the first issue.
+Each check is independent — run all of them and report pass / fail for each, even if an earlier check failed. The user wants a complete picture of what's broken, not a fail-fast halt at the first issue. The canonical schema is docs/CAMPAIGN_SCHEMA.md.
 
-**Sections present:**
+**Required sections present:**
 - Section `Project` exists.
 - Section `Test Commands` exists.
 - Section `Stack` exists.
 - Section `Commit format` exists.
+
+**Known sections only (reject unknown):**
+- The complete set of allowed `## ` section headings is: `Project`, `Test Commands`, `Stack`, `Commit format`, `Pipelines`, `Allowed statuses`.
+- Collect every `## ` heading in the file. Any heading outside that set is a **FAIL** — report it as `Unknown section '{heading}' — not in the v0.2 schema (see docs/CAMPAIGN_SCHEMA.md)`. This is what keeps the schema bounded; the four required plus the two optional v0.2 sections are the only legal headings.
+
+**Optional v0.2 sections (validate only when present — absence is not a failure):**
+- If `## Pipelines` is present: it must contain a fenced ```` ```yaml ```` block. If the section exists but has no yaml block, FAIL with `Pipelines section present but has no ```yaml block`. (This skill does not parse the pipeline semantics — that is `tld-orchestrate`'s job; it only confirms the block is there.)
+- If `## Allowed statuses` is present: it must be a non-empty list of `- ` items. If empty, FAIL with `Allowed statuses section present but empty`.
+- A file with **neither** optional section is a valid v0.1 file and passes these checks vacuously — it behaves exactly as before.
 
 **Project block fields (required):**
 - `Project name` is non-empty.
@@ -77,6 +88,9 @@ Report a compact pass / fail table grouped by section. Use ✅ for pass, ❌ for
 | Project: Project name | ✅ {value} |
 | Project: Ticket prefix | ✅ {value} |
 | Commit format: Pattern | ✅ {value} |
+| No unknown sections | ✅ / ❌ {unknown heading(s)} |
+| Pipelines (if present) | ✅ has yaml block / ⏭ not present |
+| Allowed statuses (if present) | ✅ non-empty list / ⏭ not present |
 
 ### Advisories
 - {tracker advisory if applicable, else "None"}

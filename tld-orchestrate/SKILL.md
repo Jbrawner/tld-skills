@@ -159,18 +159,24 @@ Per-step keys the runner honors:
 | `on_fail:` | Which skill to invoke to fix a `failed` outcome | `tld-align` |
 | `retries:` | How many `on_fail` attempts before the circuit breaks | `2` |
 
-If `.tld/campaign.md` has **no** `## Pipelines` section, use the built-in team standard from §2 as-is.
-Do **not** stop for a missing config — its absence means "use the standard," which is the common case.
+If `.tld/campaign.md` has **no** `## Pipelines` section, use the team standard resolved in §2 (the shared
+team-standard file, else the built-in default) as-is. Do **not** stop for a missing config — its absence
+means "use the standard," which is the common case.
 
 ### 2. Resolve this ticket's pipeline (the cascade)
 
-Resolution is three layers, and nothing is ever undefined — everything falls back to the standard:
+Resolution is four layers, base to most-specific, and nothing is ever undefined — everything falls back toward the base:
 
 ```
-team standard (built into this skill)  →  project override (## Pipelines)  →  type override
+shared team-standard file  →  built-in default (fallback)  →  project override (## Pipelines)  →  type override
 ```
 
-**The built-in team standard** (used whenever the project has not overridden it) is the leaf pipeline:
+**The team standard** is the base of the cascade. It lives in a shared file installed into each agent home so the Codex and Claude paths cannot drift (see docs/CAMPAIGN_SCHEMA.md § cascade):
+
+- Read `$WORKFLOW_SHARE_DIR/pipelines/team-standard.yaml` (neutral `WORKFLOW_*`, falling back to `CODEX_*`). If present, its `pipelines:` map is the team standard.
+- If that file is not installed — it ships via the shared `install.sh` (DROSS-23) — fall back to the **built-in default** below. Until the shared file lands, this fallback *is* the team standard and behavior is exactly as today.
+
+**The built-in default** (the fallback team standard, used whenever neither the shared file nor the project overrides it) is the leaf pipeline:
 
 ```
 tld-setup → tld-write-tests → tld-build → tld-audit → tld-run-test → tld-commit → tld-writeup → tld-next
@@ -186,7 +192,7 @@ Resolve as follows:
    - Key present with `use: X` → resolve to pipeline `X` (follow one level of indirection).
    - Key present with an explicit step list (or `steps:` under a `trigger:`) → use it.
    - Key absent → fall back to `default`.
-   - `default` absent from the project config → fall back to the **built-in standard** above.
+   - `default` absent from the project config → fall back to the **team standard** above (shared file, else built-in default).
 3. The result is an **ordered list of steps**. That list is the pipeline for this run.
 
 This resolved step list is the single source of truth for the rest of the run. §3.5 seeds the shared
@@ -499,6 +505,10 @@ step's gate.
 - **Container fan-out is a follow-up.** The closeout skills (`tld-gate`, `tld-story-review`, `tld-spot-check`)
   all exist and are invocable directly by Story key, but this runner still stops at §3 for a container flow —
   it does not yet wait on all children and drive `gate → review → spot-check` automatically.
+- **Shared team-standard file is not installed yet.** §2 reads `$WORKFLOW_SHARE_DIR/pipelines/team-standard.yaml`
+  as the base of the cascade, but that file ships via the shared `install.sh` (DROSS-23), which has not landed.
+  Until it does, the base layer falls back to the **built-in default** in §2, so behavior is exactly as today.
+  The campaign schema for the sections read here is docs/CAMPAIGN_SCHEMA.md (DROSS-35).
 - **`tld-writeup` is a sibling ticket (DROSS-1).** The `handoff_state` signal this skill reads as the
   authoritative per-step outcome is written by `tld-writeup`; until that skill is present, outcome
   detection relies on interpreting each step's "What's next?" gate.
