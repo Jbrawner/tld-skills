@@ -129,6 +129,7 @@ Concrete Atlassian MCP tools for each neutral operation (this workspace's connec
 | Create a ticket | `save_issue` (create) | `createJiraIssue` (issuetype `Sub-task`, `parent` = Story key) |
 | Transition a ticket's status | `save_issue` (state) | `getTransitionsForJiraIssue` → `transitionJiraIssue` |
 | Edit a ticket (labels, assignee, fields) | `save_issue` | `editJiraIssue` |
+| Post or update a ticket comment | comment-create / comment-update | `addCommentToJiraIssue` (pass `commentId` to update in place) |
 | Create the milestone Story | `save_milestone` | `createJiraIssue` (issuetype `Story`) |
 | List issue types / hierarchy | (n/a) | `getJiraProjectIssueTypesMetadata` |
 | Resolve a username → account id | (n/a) | `lookupJiraAccountId` |
@@ -138,6 +139,23 @@ Concrete Atlassian MCP tools for each neutral operation (this workspace's connec
 `create_issue_label` from the Linear contract has **no Jira equivalent** — labels are not created, only used (see [labels](#labels)).
 
 ---
+
+## Completion comment + handoff (tld-writeup)
+
+`tld-writeup` posts the standardized completion comment and writes the machine-readable handoff. On Jira:
+
+- **Post/update the comment idempotently.** Use `addCommentToJiraIssue` with `contentFormat: markdown`. The
+  comment's first line is the marker `# <KEY> complete — <title>` and its Handoff block carries
+  `Run: <session id>`. To avoid duplicates, read existing comments first (`getJiraIssue` with the `comment`
+  field), find the one bearing this ticket's marker **and** the same `Run:` id, and if present pass its
+  `commentId` to update in place; otherwise add a new comment. Exactly one completion comment per ticket +
+  run.
+- **Write the handoff into the shared checklist.** The Handoff field names are the existing checklist keys
+  (`handoff_state`, `handoff_validation_summary`, `handoff_changed_files_summary`, `handoff_token_usage`,
+  `handoff_blocker`) written via `agent-checklist set --field <name> --value <value>`, then
+  `agent-checklist check --key handoff_state_recorded`. This is tracker-independent — the same keys are used
+  on Linear — but it is the signal the orchestrator reads to know the ticket is done, so it must be written
+  even though the comment already carries the same block in prose.
 
 ## What Jira cannot mirror (residual risks)
 
