@@ -157,6 +157,23 @@ Concrete Atlassian MCP tools for each neutral operation (this workspace's connec
   on Linear — but it is the signal the orchestrator reads to know the ticket is done, so it must be written
   even though the comment already carries the same block in prose.
 
+## Audit-findings comment (tld-audit)
+
+`tld-audit` records its **low/medium non-blocker** findings as one standardized, machine-aggregatable
+comment per ticket. On Jira:
+
+- **Post/update idempotently.** Use `addCommentToJiraIssue` with `contentFormat: markdown`. The comment's
+  first line is the marker `# <KEY> audit findings — non-blockers`. To avoid duplicates, read existing
+  comments first (`getJiraIssue` with the `comment` field), find the one bearing this marker, and if present
+  pass its `commentId` to update in place; otherwise add a new comment. Exactly one audit-findings comment
+  per ticket, updated on every re-run (not one per run, not one per finding).
+- **The shape** carries a `Summary: <N> findings · <O> open · <R> resolved` line and a fixed-column table
+  (`id | severity | status | location | summary`). The marker line and the `Summary:` line are the stable
+  contract `tld-story-review` parses to roll up Open/Resolved counts per child; the table is per-finding
+  detail. Stable per-ticket `id`s let a finding flip `open → resolved` across re-runs without renumbering.
+- **HIGH findings are not written here** — they are blockers surfaced by the audit's hard-stop, not
+  non-blockers. Only `low` and `medium` land in this comment.
+
 ## What Jira cannot mirror (residual risks)
 
 | Linear behavior | Jira reality | Consequence |
