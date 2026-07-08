@@ -199,16 +199,19 @@ If the resolved pipeline is a **container** flow (type Story/Epic, or a config e
 STOP with a clear message:
 
 ```
-Container pipelines (Story/Epic closeout) are not available yet.
+Container pipelines (Story/Epic closeout) are not driven end to end yet.
 
-The closeout steps they invoke — tld-story-review, tld-spot-check — ship in Phase 4.
-This ticket resolves to a container flow ({type}), so there is nothing to drive yet.
+The closeout skills exist — tld-gate, tld-story-review, tld-spot-check — but this runner
+does not yet do the container fan-out (wait for all children, then gate → review →
+spot-check). This ticket resolves to a container flow ({type}), so there is nothing to
+drive here yet.
 
-Run /tld-orchestrate against a leaf ticket (Sub-task / Bug / Task), or drive the
-container's children individually for now.
+Run /tld-orchestrate against a leaf ticket (Sub-task / Bug / Task); or, for a Story that
+is ready to close out, invoke the closeout skills directly by key:
+/tld-gate {storyKey}, then /tld-story-review {storyKey}, then /tld-spot-check {storyKey}.
 ```
 
-Do not attempt to invoke a closeout step that does not exist. (A configured step whose skill is genuinely
+Do not attempt the container fan-out from this runner yet. (A configured step whose skill is genuinely
 not installed is a different event — a HARD STOP under §4's invocation rule.)
 
 ### 3.5 Seed the shared checklist from the resolved steps
@@ -493,8 +496,9 @@ step's gate.
   but **resume falls back to the `/tld-save-point`-style re-read of ticket + git state** (§7) rather than the
   durable seeded step-state. Do not claim a fully checklist-driven end-to-end run until that capability is
   installed — it cannot be exercised end-to-end against the currently-installed engine.
-- **Container flows are Phase 4.** Story/Epic closeout pipelines stop at §3 until `tld-story-review` and
-  `tld-spot-check` exist.
+- **Container fan-out is a follow-up.** The closeout skills (`tld-gate`, `tld-story-review`, `tld-spot-check`)
+  all exist and are invocable directly by Story key, but this runner still stops at §3 for a container flow —
+  it does not yet wait on all children and drive `gate → review → spot-check` automatically.
 - **`tld-writeup` is a sibling ticket (DROSS-1).** The `handoff_state` signal this skill reads as the
   authoritative per-step outcome is written by `tld-writeup`; until that skill is present, outcome
   detection relies on interpreting each step's "What's next?" gate.
