@@ -1,7 +1,7 @@
 ---
 name: tld-partial-auto
 description: |
-  Automated TLD pipeline with two review gates. Use this skill whenever the user says "tld-partial-auto", "tld auto", "auto run", "run the full cycle", or wants to execute the full test-led development pipeline (write tests, review gate, build, verify, commit, QA gate, mark done) with minimal interaction. Requires /tld-setup to have been run first. Chains all TLD phases automatically but STOPS after the RED phase for user review and again before marking Done for manual QA.
+  Automated TLD pipeline with two review gates. Use this skill whenever the user says "tld-partial-auto", "tld auto", "auto run", "run the full cycle", or wants to execute the full test-led development pipeline (write tests, review gate, build, verify, commit, QA gate, mark done) with minimal interaction. Requires /tld-setup to have been run first. Chains all TLD phases automatically but STOPS after the RED phase for user review and again before marking Done for manual QA. Handles migration/schema tickets instead of mislabeling them manual-QA: it recognizes a migration ticket, runs the code path, and verifies the migration by applying it to the LOCAL database and showing the confirmation-check result at the QA gate before you approve the commit.
 ---
 
 # TLD Auto
@@ -113,7 +113,11 @@ Classify the active ticket. This determines which phases to run.
 
 **Code ticket** — everything else (the default).
 
-**If MANUAL-QA ticket, skip the rest of Phase 1 (RED), Phase 2 (GREEN), Phase 2.5 (audit), and Phase 3 (drift + commit).** Jump directly to Phase 4 (Manual QA Gate). There are no new tests to write, no code to build, no drift to check, and no changes to commit. The entire purpose is the manual walkthrough + mark Done.
+**Migration re-check (before honoring a manual-QA classification).** A migration ticket is real code that just lacks a "Files to Create/Modify" section, so the rule above can mislabel it manual-QA. Before jumping to Phase 4, re-check: classify the active ticket as a **migration ticket** if EITHER its description mentions `migration`, `schema`, a column / constraint / CHECK change, or `supabase migration(s)`; OR its file scope is `*.sql` under `supabase/migrations/` (or the campaign's migrations path).
+
+**If the classification is MANUAL-QA but the re-check says migration ticket** → treat it as a **code ticket on the migration path**: do NOT jump to Phase 4. Proceed to 1.5 and run RED → GREEN → audit → verify as normal, with the migration carve-outs in Phase 1 (§1.7), Phase 3 (§3.1), and Phase 4 (§4.0). Remember this classification — those steps check for it.
+
+**If the classification is MANUAL-QA and it is NOT a migration ticket** (a genuine walkthrough) → skip the rest of Phase 1 (RED), Phase 2 (GREEN), Phase 2.5 (audit), and Phase 3 (drift + commit). Jump directly to Phase 4 (Manual QA Gate). There are no new tests to write, no code to build, no drift to check, and no changes to commit. The entire purpose is the manual walkthrough + mark Done.
 
 **If CODE ticket**, proceed to 1.5 and continue through all phases as normal.
 
@@ -145,6 +149,8 @@ Run the resolved test command from §1.3. Every new test should fail. This confi
 **If any new test passes:** Flag this to the user. Either the feature already exists or the test isn't testing what it should.
 
 **If tests fail to compile/run at all:** Fix syntax errors, missing imports, etc. The tests should run and produce failing assertions, not crash.
+
+**Migration tickets (per §1.4's re-check):** write failing tests for any automatable part (a paired edge function usually has `deno test`s). The migration itself has no red→green harness in this repo — note "no automated harness; verified by local apply at the QA gate (§3 / Phase 4)" and continue rather than treating the missing test as a problem. If there is no automatable part at all, the RED phase legitimately produces 0 new tests for a migration ticket; say so in the gate output instead of stalling.
 
 #### 1.8 RED Gate Output
 
@@ -287,6 +293,8 @@ Type **1**, **2**, or **3** to proceed.
 
 ### Phase 3: Verify + Commit
 
+**Migration tickets (per §1.4's re-check) — verify by local apply.** A migration has no red→green harness, so its verification is NOT the test command and NOT unit coverage. For a migration ticket: run the drift's file-scope check as usual, but do NOT treat "no unit test covers the migration" as AC-coverage drift. Then **apply the migration to the LOCAL database** (§1.3a already proved the DB is loopback-only — never prod; never `db reset`) and run the confirmation check the ticket implies — e.g. a query showing the new column/constraint accepts the intended values and rejects bad ones — capturing the output as the QA evidence for Phase 4. If the apply errors or the confirmation check does not pass → STOP: report it inline ("Migration apply/confirmation failed — fix the SQL, then re-run."). Otherwise carry the captured output into the Phase 4 QA plan and label the checkpoint **locally verified**.
+
 #### 3.1 Drift check
 
 Run a drift check to catch cases where tests pass but implementation doesn't match the ticket spec:
@@ -300,6 +308,7 @@ Run a drift check to catch cases where tests pass but implementation doesn't mat
 - Walk each acceptance criterion from the ticket
 - Confirm at least one passing test per AC item
 - Flag any uncovered AC items
+- **Migration ticket exception:** a migration AC verified by the local-apply confirmation check (above) counts as covered — do not flag it as uncovered for lacking a unit test.
 
 **Pattern conformance check:**
 - Compare implementation against pattern references
@@ -328,6 +337,8 @@ Re-classify the active ticket now that build is done. This catches the case wher
 - `git diff` and `git diff --cached` show no uncommitted changes
 
 **Code ticket** — everything else (the default).
+
+**Migration ticket exemption:** if §1.4's re-check classified this as a migration ticket, do NOT flip it to manual-QA here — the `.sql` migration file is the change, and it was verified by local apply in Phase 3. Stay on the code/migration path and proceed to 4.1.
 
 If the verify-time classification flips the ticket to manual-QA (most commonly because the build was a no-op), follow the same skip path as §1.4: jump to the manual walkthrough + Done flow at the end of Phase 4 and do not run the commit step. If the classification stays "code", proceed to 4.1 normally.
 
@@ -364,6 +375,7 @@ Guidelines for the test plan:
 - **Be concrete.** Give exact URLs, curl commands, or UI paths. No "verify the endpoint works" — say `curl http://127.0.0.1:54321/functions/v1/[your-endpoint]` and what the response should contain.
 - **Only include tests that need manual verification.** If something is fully covered by automated tests (like unit logic, error codes, auth checks), skip it. Focus on things a human eye catches better: data shape, ordering, integration between pieces, UI rendering.
 - **If the ticket is purely backend logic with no user-facing surface** (like a migration or stored procedure), and automated tests fully cover the AC, say so explicitly: "All AC items are covered by automated tests. No manual QA needed." Then skip the gate.
+- **Migration tickets (per §1.4's re-check):** lead the QA plan with the local-apply evidence captured in Phase 3 — show the confirmation-check output as an already-passed verification line ("✅ migration applied to local DB; confirmation check passed: …"). Add only the genuinely-manual checks the apply can't prove (e.g. a downstream UI reading the new column). If the apply + confirmation fully covers the AC, say "Migration locally verified; no further manual QA needed" and proceed to commit on approval.
 - **Scale to the ticket.** A simple migration might need 0 manual tests. A new API endpoint might need 2-3. A frontend feature might need 5+. Don't pad.
 
 #### 4.2 QA Gate
