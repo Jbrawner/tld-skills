@@ -110,7 +110,7 @@ Found: [the URL/host that's not local]
 Location: [where you found it]
 Campaign Stack.Database: [value from campaign.md]
 
-This skill drives steps that run tests or destructive operations against the database.
+This skill runs tests or destructive operations against the database.
 Refusing to proceed against a non-local database.
 
 Fix: Ensure the configured database URL points at local (matches Stack.Database).
@@ -501,6 +501,4 @@ step's gate.
 
 ### Numbered shortcut recognition
 
-When you present a "What's next?" block, the user may respond with just a number. If the next message is a
-bare number matching one of the options you presented, treat it as if they typed the corresponding slash
-command and invoke that skill immediately.
+When you present the "What's next?" options at the end of your output, the user may respond with just a number (e.g., "1" or "2"). If the user's next message is a bare number matching one of the options you presented, treat it as if they typed the corresponding slash command and invoke that skill immediately.
