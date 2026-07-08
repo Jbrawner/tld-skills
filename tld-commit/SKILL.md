@@ -4,11 +4,12 @@ description: |
   Pick up a pending commit after a side quest detour or interrupted flow. Use this skill whenever the user says
   "tld-commit", "commit the ticket", "finish the commit", "approve the commit", or needs to resume committing
   changes that passed verification but weren't committed yet (e.g., because they ran a side quest first).
-  This is a lightweight re-entry into the commit flow — it re-runs tests to confirm nothing broke, then asks
-  how to land it: a plain **commit only** (leaves the ticket In Progress — the right choice for most tickets
-  in a multi-ticket story, where you commit per ticket and open one PR at the end) or **commit and progress**
-  (commit, mark the ticket Done, and surface the next ticket). It never pushes or opens a PR — use /tld-pr for
-  the story-end PR.
+  This is a lightweight re-entry into the commit flow. It re-runs tests to confirm nothing broke, then asks
+  how to land it: **commit and progress** (commit, mark the ticket Done, and surface the next ticket), which is
+  the normal choice for a finished ticket including the verified checkpoint you get out of /tld-full-auto or
+  /tld-run-test; or a plain **commit only** (commit and leave the ticket In Progress), a checkpoint for when
+  more work remains on it. Marking Done per ticket does not open a PR: you still open one PR for the whole story
+  at the end with /tld-pr. It never pushes or opens a PR itself.
 ---
 
 # TLD Commit
@@ -165,35 +166,36 @@ All [N] tests passing
 [resolved from .tld/campaign.md Commit format Pattern, with the ticket ID and title substituted in, and ` — TLD verified` appended]
 ```
 
-Then ask **how to land it** — a plain commit, or commit and progress the ticket:
+Then ask **how to land it.** Coming out of /tld-full-auto or /tld-run-test the ticket is already verified, so the usual answer is option 1: commit it and mark it Done in one step.
 
 ---
 
 **What's next?**
 
-> **1.** Commit only — commit the changes, leave the ticket In Progress
->    Best for: most tickets in a multi-ticket story — commit per ticket now, open one PR at the end. Also right for a mid-ticket checkpoint when more work remains.
+> **1.** Commit and progress: commit, mark [TICKET-ID] Done, and surface the next ticket (Recommended)
+>    Best for: the ticket is finished and verified, the normal case out of /tld-full-auto or /tld-run-test. This is also the right per-ticket choice inside a multi-ticket story. Marking Done now does not open a PR; you still run /tld-pr once at the story's end for a single PR.
 
-> **2.** Commit and progress — commit, mark the ticket Done, and move to the next ticket
->    Best for: this ticket is fully complete and you want to advance
+> **2.** Commit only: commit and leave [TICKET-ID] In Progress
+>    Best for: a checkpoint when more work remains on this ticket. You'll run /tld-commit again and pick "commit and progress" once it's actually done.
 
-> **3.** /tld-side-quest — handle another quick fix first
+> **3.** /tld-side-quest: handle another quick fix first
 >    Best for: noticed another polish item before committing
 
-> **4.** Describe what looks wrong — I'll help fix it
+> **4.** Describe what looks wrong, and I'll help fix it
 >    Best for: spotted something that needs correction
 
 Type **1**, **2**, **3**, or **4** to proceed.
 
 ### >>> MANDATORY APPROVAL GATE — STOP HERE <<<
 
-**HARD STOP.** Do NOT commit until the user explicitly picks a landing mode. Wait for one of:
-- "1", or any canonical approval keyword ("approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed" — see STANDARDS.md § Approval keyword set) → **Commit only**: do step 6, then stop (ticket stays In Progress; skip step 7)
-- "2", "progress", or "commit and progress" → **Commit and progress**: do step 6, then step 7
-- "3" or "side quest" → invoke `/tld-side-quest`, come back later with `/tld-commit`
-- User describes a problem → suggest `/tld-align` or manual fix
+**HARD STOP.** Do NOT commit until the user picks a landing mode. Wait for one of:
+- "1", "commit and progress", "progress", "commit and update the ticket", "mark done", "done", "land it" → **Commit and progress**: do step 6, then step 7.
+- "2", "commit only", "just commit", "checkpoint", or a bare "commit" → **Commit only**: do step 6, then stop (skip step 7; the ticket stays In Progress).
+- Any other generic approval that names no mode ("approve", "lgtm", "looks good", "ship it", "go", "ok", "proceed", "yes"; see STANDARDS.md § Approval keyword set) → take the **Recommended** option 1, **Commit and progress**: do step 6, then step 7.
+- "3" or "side quest" → invoke `/tld-side-quest`, come back later with `/tld-commit`.
+- User describes a problem → suggest `/tld-align` or a manual fix.
 
-**Do NOT interpret silence, partial responses, or questions as approval.** When the bare keyword "commit" is used, treat it as **Commit only** (option 1); only the explicit "2" / "commit and progress" advances the ticket.
+Read it the way the user phrased it: **"commit and update the ticket" / "commit and progress" marks the ticket Done (a tracker write) and advances, while a bare "commit" lands just the code and leaves the ticket In Progress.** Do NOT treat silence, partial responses, or questions as approval. Whichever mode lands, step 8 states exactly what happened, and on a commit-only it shows how to also mark it Done, so the user is never left re-running the same command blind.
 
 ### Numbered shortcut recognition
 
@@ -226,13 +228,13 @@ If the user chose **Commit and progress**:
 
 **Never emit the literal text `{milestoneId}` or `{next-id}`** — substitute the actual values before rendering.
 
-**If Commit only:**
+**If Commit only (a checkpoint you chose, leaving the ticket open):**
 
 ```
-## Committed — [TICKET-ID] — [title]
+## Checkpoint committed — [TICKET-ID] — [title]
 - Commit: [short-sha]
 - Files: [list]
-- Ticket: still In Progress (not advanced — run /tld-commit again and pick "commit and progress" when this ticket is done)
+- Ticket: still In Progress, by your choice (commit-only). Nothing else is needed now. When the ticket is actually finished, run /tld-commit again and pick "commit and progress" to mark it Done and move on.
 ```
 
 Then present:
@@ -241,14 +243,14 @@ Then present:
 
 **What's next?**
 
-> **1.** Keep working on this ticket
->    Best for: that was a checkpoint and there's more to do here
+> **1.** Keep working on this ticket (Recommended)
+>    Best for: the usual reason to commit-only, there's more to do here before it's done
 
-> **2.** /tld-commit — land it and progress when the ticket is done
->    Best for: this ticket is now complete
+> **2.** /tld-commit, then "commit and progress", once the ticket is finished
+>    Best for: that checkpoint was actually the last of the work; land it and mark it Done now
 
-> **3.** /tld-pr — open a PR for the branch
->    Best for: end of the story — push the branch and open the PR for review
+> **3.** /tld-pr: open the PR for the branch
+>    Best for: end of the story, push the branch and open one PR for review
 
 Type **1**, **2**, or **3** to proceed.
 
