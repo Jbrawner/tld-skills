@@ -159,18 +159,24 @@ Per-step keys the runner honors:
 | `on_fail:` | Which skill to invoke to fix a `failed` outcome | `tld-align` |
 | `retries:` | How many `on_fail` attempts before the circuit breaks | `2` |
 
-If `.tld/campaign.md` has **no** `## Pipelines` section, use the built-in team standard from §2 as-is.
-Do **not** stop for a missing config — its absence means "use the standard," which is the common case.
+If `.tld/campaign.md` has **no** `## Pipelines` section, use the team standard resolved in §2 (the shared
+team-standard file, else the built-in default) as-is. Do **not** stop for a missing config — its absence
+means "use the standard," which is the common case.
 
 ### 2. Resolve this ticket's pipeline (the cascade)
 
-Resolution is three layers, and nothing is ever undefined — everything falls back to the standard:
+Resolution is four layers, base to most-specific, and nothing is ever undefined — everything falls back toward the base:
 
 ```
-team standard (built into this skill)  →  project override (## Pipelines)  →  type override
+shared team-standard file  →  built-in default (fallback)  →  project override (## Pipelines)  →  type override
 ```
 
-**The built-in team standard** (used whenever the project has not overridden it) is the leaf pipeline:
+**The team standard** is the base of the cascade. It lives in a shared file installed into each agent home so the Codex and Claude paths cannot drift (see docs/CAMPAIGN_SCHEMA.md § cascade):
+
+- Read `$WORKFLOW_SHARE_DIR/pipelines/team-standard.yaml` (neutral `WORKFLOW_*`, falling back to `CODEX_*`). If present, its `pipelines:` map is the team standard.
+- If that file is not installed — it ships via the shared `install.sh` (DROSS-23) — fall back to the **built-in default** below. Until the shared file lands, this fallback *is* the team standard and behavior is exactly as today.
+
+**The built-in default** (the fallback team standard, used whenever neither the shared file nor the project overrides it) is the leaf pipeline:
 
 ```
 tld-setup → tld-write-tests → tld-build → tld-audit → tld-run-test → tld-commit → tld-writeup → tld-next
@@ -186,7 +192,7 @@ Resolve as follows:
    - Key present with `use: X` → resolve to pipeline `X` (follow one level of indirection).
    - Key present with an explicit step list (or `steps:` under a `trigger:`) → use it.
    - Key absent → fall back to `default`.
-   - `default` absent from the project config → fall back to the **built-in standard** above.
+   - `default` absent from the project config → fall back to the **team standard** above (shared file, else built-in default).
 3. The result is an **ordered list of steps**. That list is the pipeline for this run.
 
 This resolved step list is the single source of truth for the rest of the run. §3.5 seeds the shared
@@ -199,16 +205,19 @@ If the resolved pipeline is a **container** flow (type Story/Epic, or a config e
 STOP with a clear message:
 
 ```
-Container pipelines (Story/Epic closeout) are not available yet.
+Container pipelines (Story/Epic closeout) are not driven end to end yet.
 
-The closeout steps they invoke — tld-story-review, tld-spot-check — ship in Phase 4.
-This ticket resolves to a container flow ({type}), so there is nothing to drive yet.
+The closeout skills exist — tld-gate, tld-story-review, tld-spot-check — but this runner
+does not yet do the container fan-out (wait for all children, then gate → review →
+spot-check). This ticket resolves to a container flow ({type}), so there is nothing to
+drive here yet.
 
-Run /tld-orchestrate against a leaf ticket (Sub-task / Bug / Task), or drive the
-container's children individually for now.
+Run /tld-orchestrate against a leaf ticket (Sub-task / Bug / Task); or, for a Story that
+is ready to close out, invoke the closeout skills directly by key:
+/tld-gate {storyKey}, then /tld-story-review {storyKey}, then /tld-spot-check {storyKey}.
 ```
 
-Do not attempt to invoke a closeout step that does not exist. (A configured step whose skill is genuinely
+Do not attempt the container fan-out from this runner yet. (A configured step whose skill is genuinely
 not installed is a different event — a HARD STOP under §4's invocation rule.)
 
 ### 3.5 Seed the shared checklist from the resolved steps
@@ -493,8 +502,13 @@ step's gate.
   but **resume falls back to the `/tld-save-point`-style re-read of ticket + git state** (§7) rather than the
   durable seeded step-state. Do not claim a fully checklist-driven end-to-end run until that capability is
   installed — it cannot be exercised end-to-end against the currently-installed engine.
-- **Container flows are Phase 4.** Story/Epic closeout pipelines stop at §3 until `tld-story-review` and
-  `tld-spot-check` exist.
+- **Container fan-out is a follow-up.** The closeout skills (`tld-gate`, `tld-story-review`, `tld-spot-check`)
+  all exist and are invocable directly by Story key, but this runner still stops at §3 for a container flow —
+  it does not yet wait on all children and drive `gate → review → spot-check` automatically.
+- **Shared team-standard file is not installed yet.** §2 reads `$WORKFLOW_SHARE_DIR/pipelines/team-standard.yaml`
+  as the base of the cascade, but that file ships via the shared `install.sh` (DROSS-23), which has not landed.
+  Until it does, the base layer falls back to the **built-in default** in §2, so behavior is exactly as today.
+  The campaign schema for the sections read here is docs/CAMPAIGN_SCHEMA.md (DROSS-35).
 - **`tld-writeup` is a sibling ticket (DROSS-1).** The `handoff_state` signal this skill reads as the
   authoritative per-step outcome is written by `tld-writeup`; until that skill is present, outcome
   detection relies on interpreting each step's "What's next?" gate.

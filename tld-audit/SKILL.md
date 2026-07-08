@@ -5,14 +5,15 @@ description: |
   frontend that belongs on the backend, missing auth checks, RLS gaps, exposed secrets, and validation holes.
   Use this skill whenever the user says "tld-audit", "audit", "security check", "check my work", "anything I'm missing",
   or wants a safety review before committing. Best run after /tld-build and before /tld-run-test, but can be run anytime
-  there are uncommitted changes. Read-only — this skill does not modify code, only reports findings.
+  there are uncommitted changes. Records low/medium non-blocker findings as one standardized, idempotent
+  tracker comment (the shape tld-story-review aggregates). Read-only for code — this skill does not modify code.
 ---
 
 # TLD Audit
 
 You are running a security and architecture review of the current ticket's changes. Your job is to catch the mistakes the developer isn't thinking about: logic that belongs on a different layer, missing protections, data exposure risks, and architectural smells.
 
-**This skill is read-only. It reports findings but does NOT modify any code.**
+**This skill is read-only with respect to code. It reports findings and records the non-blocker ones as a standardized tracker comment, but does NOT modify any code.**
 
 ## When to use this
 
@@ -168,6 +169,55 @@ Sort by severity (HIGH first), then by check number.
 ```
 No issues found. The changes look clean from a security and architecture perspective.
 ```
+
+### 3.5 Record the non-blocker findings comment
+
+The findings above are also recorded to the tracker as one standardized, machine-aggregatable comment, so the Story closeout (`tld-story-review`) can count and list open findings across every child. **This still modifies no code — it posts a tracker comment only.**
+
+**When this runs:** whenever the audit produced one or more **low or medium** findings and a current ticket is resolved (from §1). HIGH findings are blockers, not non-blockers — they are surfaced by the hard-stop options below and are **not** written to this comment. If there are no low/medium findings, skip this step (post nothing).
+
+**Finding schema.** Each recorded finding carries exactly five fields:
+
+| Field | Values | Notes |
+|-------|--------|-------|
+| `id` | `a1`, `a2`, … | Stable per ticket. Assigned in the first audit and preserved on every update. Never renumbered, never reused. |
+| `severity` | `low` \| `medium` | Map the §2 severities: MEDIUM → `medium`, LOW → `low`. HIGH is excluded (it is a blocker). |
+| `status` | `open` \| `resolved` | A finding that no longer reproduces on a re-run flips to `resolved`. It is **not** deleted. |
+| `location` | `` `path/to/file.ts:line` `` or an area name | Use file:line when known; otherwise the subsystem or area. |
+| `summary` | one line | The finding plus its fix, terse. |
+
+**Stable ids across re-runs.** Before writing, read the existing audit-findings comment for this ticket (if any). Match each current finding to an existing row by `location` + `summary`:
+
+- Already present and still reproduces → keep its `id`, keep `status: open`.
+- Present but no longer reproduces → keep its `id`, flip to `status: resolved`.
+- New → assign the next `id` after the highest existing one.
+
+**Idempotent upsert (one comment per ticket).** Post exactly one audit-findings comment per ticket, updating it in place on every re-run — never a second comment. Resolve the operation against the tracker in `.tld/campaign.md`:
+
+- **Linear** — find the existing comment by its marker first line and update it; else create it. Contract: docs/ADAPTERS.md.
+- **Jira** — per docs/JIRA.md: `getJiraIssue` with the `comment` field, find the comment whose body starts with the marker line, then `addCommentToJiraIssue` passing its `commentId` to update in place; else add a new comment. Use `contentFormat: markdown`.
+
+**The comment shape** (fill every line; keep the structure fixed):
+
+````markdown
+# <TICKET-KEY> audit findings — non-blockers
+
+Run: <session id>   <timestamp>
+Summary: <N> findings · <O> open · <R> resolved
+
+| id | severity | status | location | summary |
+|----|----------|--------|----------|---------|
+| a1 | medium | open | `components/Bracket.tsx:42` | Score calc in component; belongs in an edge function |
+| a2 | low | resolved | `functions/bar/index.ts` | Narrowed SELECT * to needed columns |
+````
+
+- The **marker** is the first line, `# <TICKET-KEY> audit findings — non-blockers`. It is how the comment is found for idempotent update and how `tld-story-review` locates it per child. Do not alter it.
+- `<N>` is the total row count, `<O>` the count with `status: open`, `<R>` the count with `status: resolved`. These are the numbers the completion write-up's Audit line (`recorded: N   Open: N   Resolved: N`) and the Story rollup read.
+- One row per finding, sorted `open` before `resolved`, then by `id`.
+
+**Parsing contract for `tld-story-review` (DROSS-24).** A reader aggregates a child's non-blockers by: (1) finding the comment whose first line is the marker; (2) reading the `Summary:` line for the Open/Resolved counts; (3) optionally parsing the table rows for per-finding detail. The marker line and the `Summary:` line are the stable contract; treat the table as detail.
+
+> **Template location.** This shape is carried inline here for now. Phase 4 extracts the standardized templates to a shared `share/templates/` file both agents read (in workflow-tools); when the shared audit-findings template lands, switch to reading it so the Codex and Claude copies cannot drift.
 
 ### Numbered shortcut recognition
 

@@ -5,7 +5,9 @@ description: |
   Use this skill whenever the user says "campaign-init", "campaign init", "scaffold campaign",
   "set up this repo", "new project config", or when a TLD skill fails because no campaign
   exists in the current repo. Creates the four required sections (Project, Test Commands,
-  Stack, Commit format). Linear is the primary / recommended issue tracker; Jira, GitHub
+  Stack, Commit format) and can optionally scaffold the v0.2 sections (Pipelines, Allowed
+  statuses); omitting them yields today's fixed default flow. Canonical schema:
+  docs/CAMPAIGN_SCHEMA.md. Linear is the primary / recommended issue tracker; Jira, GitHub
   Issues, and Other are accepted in the schema but downstream TLD skills are Linear-wired
   and will need manual adaptation for non-Linear configs.
 ---
@@ -79,6 +81,22 @@ AskUserQuestion for each; all blank-allowed:
 - **Pattern** — non-empty (re-ask if empty). Hint: substitute the user's actual prefix into a sample like `feat/({PREFIX}-XXX): title`, so if they entered `2ND` as the prefix, the hint reads `feat/(2ND-XXX): title`.
 - **Co-author** — blank-allowed. Example: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
 
+### 5b. Optional v0.2 sections (Pipelines, Allowed statuses)
+
+These two sections are **optional**. Omitting them is the default and yields today's fixed flow — the
+written file is byte-identical to a v0.1 scaffold. Only scaffold them if the user asks. Canonical shapes:
+docs/CAMPAIGN_SCHEMA.md.
+
+Use AskUserQuestion: "Scaffold the optional v0.2 pipeline/status config? (Default: no — use the built-in
+standard flow.)" with options:
+
+- **No, use defaults (Recommended)** — write only the four required sections. This is the common case.
+- **Yes, scaffold `## Pipelines`** — include a starter Pipelines block (the built-in leaf `default` pipeline, commented as editable).
+- **Yes, scaffold `## Allowed statuses`** — include the default status list (`In Progress`, `In PR`, `In Release`, `Done`).
+
+The user may pick both "Yes" options. Record which sections to append; step 7 writes them after the four
+required sections. If the user takes the default, append nothing.
+
 ### 6. Bootstrap workspace labels
 
 **If tracker = Jira:** skip label creation. Jira labels are free-text and exist implicitly the moment they are first applied to an issue — there is no label registry to bootstrap and no `create_issue_label` equivalent (see docs/JIRA.md). The seven label *names* below are still what the pipeline applies; they just need no setup. Note the skip in the output.
@@ -138,7 +156,32 @@ Write `{cwd}/.tld/campaign.md` with this exact content. Substitute each `{field}
 - Co-author: {Co-author}
 ```
 
-Do NOT add a `## Milestones` section, an `## Active` section, or any other section beyond these four. Those sections do not exist in the v0.1 schema — Linear is the source of truth for milestone structure and ticket order.
+**Then append any optional v0.2 sections the user opted into in step 5b**, after `## Commit format`, using the exact shapes in docs/CAMPAIGN_SCHEMA.md:
+
+```markdown
+## Pipelines
+
+```yaml
+pipelines:
+  default:
+    - skill: tld-setup
+    - skill: tld-write-tests
+    - skill: tld-build
+    - skill: tld-audit
+    - skill: tld-run-test
+    - skill: tld-commit
+    - skill: tld-writeup
+    - skill: tld-next
+```
+
+## Allowed statuses
+- In Progress
+- In PR
+- In Release
+- Done
+```
+
+The allowed section headings are exactly the six in the v0.2 schema: `Project`, `Test Commands`, `Stack`, `Commit format`, `Pipelines`, `Allowed statuses`. Do NOT add a `## Milestones` section, an `## Active` section, or any other section outside that set — the tracker is the source of truth for milestone structure and ticket order. If the user did not opt into the optional sections in step 5b, write only the four required sections (byte-identical to the v0.1 scaffold).
 
 **Ensure `.tld/` is gitignored.** The campaign file is per-repo local config and should never be committed. After writing it, update the repo's ignore list:
 
