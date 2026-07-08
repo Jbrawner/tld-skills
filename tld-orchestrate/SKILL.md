@@ -189,11 +189,9 @@ Resolve as follows:
    - `default` absent from the project config → fall back to the **built-in standard** above.
 3. The result is an **ordered list of steps**. That list is the pipeline for this run.
 
-> **Checklist seeding (DROSS-20).** Seeding the shared `agent-checklist` from this resolved step list —
-> so the gates and the orchestrator's done-signal match the configured flow — is a **separate ticket
-> (DROSS-20)** and uses the engine capability `WORKFLOW_PIPELINE_STEPS`. This skill resolves and drives
-> the steps; DROSS-20 makes the resolved list durable in the checklist. See the Limitations note at the
-> end for what that means for resume today.
+This resolved step list is the single source of truth for the rest of the run. §3.5 seeds the shared
+checklist from it, so the per-step gates and the orchestrator's done-signal match the configured flow
+exactly.
 
 ### 3. Container guard (leaf ships first)
 
@@ -213,6 +211,57 @@ container's children individually for now.
 Do not attempt to invoke a closeout step that does not exist. (A configured step whose skill is genuinely
 not installed is a different event — a HARD STOP under §4's invocation rule.)
 
+### 3.5 Seed the shared checklist from the resolved steps
+
+Before driving any step, seed the shared `agent-checklist` from the resolved step list so the checklist
+mirrors the configured flow one-section-per-step. This is what lets a `stop_after`/`blocked`/`needs_user`
+stop resume from the right place (§7) and what lets the orchestrator read "this ticket is done" off the
+shared database rather than re-deriving it.
+
+**The seam.** The runner owns the config; the engine owns the checklist. The runner reads `pipelines:`
+from `.tld/campaign.md` (§1–§2), turns the resolved steps into a JSON array, and hands that array to the
+engine through the **`WORKFLOW_PIPELINE_STEPS`** environment variable at `init` time. **The engine never
+reads `campaign.md`** — it only consumes the array it is given. This keeps the config-parsing in one place
+(here) and the checklist-writing in one place (the engine).
+
+**How to seed:**
+
+1. Build the JSON array from the resolved steps, in order — each element the step's skill name:
+
+   ```json
+   ["tld-setup","tld-write-tests","tld-build","tld-audit","tld-run-test","tld-commit","tld-writeup","tld-next"]
+   ```
+
+   (Elements may also be `{"skill": "..."}` objects; the engine accepts either. A bare skill-name string
+   is the simplest form and what this skill emits.)
+
+2. Initialize the checklist with that array set on the environment, keyed to this run:
+
+   ```
+   WORKFLOW_PIPELINE_STEPS='<the JSON array>' \
+     agent-checklist init --type dev --thread-id <session-id> --slug <ticket-key> --repo <repo-root>
+   ```
+
+   - `--thread-id` is the run's **session id** — the same ownership stamp the orchestrator uses to know
+     which run owns the ticket. Use the current session id.
+   - `--slug` is the ticket key (e.g. `dross-19`), lowercased to a valid slug.
+   - `--repo` is the repo root.
+   - `--type dev` supplies a required template type; with `WORKFLOW_PIPELINE_STEPS` set, the engine
+     replaces the fixed template's sections/items with **one section and one status item per step**
+     (label = skill name, order preserved), so the `--type` value only satisfies the required flag.
+
+   With the env var **unset**, `init` produces the fixed Codex template byte-identical — so this opt-in is
+   additive and never disturbs Matt's path.
+
+3. The engine writes one status item per step, keyed `<sanitized-skill>_step` — the skill name lowercased
+   with every run of non-alphanumeric characters collapsed to `_` (e.g. `tld-setup` → item key
+   `tld_setup_step`, `tld-run-test` → `tld_run_test_step`). Those keys are how §4 checks each step off and
+   how §7 finds the resume point. Duplicate skill names get a numeric suffix (`_2`).
+
+If the installed `agent-checklist` does not support `WORKFLOW_PIPELINE_STEPS` yet (see Limitations), this
+seed step is a no-op fallback: proceed to drive the steps, and use the §7 `save-point`-style resume
+instead of the seeded step-state. Do not fail the run just because the engine capability is not installed.
+
 ### 4. Drive the steps
 
 Walk the resolved step list **in order**. For each step:
@@ -225,9 +274,12 @@ Walk the resolved step list **in order**. For each step:
    empty or failed invocation as "nothing to do," and never proceed past it.
 2. **Show the step's output.**
 3. **Determine the step's outcome** (§5) and route on it.
-4. On `done`: if the step has `stop_after: true`, go to §6 (pause). Otherwise advance to the next step.
+4. On `done`: **mark the step's checklist item done** — `agent-checklist check --key <sanitized-skill>_step`
+   (the key from §3.5, e.g. `tld_build_step`). This is what advances the shared done-signal the orchestrator
+   reads. Then, if the step has `stop_after: true`, go to §6 (pause); otherwise advance to the next step.
 
-When the last step returns `done`, the pipeline is complete — go to §7 (report).
+When the last step returns `done` and its item is checked, the pipeline is complete — every step item in
+the checklist reads `done`, which is the orchestrator's "ticket done" signal — go to §7 (report).
 
 ### 5. Outcome routing
 
@@ -304,12 +356,19 @@ A stopped pipeline — `blocked`, `needs_user`, a broken circuit, or a `stop_aft
 3. Continue driving from that step (§4).
 
 **Where the resume point comes from.** The durable record of "which steps are done" is the shared
-`agent-checklist`, seeded from the resolved steps in **DROSS-20**. Until that engine capability is
-installed (see Limitations), the runner cannot read a seeded step-state, so today it determines the resume
-point the way `/tld-save-point` does — by re-reading the ticket status, the git worktree state, and any
-`tld-writeup` handoff already posted — and asks the user to confirm the resume step if it is ambiguous.
-Do not re-run a step that has already landed its work (a second `tld-build` over a finished worktree, a
-second `tld-commit`); when unsure whether a step already ran, ask rather than repeat it.
+`agent-checklist` seeded in §3.5. Read it back for this run (same `--thread-id` session id and `--slug`
+ticket key) and take the **first step item whose status is not `done`** as the resume point — that is the
+step the prior run stopped on. Re-seeding is not needed: `agent-checklist init` refuses to overwrite an
+existing checklist, so on resume you skip the seed and read the existing one.
+
+**Fallback when the engine capability is not installed.** If the installed `agent-checklist` does not
+support `WORKFLOW_PIPELINE_STEPS` (see Limitations), there is no seeded step-state to read. Fall back to
+determining the resume point the way `/tld-save-point` does — by re-reading the ticket status, the git
+worktree state, and any `tld-writeup` handoff already posted — and ask the user to confirm the resume step
+if it is ambiguous.
+
+Either way: do not re-run a step that has already landed its work (a second `tld-build` over a finished
+worktree, a second `tld-commit`); when unsure whether a step already ran, ask rather than repeat it.
 
 ### 8. Report
 
@@ -362,14 +421,15 @@ For a stop (`blocked` / `needs_user` / broken circuit), output instead:
 
 ## Limitations (read before claiming an end-to-end run)
 
-- **Checklist-seeded resume is not wired yet.** Seeding the shared checklist from the resolved step list —
-  and reading it back to find the resume point — depends on the engine capability
-  **`WORKFLOW_PIPELINE_STEPS`**, which is delivered by **DROSS-20** and currently exists only on the
-  unmerged workflow-tools branch `claude/codex-tools-claude-review-4f9de5`. The installed `agent-checklist`
+- **Checklist seeding is wired here, but gated on the engine being installed.** §3.5 seeds the shared
+  checklist and §4/§7 read and check it off, all through the engine capability **`WORKFLOW_PIPELINE_STEPS`**
+  (`agent-checklist` accepting a JSON step array at `init`). That capability currently exists only on the
+  unmerged workflow-tools branch `claude/codex-tools-claude-review-4f9de5`; the installed `agent-checklist`
   does not have it yet. Until that engine work is merged and reinstalled (or `install.sh` is run from that
-  branch), this skill drives steps and routes outcomes correctly, but **resume falls back to the
-  `/tld-save-point`-style re-read of ticket + git state** rather than a durable seeded step-state. Do not
-  claim a fully checklist-driven end-to-end run until that capability is installed.
+  branch), the seed step is a no-op fallback: the skill still drives steps and routes outcomes correctly,
+  but **resume falls back to the `/tld-save-point`-style re-read of ticket + git state** (§7) rather than the
+  durable seeded step-state. Do not claim a fully checklist-driven end-to-end run until that capability is
+  installed — it cannot be exercised end-to-end against the currently-installed engine.
 - **Container flows are Phase 4.** Story/Epic closeout pipelines stop at §3 until `tld-story-review` and
   `tld-spot-check` exist.
 - **`tld-writeup` is a sibling ticket (DROSS-1).** The `handoff_state` signal this skill reads as the
