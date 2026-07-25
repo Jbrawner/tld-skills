@@ -60,7 +60,7 @@ Ticket-type handling:
 
 Safety (non-negotiable):
 - DB = {local stack} only. Prove the target is local before ANY DB write. Never touch a non-local database{; never touch prod ref {prod ref}}.
-- NEVER push, open a PR, or merge. Commit to the branch only.
+- Push the branch after committing so progress is durable — UNLESS a PR is already open for this branch, in which case do NOT push automatically; stop and defer to the user (a push updates the PR and re-triggers CI/reviewers), and the user will say what to do. Do NOT open a PR or merge UNLESS this goal explicitly asks for one — if it does (e.g. "put up a PR", "message X about merging"), that instruction authorizes it, so do it. Otherwise the user handles PRs and merges. Never push to or merge the default branch; never force-push.
 - If a single ticket is blocked (env failure, ambiguity, full-auto can't proceed), SKIP it, log why, CONTINUE.
 
 At the end: write a wake-up report (per ticket: built/committed/skipped, commit hash, test results, anything flagged) and STOP.
