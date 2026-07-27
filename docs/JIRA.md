@@ -4,7 +4,7 @@ This document is the Jira counterpart to [ADAPTERS.md](ADAPTERS.md). The TLD ski
 
 A skill takes the Jira path when `.tld/campaign.md` → Project → `Issue tracker` is `Jira`. On Linear it follows [ADAPTERS.md](ADAPTERS.md) instead.
 
-**Access:** Jira Cloud via the Atlassian MCP connector. It must be authenticated in the session before any Jira skill runs (`mcp__…__authenticate` → user authorizes → tools appear). Every Jira tool takes a **`cloudId`**. Resolve it once per session: `getAccessibleAtlassianResources` returns the site `id` (the cloudId) and `url`. For the 2ndfoundry workspace the cloudId is `9305636a-dd20-44bb-bd49-88c4c540b0a7` (site `2ndfoundry.atlassian.net`), but always resolve it live rather than hard-coding — a different workspace will differ.
+**Access:** Jira Cloud via the Atlassian MCP connector. It must be authenticated in the session before any Jira skill runs (`mcp__…__authenticate` → user authorizes → tools appear). Every Jira tool takes a **`cloudId`**. Resolve it once per session: `getAccessibleAtlassianResources` returns the site `id` (the cloudId) and `url`. For example, a workspace `your-workspace.atlassian.net` resolves to some cloudId like `<your-cloudId>` — but always resolve it live rather than hard-coding, since every workspace differs.
 
 ---
 
@@ -12,12 +12,12 @@ A skill takes the Jira path when `.tld/campaign.md` → Project → `Issue track
 
 | Linear concept | Jira (Cloud) mapping | Notes |
 |---|---|---|
-| Project (`Project name`) | Jira **project**, display name | `Project name` is a human label and may differ from the key (e.g. `AM.AI`). The **Jira project key comes from `Ticket prefix`**, not this field. |
+| Project (`Project name`) | Jira **project**, display name | `Project name` is a human label and may differ from the key (e.g. `Acme`). The **Jira project key comes from `Ticket prefix`**, not this field. |
 | Team | The Jira **project** | Jira's company-managed model has no separate sub-project team object; reuse the project. |
 | Milestone | **Story** | A milestone is a Story (issue type, hierarchy level 0) that groups one phase of work. |
 | Ticket | **Sub-task** under the Story | Each unit of work is a Sub-task (hierarchy level -1) whose `parent` is the milestone Story. |
 | Order of tickets | **Jira native rank** of the sub-tasks | `ORDER BY Rank ASC`. No hand-kept `## Order` list. |
-| Ticket prefix | **Jira project key** (e.g. `AMAI`, `LAB`, `AS`) | The key used for `acli --project`, JQL `project = <KEY>`, board URLs, and branch names. Issue keys are `PREFIX-NNN`, same shape as Linear, so the `({prefix}-\d+)` parser is unchanged. |
+| Ticket prefix | **Jira project key** (e.g. `WEB`, `API`, `APP`) | The key used for `acli --project`, JQL `project = <KEY>`, board URLs, and branch names. Issue keys are `PREFIX-NNN`, same shape as Linear, so the `({prefix}-\d+)` parser is unchanged. |
 | Status: Todo / In Progress / Done / Canceled | Jira **status category** (`To Do` / `In Progress` / `Done`) | "Canceled" is a Done-category status matched by name (see [statuses](#statuses)). |
 | `model:*` / `effort:*` / `side-quest` labels | Plain Jira **labels** | Free text, no color, no description (see [labels](#labels)). |
 | "Me" (current user) | `atlassianUserInfo` → `account_id`, or JQL `currentUser()` | Needed for the multi-person concurrency fix. |
@@ -85,7 +85,7 @@ Close out from the gated Story upward:
 Guard rails:
 
 - **Only ascend; never touch siblings' open work.** Transition only the gated Story and, conditionally, its Epic. Never transition a sibling Story, the Sub-tasks under another Story, or any issue that still has unresolved children.
-- **No parent → stop cleanly.** If the Story has no parent Epic (`fields.parent` absent, or the milestone is a bare Story), do the Story close and skip the Epic step. Projects with no Story/Epic parentage yet (e.g. the imported `AS` flat-`Task` layout in the data note below) have nothing above to roll into — the rollup is then a no-op above the level that exists.
+- **No parent → stop cleanly.** If the Story has no parent Epic (`fields.parent` absent, or the milestone is a bare Story), do the Story close and skip the Epic step. Projects with no Story/Epic parentage yet (e.g. a flat-`Task` layout imported from another tracker, per the data note below) have nothing above to roll into — the rollup is then a no-op above the level that exists.
 - **Cancel ≠ done as a target.** A Sub-task or Story sitting in a cancel-named `done`-category status still counts as resolved when deciding "are all children finished," but a parent you transition should land in the real Done status, never the cancel status.
 - **Idempotent.** Re-running the gate after a successful rollup finds the parents already `done` and transitions nothing.
 
@@ -185,4 +185,4 @@ comment per ticket. On Jira:
 | Flat Milestone → Ticket model | Story → Sub-task here | Tickets are Sub-tasks; only a Story's sub-tasks are TLD tickets. Sibling Tasks/Bugs/Stories are not picked up by the pipeline unless modeled as the milestone Story itself. |
 | Milestone `sortOrder` | Story rank / backlog order | Milestone order = Story rank; reorder by dragging in the backlog. |
 
-> **Data note:** the existing `AS` (Adventure Skills) project tickets were imported from Linear as flat **Task** issues with no parent Story. To use the Story/Sub-task model, those need to be reorganized into milestone Stories with Sub-task children (a one-time data migration, separate from the skill changes).
+> **Data note:** a project whose tickets were imported from another tracker (e.g. Linear) as flat **Task** issues with no parent Story will need those tickets reorganized into milestone Stories with Sub-task children to use the Story/Sub-task model (a one-time data migration, separate from the skill changes).

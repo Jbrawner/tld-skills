@@ -15,7 +15,7 @@ Follow this workflow in order. Treat it as mandatory unless the user explicitly 
 
 - Own the feature from intake through successful release.
 - Keep a live checklist in `.agent/<session-id>_<feature>.md`.
-- Read `.tld/campaign.md` at the repo root first for project context: the issue tracker, the Jira **project key** (the `Ticket prefix` field — e.g. `AMAI`, `LAB`, `AS`), the display `Project name`, the stack directories, the test commands, and the commit pattern. This is the source of truth for which Jira project the ticket, branch, and board point at. If `.tld/campaign.md` is absent, fall back to `docs/JIRA.md`.
+- Read `.tld/campaign.md` at the repo root first for project context: the issue tracker, the Jira **project key** (the `Ticket prefix` field — e.g. `WEB`, `API`, `APP`), the display `Project name`, the stack directories, the test commands, and the commit pattern. This is the source of truth for which Jira project the ticket, branch, and board point at. If `.tld/campaign.md` is absent, fall back to `docs/JIRA.md`.
 - Track the run with the built-in task list: build the `.agent/<session-id>_<feature>.md` checklist first, then call `TaskCreate` once per major phase (Jira, worktree/branch, implementation, docs, tests, PR, CI, merge, release, cleanup) so the run has a visible top-level tracker. The `.agent` checklist is the detailed source of truth; the task list is the top-level contract. (If this environment exposes a `create_goal`/`update_goal` tool, use it instead — same role, not required.)
 - Keep both current as you go: tick the `.agent` checkboxes and `TaskUpdate` each phase to in_progress/completed. Do not skip this tracking just because the work seems small; only skip if the user explicitly overrides.
 - Drive the run to completion: keep working the checklist until every box is checked and the feature actually works. For runs that span multiple sessions, `/loop` can re-enter and continue until the checklist is done.
@@ -170,8 +170,8 @@ Before editing code:
 
 - Inspect the code paths the feature touches.
 - Read the repository instructions that govern testing, PRs, versioning, and release flow.
-- Read `.tld/campaign.md` at the repo root before attempting Jira work. From its **Project** section take the issue tracker, the **Jira project key** (the `Ticket prefix` field — e.g. `AMAI`, `LAB`, `AS`), and the display `Project name`; from **Stack** the directories; from **Test Commands** the commands; from **Commit format** the pattern.
-- The Jira project key (ticket prefix) is what the ticket is created in and what the board and branch point at — e.g. prefix `AS` → board `https://2ndfoundry.atlassian.net/jira/software/c/projects/AS/boards/69`. Note `Project name` may be a friendly label (e.g. `AM.AI`) and is not always the key — always use the ticket prefix as the key.
+- Read `.tld/campaign.md` at the repo root before attempting Jira work. From its **Project** section take the issue tracker, the **Jira project key** (the `Ticket prefix` field — e.g. `WEB`, `API`, `APP`), and the display `Project name`; from **Stack** the directories; from **Test Commands** the commands; from **Commit format** the pattern.
+- The Jira project key (ticket prefix) is what the ticket is created in and what the board and branch point at — e.g. prefix `WEB` → board `https://your-workspace.atlassian.net/jira/software/c/projects/WEB/boards/12`. Note `Project name` may be a friendly label (e.g. `Acme`) and is not always the key — always use the ticket prefix as the key.
 - If the campaign's Issue tracker is not `Jira`, stop and flag: this acli-based flow targets Jira.
 - If `.tld/campaign.md` is absent, fall back to `docs/JIRA.md`; if neither exists, stop and ask the user to create one.
 - Look for existing docs such as `PRD.md`, `feature_summary.md`, `features/`, `docs/`, `docs/VERSIONING.md`, `docs/RELEASE*.md`, or `PR_INSTRUCTIONS.md`.

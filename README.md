@@ -183,18 +183,18 @@ Planning skills write `## Order` in plain numbered form:
 
 ```markdown
 ## Order
-1. 2ND-199
-2. 2ND-200
-3. 2ND-202
+1. ABC-199
+2. ABC-200
+3. ABC-202
 ```
 
 Linear silently rewrites this on save into auto-linked form:
 
 ```markdown
 ## Order
-1. [2ND-199](https://linear.app/.../2ND-199-foundation-add-contributingmd...)
-2. [2ND-200](https://linear.app/.../2ND-200-foundation-add-limitationsmd...)
-3. [2ND-202](https://linear.app/.../2ND-202-foundation-define-campaign-file...)
+1. [ABC-199](https://linear.app/.../ABC-199-foundation-add-contributingmd...)
+2. [ABC-200](https://linear.app/.../ABC-200-foundation-add-limitationsmd...)
+3. [ABC-202](https://linear.app/.../ABC-202-foundation-define-campaign-file...)
 ```
 
 Both forms are valid; the parser reads either, plus mixed lists where one line was hand-edited after Linear linked the rest. The full parser algorithm is in [CONTRIBUTING.md](CONTRIBUTING.md#order-section-parser-the-one-non-obvious-bit).

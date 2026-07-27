@@ -55,7 +55,7 @@ If the user picks `GitHub Issues` or a free-text `Other` value (anything other t
 
 > ⚠️ **Heads up:** Leaving Team blank will fail `/campaign-validate` (which requires a non-empty Team) and Linear team-existence checks in `/campaign-test`. Recommend filling it in now to avoid an error in the next setup steps.
 
-**Ticket prefix** — free text, non-empty (re-ask if empty). Hint: "The string before the dash in ticket IDs, e.g. `2ND` for tickets like `2ND-199`."
+**Ticket prefix** — free text, non-empty (re-ask if empty). Hint: "The string before the dash in ticket IDs, e.g. `ABC` for tickets like `ABC-199`."
 
 ### 3. Collect the Test Commands section
 
