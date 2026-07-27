@@ -9,7 +9,7 @@ description: |
   the normal choice for a finished ticket including the verified checkpoint you get out of /tld-full-auto or
   /tld-run-test; or a plain **commit only** (commit and leave the ticket In Progress), a checkpoint for when
   more work remains on it. Marking Done per ticket does not open a PR: you still open one PR for the whole story
-  at the end with /tld-pr. It never pushes or opens a PR itself.
+  at the end with /tld-pr. It pushes the feature branch after committing, but never opens a PR itself.
 ---
 
 # TLD Commit
@@ -209,7 +209,7 @@ Only after the user picks a landing mode (Commit only or Commit and progress):
 2. Commit using the `Pattern` from `.tld/campaign.md`'s Commit format section, substituting the ticket ID and title (append ` — TLD verified`). If the campaign's `Co-author` field is non-empty, include that line in the commit trailer; if blank, omit it.
 3. Verify the commit succeeded
 
-**Do NOT push and do NOT open a PR.** `/tld-commit` never pushes or PRs — that is `/tld-pr`'s job (the story-end landing).
+**Push the branch after committing**, then do NOT open a PR. Push the current feature branch so the work is durable and ready for review — never push to the default branch, never force-push. Opening the PR stays `/tld-pr`'s job (the story-end landing) or the user's own. Note: each push may trigger CI / GitHub Actions — that's expected. **Exception:** if a PR is already open for this branch, do NOT push automatically — stop, tell the user a PR is open, and let them decide (they'll say whether to push). Check with `gh pr view` (or `gh pr list --head <branch>`) if unsure whether one exists.
 
 ### 7. Progress the ticket (Commit and progress mode only)
 

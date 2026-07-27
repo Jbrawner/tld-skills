@@ -419,7 +419,7 @@ Say "All AC items are covered by automated tests. No manual QA needed. Committin
 2. Commit using the `Pattern` from `.tld/campaign.md`'s Commit format section, substituting the ticket ID and title (append ` — TLD verified`). If the campaign's `Co-author` field is non-empty, include that line in the commit trailer. If it is blank, omit the `Co-Authored-By` line entirely.
 3. Verify commit succeeded
 
-**Do NOT push.** Confirm with user before pushing (GitHub Actions budget).
+**Push the branch after committing** (current feature branch only — never the default branch, never force-push) so the work is durable. Do NOT open a PR — that stays `/tld-pr`'s job or the user's. Note: each push may trigger CI / GitHub Actions. **Exception:** if a PR is already open for this branch, do NOT push automatically — stop, tell the user a PR is open, and let them decide (check with `gh pr view` if unsure).
 
 **For manual-QA tickets**, skip this step entirely. There are no code changes to commit. Proceed directly to 4.4 (Mark ticket Done).
 

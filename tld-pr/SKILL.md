@@ -76,6 +76,15 @@ Determine the current branch (`git rev-parse --abbrev-ref HEAD`) and the repo's 
   "On the default branch ({branch}) — refusing to commit/push a ticket here. Cut a feature branch first (e.g. /tld-recenter), then re-run /tld-pr."
 Never commit ticket work directly onto the default branch, and never push to it from this skill.
 
+**Sync check with the default branch (prevents the recurring merge conflict at PR time).**
+The usual cause of a conflict when the PR merges is that `{default}` shipped its own release (version bump + changelog) after this branch was cut, so both sides edited the same changelog/version lines. Detect that now:
+1. `git fetch origin {default}` (quiet).
+2. `git rev-list --count HEAD..origin/{default}` → record as `{behind}` (how many commits `{default}` is ahead of this branch).
+   - `{behind}` = 0 → branch is current; no sync needed.
+   - `{behind}` > 0 → `{default}` moved forward. The branch will be **rebased onto `origin/{default}` in step 9 before pushing** so the PR merges cleanly. Surface this in the landing plan (step 8).
+3. For each `Changelog path` in `.tld/campaign.md`'s Stack section, read `{default}`'s current top version (`git show origin/{default}:{changelog path}`) and compare to this branch's version. **The branch's version must sit strictly ABOVE `{default}`'s.** If it is equal or lower, note the bump it will get during the sync (e.g. main released backend 0.18.0, branch is 0.18.0 → 0.19.0; branch already at 0.15.0 vs main 0.14.1 → keep 0.15.0).
+4. **Already-pushed branch with an open PR:** if this branch is already pushed and a PR is open for it, do NOT auto-rebase (rebasing rewrites history and would need a force-push, which this skill never does). STOP and report that main moved forward, and let the user decide.
+
 ### 4. Identify what's already done
 
 - `git status --porcelain` and `git diff --name-only` — see what is uncommitted.
@@ -172,6 +181,10 @@ Show the user exactly what will happen:
 ### Branch
 [current feature branch] → PR into [default branch]
 
+### Sync with [default branch]
+[if {behind} = 0: "Up to date with [default] — no rebase needed."]
+[if {behind} > 0: "[default] is ahead by [N] commit(s) (e.g. released [versions]). Will rebase this branch onto origin/[default] before pushing. If the changelog conflicts, it auto-resolves — stacks this branch's entry above main's and bumps the version past main's ([old] → [new]). Any non-changelog conflict stops for you."]
+
 ### Commit (if uncommitted)
 - Files: [list each file with a one-line note on what changed]
 - Message: [resolved from .tld/campaign.md Commit format Pattern, ticket ID + title substituted, ` — TLD verified` appended]
@@ -222,9 +235,15 @@ Only after explicit user approval, in this order:
 
 1. **Commit (only if there is uncommitted ticket work):** stage just this ticket's files (`git add [specific files]` — only files related to this ticket, plus the changelog from step 7 if updated; never `git add -A`/`.`, never stage a pre-existing dirty path recorded in step 4). Commit using the `Pattern` from `.tld/campaign.md`'s Commit format section, ticket ID + title substituted, ` — TLD verified` appended. Include the campaign's `Co-author` trailer if non-empty; omit it if blank. Never `--amend`. If a pre-commit hook fails, fix the cause and make a NEW commit; do not bypass the hook.
 2. **Verify the commit succeeded** (or that the tree was already committed).
-3. **Mark the ticket Done** in the tracker via `save_issue` (set state to "Done").
-4. **Push the feature branch** to its remote (`git push -u origin {branch}`). Never force-push.
-5. **Open the PR** with `gh pr create --base {default} --head {branch}`, title `[TICKET-ID] — [title]`, and a body that summarizes what changed, lists the test results, links the ticket, and notes "TLD verified." Capture the PR URL.
+3. **Sync onto the latest {default} (only if step 3 recorded `{behind}` > 0):**
+   a. `git rebase origin/{default}`.
+   b. **Clean rebase** → continue to step 4.
+   c. **Conflict ONLY in `Changelog path` file(s)** → auto-resolve: keep `{default}`'s released entries AND re-apply this branch's new entry stacked directly above them; set this branch's version header strictly above `{default}`'s current top version (main released 0.18.0 and branch was 0.18.0 → 0.19.0; branch already 0.15.0 vs main 0.14.1 → keep 0.15.0). Bump the matching version file(s) (package.json, etc.) to the same number. `git add` the resolved files, then `git rebase --continue`.
+   d. **Any conflict outside the changelog, or a changelog conflict you cannot mechanically resolve** → `git rebase --abort`, STOP, and report the conflicting files for the user to resolve manually. Never force anything.
+   e. After a successful rebase, **re-run the test command** (from step 6) to confirm the branch still passes on the new base. If tests fail, STOP and report — do not push.
+4. **Mark the ticket Done** in the tracker via `save_issue` (set state to "Done").
+5. **Push the feature branch** to its remote (`git push -u origin {branch}`). Never force-push.
+6. **Open the PR** with `gh pr create --base {default} --head {branch}`, title `[TICKET-ID] — [title]`, and a body that summarizes what changed, lists the test results, links the ticket, and notes "TLD verified." Capture the PR URL.
 
 **Do NOT merge the PR.** Merging stays with the user — this skill always stops at an open PR.
 
