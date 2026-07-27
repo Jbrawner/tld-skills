@@ -26,7 +26,7 @@ If the task is large (new feature, multiple components, schema changes), push ba
 
 The user provides one of:
 
-- A Linear ticket ID (e.g., 2ND-200) — use that ticket directly
+- A Linear ticket ID (e.g., ABC-200) — use that ticket directly
 - A description of what to do — create a Linear ticket for it first
 - Both — use the ticket, augment with their description
 

@@ -110,7 +110,7 @@ Returns a batch of issues matching a filter. Used to look up statuses for multip
 | Field | Type | Notes |
 |-------|------|-------|
 | `id` | string | Internal stable identifier |
-| identifier | string | Human-readable ticket ID, e.g. `2ND-207` |
+| identifier | string | Human-readable ticket ID, e.g. `ABC-207` |
 | `status` | string | Status name, e.g. `"Todo"`, `"In Progress"`, `"Done"` |
 | `statusType` | string | Normalized status class: `"backlog"`, `"unstarted"`, `"started"`, `"completed"`, `"cancelled"` |
 | `title` | string | Display title |
@@ -129,7 +129,7 @@ Returns one issue's full record. The primary call for loading a ticket before im
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `id` | string | Ticket identifier, e.g. `2ND-207` |
+| `id` | string | Ticket identifier, e.g. `ABC-207` |
 | `includeRelations` | boolean | `true` when the skill needs `blockedBy` / `blocks` (dependency checks); omitted otherwise |
 
 #### Response fields the skills read
@@ -174,14 +174,14 @@ Creates a new issue or updates an existing one.
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `id` | string | Ticket identifier, e.g. `2ND-207` |
+| `id` | string | Ticket identifier, e.g. `ABC-207` |
 | `state` | string | Target state name: `"In Progress"`, `"Done"`, `"Todo"`, `"Backlog"`, or a custom "Skipped" state (see `/tld-skip`) |
 
 #### Response fields the skills read
 
 | Field | Type | Notes |
 |-------|------|-------|
-| identifier | string | Human-readable ticket ID assigned by the tracker, e.g. `2ND-208`. Needed after creation so the skill can populate the milestone's `## Order` section. |
+| identifier | string | Human-readable ticket ID assigned by the tracker, e.g. `ABC-208`. Needed after creation so the skill can populate the milestone's `## Order` section. |
 
 **Label errors:** if a label name is not found in the workspace, the call should fail with a descriptive error. The skills surface this to the user and stop — they do not silently drop labels.
 
@@ -325,13 +325,13 @@ None — the skills check for the presence or absence of a result, not any speci
 Linear automatically rewrites plain ticket IDs in milestone descriptions when the description is saved via `save_milestone`. A line written as:
 
 ```
-1. 2ND-207
+1. ABC-207
 ```
 
 is returned by `get_milestone` as:
 
 ```
-1. [2ND-207](https://linear.app/2ndfoundry/issue/2ND-207/...)
+1. [ABC-207](https://linear.app/your-workspace/issue/ABC-207/...)
 ```
 
 All TLD skills that parse the `## Order` section use an unanchored regex to extract the ticket ID — they match `({prefix}-\d+)` anywhere on the line, not at a fixed position. This means both the plain form and the auto-linked form produce the same parsed ticket list.

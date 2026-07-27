@@ -11,7 +11,7 @@ You are preparing the next ticket for test-led development. Your job is to ident
 ## Inputs
 
 The user may provide:
-- A specific ticket ID (e.g., `2ND-149`) — Mode A: use that ticket directly
+- A specific ticket ID (e.g., `ABC-149`) — Mode A: use that ticket directly
 - Nothing — Mode B: find the next ticket automatically from Linear milestones
 
 Structure and order come from Linear. Local project config comes from `.tld/campaign.md`.
