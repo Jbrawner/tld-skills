@@ -53,6 +53,10 @@ If the tracker is unreachable at any step, stop and output:
   "Cannot reach the issue tracker — aborting. No offline mode."
 Do not fall back to cached state; there is none.
 
+#### 1.2a Claim the ticket (required for the chain to hold)
+
+`/tld-setup` marks the ticket **In Progress** but does **not** assign it, and every ticket resolution in this skill and in the phase skills it chains resolves "the current ticket" as *In Progress **and assigned to me***. So the moment the setup phase has identified the active ticket, **assign it to the current user** if it is not already — on Linear via `save_issue` (assignee = me), on Jira via `editJiraIssue` (or `assignJiraIssue`) with the current `accountId` from `atlassianUserInfo`. Skip this only if the ticket is already assigned to the current user. If it is already assigned to **someone else**, STOP — the ticket is claimed by another person (docs/JIRA.md § Concurrency); do not steal it. If the claim is not made, the next resolution finds **zero** In-Progress-assigned-to-me tickets and stops with "No In-Progress ticket found," breaking the chain mid-run — this bites hardest on Jira, where sub-tasks are often created unassigned.
+
 #### 1.3 Resolve test command
 
 Determine the affected directory scope:
