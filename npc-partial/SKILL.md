@@ -45,6 +45,16 @@ If the tracker is unreachable at any step, stop and output:
   "Cannot reach the issue tracker — aborting. No offline mode."
 Do not fall back to cached state; there is none.
 
+### 1a. Runnable-suite guard (refuse real-suite campaigns)
+
+NPC exists for campaigns with no test signal — it must not land untested commits where a real suite is available. Before invoking `/tld-build`, resolve the test command exactly as `tld-build/SKILL.md` step 1b does: collect the affected scope (the ticket's "Files to Create/Modify" plus uncommitted paths), classify it against the campaign Stack paths to pick the Backend / Frontend / Landing / Full command, and fall back to the Full command when the chosen one is empty.
+
+If the resolved command is **runnable** — not blank, not the literal `skip` (case-insensitive), and not an `echo`-style SKIP placeholder (a command that merely prints "SKIP…" instead of running anything) — STOP and output:
+
+"This campaign has a runnable test command ({command}). NPC skips testing — use /tld-run-test, /tld-partial-auto, or a no-tests-labeled ticket via /tld-full-auto instead."
+
+There is no override keyword. Campaigns whose commands are blank, the literal `skip`, or echo-SKIP placeholders behave exactly as before — the guard passes silently and the flow continues.
+
 ### 2. Invoke /tld-build
 
 Run the `/tld-build` skill end-to-end. It writes the implementation; it does not commit. If `/tld-build` reports a failure (build error, scope creep flag, retry-cap hit), stop and surface the failure — do not proceed to step 3.
