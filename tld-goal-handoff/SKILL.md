@@ -12,14 +12,16 @@ Your job: produce TWO ready-to-paste text blocks and nothing else — a **`/comp
 
 **Hard rules:**
 1. Block 1 (`/compact`) must be a single line of plain prose after the word `/compact`, containing **NO other slash-command token** (no `/goal`, no `/tld-*`). A second `/word` inside a `/compact` argument makes the app abort the compaction.
-2. Keep block 2 (`/goal`) under ~4000 characters. Never leave a `{placeholder}` — resolve every value.
+2. Keep block 2 (`/goal`) under ~4000 characters — the per-ticket flow tags and commit-suffix rules fit that budget for a typical 5-ticket story; if a larger story would blow past it, condense ticket titles first (never drop the flow tags). Never leave a `{placeholder}` — resolve every value.
 
 ## Process
 
 ### 1. Load config and resolve the key
 Read `.tld/campaign.md` (repo root). If missing: "No campaign found — run /campaign-init." and stop. Parse Project (Issue tracker, Ticket prefix), Stack (Database, Co-author), Commit format (Pattern).
 
-Tracker is Jira (default): resolve cloudId via `getAccessibleAtlassianResources`; project key = `Ticket prefix` (quote in JQL).
+**Tracker guard:** if campaign → Project → Issue tracker is not `Jira`, stop and output: "tld-goal-handoff currently supports Jira only — campaign Issue tracker is '{tracker}'. See LIMITATIONS.md." Do not silently proceed on a non-Jira campaign (mirrors the unsupported-tracker stop in the canonical Tracker-resolution block).
+
+For Jira: resolve cloudId via `getAccessibleAtlassianResources`; project key = `Ticket prefix` (quote in JQL).
 
 Resolve the argument key:
 - **Sub-task key** (e.g. `LAB-398`) → single-ticket handoff: the `/goal` message builds just that ticket.
@@ -28,6 +30,10 @@ Resolve the argument key:
 
 ### 2. Gather what the `/goal` message needs
 - **Tickets:** for a Story, `parent = "<key>" AND issuetype = Sub-task ORDER BY Rank ASC` (unfinished only), each with a one-line AC distillation and its type. For a single ticket, just that one.
+- **Flow class per ticket** (recorded while reading each ticket; the tags feed step 4):
+  - `full-auto` — the default: a normal code ticket with a runnable test harness.
+  - `no-tests` — the ticket is labeled `no-tests` or `build-only`; or the campaign has no runnable test command (every Test Commands field empty or `skip`) and the ticket's scope is docs/content only.
+  - `migration` — the existing migration signals: the description mentions migration / schema / column / constraint / CHECK changes or supabase migrations, or its file scope is `*.sql` under the migrations path (same test as `/tld-full-auto` §1's re-check). If both `migration` and `no-tests` apply, `migration` wins.
 - **Branch:** `git branch --show-current`.
 - **Commit:** the campaign Commit `Pattern`; the `Co-Authored-By` trailer from Stack → Co-author (omit if blank).
 - **Jira Done:** `getTransitionsForJiraIssue` on one ticket; pick the transition whose target status category is `done` and is NOT cancel. Capture its **id** and the **cloudId**. Bake real values in.
@@ -41,21 +47,27 @@ One line, plain prose, no other slash token. Shape:
 ### 4. Compose Block 2 — the `/goal` message
 Fill real values. For a **single ticket**, drop the ordered list and the "one ticket at a time" framing. For a **Story**, keep them.
 
+Render every entry in `{ORDERED-TICKET-LIST}` as `KEY (condensed title) [flow-class]` using the step-2 classification — e.g. `AS-12 (fix stale docs) [no-tests]`, `AS-13 (add rate limit) [full-auto]` — so the runner knows the expected shape of each ticket's checkpoint before it starts.
+
+**No-runnable-command variant:** when the campaign has no runnable test command at all (every Test Commands field empty or `skip`), `/tld-full-auto` cannot deliver any verified checkpoint — replace the first METHOD bullet with the braced direct-method bullet in the template below and tag every ticket `[no-tests]`. Otherwise omit that braced bullet entirely.
+
 ```
 /goal Drive {KEY} ({title}) through the TLD flow on branch {branch}{, one ticket at a time, in this order: {ORDERED-TICKET-LIST}}.
 
 METHOD — non-negotiable:
-- Drive EVERY ticket by invoking /tld-full-auto <ticket> via the Skill tool (it runs /tld-setup → /tld-write-tests → /tld-build → /tld-audit → /tld-run-test). Do NOT inline, reproduce, or shortcut those phases yourself.
+- Drive EVERY ticket by invoking /tld-full-auto <ticket> via the Skill tool (it runs /tld-setup → /tld-write-tests → /tld-build → /tld-audit → /tld-run-test; [no-tests] tickets ride its label-gated no-tests path). Do NOT inline, reproduce, or shortcut those phases yourself.
+{- No-runnable-command campaigns ONLY (this bullet replaces the one above): for each ticket invoke /tld-setup <KEY> then /tld-build via the Skill tool, self-review the diff against every AC item in the Jira description, then land per the landing step below.}
 - Strictly sequential, one ticket at a time. No subagents, no parallelism.
 - If a skill errors, there is real ambiguity, or you are tempted to substitute your own faster process, STOP and report — do NOT hand-roll it. Substituting your own process is a FAILURE even if tests are green.
 
 For each ticket:
 1. Invoke /tld-full-auto <TICKET> via the Skill tool. It stops at the verified checkpoint and never commits.
-2. Land it: stage ONLY that ticket's files (never `git add -A`), update the right CHANGE_LOG.md under [Unreleased], commit as `{Pattern}`{ with trailer `{trailer}`}, then transition it to Done in Jira (cloudId {cloudId}, transition id {id}).
+2. Land it: stage ONLY that ticket's files (never `git add -A`), update the right CHANGE_LOG.md under [Unreleased], commit as `{Pattern}` — append " — TLD verified" to the title when the ticket landed test-verified, " — NPC" when it landed without test verification ([no-tests] path or the direct method){ with trailer `{trailer}`}, then transition it to Done in Jira (cloudId {cloudId}, transition id {id}).
 3. Briefly report the result, then continue to the next ticket.
 
 Ticket-type handling:
 - Feature/bug tickets: normal red→green→verify. Each Jira description is decision-complete — do exactly what it says, no improvising.
+- [no-tests] tickets: /tld-full-auto's label-gated no-tests path drives them — RED is skipped by design, and the healthy checkpoint reads "regression-clean, NOT spec-verified (no-tests ticket)". Treat that as the expected stop, not an error.
 - Migration/schema tickets: hand-apply to the LOCAL stack only; never `supabase db reset` from a worktree; run the backend tests too.
 
 Safety (non-negotiable):
@@ -65,6 +77,8 @@ Safety (non-negotiable):
 
 At the end: write a wake-up report (per ticket: built/committed/skipped, commit hash, test results, anything flagged) and STOP.
 ```
+
+The commit-suffix rules mirror the family's landing conventions: ` — TLD verified` is what `/tld-run-test` step 5 appends after a green verify, and ` — NPC` is `/npc-partial` step 4's marker for a landing with no test verification. The composed goal must keep them distinct — a no-test landing never claims ` — TLD verified`.
 
 ### 5. Print both blocks and stop
 Print exactly this and nothing after it:
