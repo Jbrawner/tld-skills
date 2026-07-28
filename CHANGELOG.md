@@ -16,6 +16,8 @@ All notable changes to Adventure Skills are recorded here. Versions follow seman
 
 ### Fixed
 
+- Chore sweep from the 2026-07-28 flow review: `campaign-init` no longer calls Linear "the primary / recommended issue tracker" (Linear and Jira are both supported per LIMITATIONS.md; GitHub Issues / Other remain schema-accepted but unimplemented) and its Test Commands intro now lists all four slots (backend / frontend / landing / full); `tld-setup`'s description and intro are tracker-neutral ("pulls it from the issue tracker"); and step 1b in `tld-build`, `tld-write-tests`, and `tld-run-test` gains an identical **literal-skip guard** — a resolved command that is the literal `skip` or an `echo`-style SKIP placeholder is never executed (a placebo command only fakes a green run), is reported as "no runnable suite", and in `/tld-run-test` routes to the manual-QA-style verify path. (AS-11)
+
 ### Removed
 
 ## [v0.3.1] — 2026-05-09

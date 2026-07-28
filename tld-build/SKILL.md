@@ -73,6 +73,8 @@ If the Full command is also empty, stop and output:
 
 Use the resolved command for any test run in this skill. Do not invent commands.
 
+**Literal-skip guard:** if the resolved command is the literal `skip` (case-insensitive) or an `echo`-style SKIP placeholder (a command that merely prints "SKIP…" instead of running anything), do NOT execute it — a placebo command only fakes a green run. Treat it as "no runnable suite" and state that in the output. In `/tld-run-test`, this routes to the manual-QA-style verify path instead of a test run.
+
 ### 1c. Local DB safety check
 
 **Run the local-DB safety check before any test command or destructive database operation.**

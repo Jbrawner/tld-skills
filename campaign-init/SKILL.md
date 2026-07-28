@@ -7,16 +7,16 @@ description: |
   exists in the current repo. Creates the four required sections (Project, Test Commands,
   Stack, Commit format) and can optionally scaffold the v0.2 sections (Pipelines, Allowed
   statuses); omitting them yields today's fixed default flow. Canonical schema:
-  docs/CAMPAIGN_SCHEMA.md. Linear is the primary / recommended issue tracker; Jira, GitHub
-  Issues, and Other are accepted in the schema but downstream TLD skills are Linear-wired
-  and will need manual adaptation for non-Linear configs.
+  docs/CAMPAIGN_SCHEMA.md. Linear and Jira are both supported issue trackers (see
+  LIMITATIONS.md); GitHub Issues and Other are accepted in the schema but unimplemented —
+  no TLD skill resolves operations against them.
 ---
 
 # Campaign Init
 
 You are scaffolding the per-repo `.tld/campaign.md` file that the TLD skills framework reads for project-specific configuration. The file lives at `{cwd}/.tld/campaign.md` — one per repo, gitignored. Each repo gets its own file; there is no global active campaign to switch between.
 
-The file captures four sections: Project (tracker + name + team + prefix), Test Commands (backend / frontend / full), Stack (directories and database), and Commit format. Structure and ticket order live in the issue tracker, not here — this file has no Milestones or Active section.
+The file captures four sections: Project (tracker + name + team + prefix), Test Commands (backend / frontend / landing / full), Stack (directories and database), and Commit format. Structure and ticket order live in the issue tracker, not here — this file has no Milestones or Active section.
 
 ## Process
 
