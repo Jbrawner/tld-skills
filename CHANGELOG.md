@@ -10,6 +10,8 @@ All notable changes to Adventure Skills are recorded here. Versions follow seman
 
 ### Fixed
 
+- `/tld-goal-handoff` now prints each handoff block with its own slash command *inside* the fenced code block, so one click on the copy button yields a message that can be pasted and sent with zero typing. Previously the skill put `/compact` and `/goal` in the prose label above each fence ("paste this into `/compact`"), leaving the copy button to hand back only the message body — the user had to retype the command every time, which defeated the point of a copy-paste handoff skill. The old "no second `/word` inside a `/compact` argument" rule was the likely cause: it read as *keep the slash command out of the block*, so it now says explicitly that the leading `/compact` is the command itself and belongs in the block. Adds a pre-print self-check table (both openings, slash-token count, untagged fences) gated on the question "if the user pastes this without typing another character, does it send correctly?", plus a rule keeping both fences untagged so a `bash` tag never turns a chat message into a runnable shell command.
+
 ### Removed
 
 ## [v0.3.1] — 2026-05-09

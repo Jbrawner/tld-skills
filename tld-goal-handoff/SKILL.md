@@ -1,18 +1,20 @@
 ---
 name: tld-goal-handoff
 description: |
-  Generate the two copy-paste prompts for a manual TLD build handoff: a /compact message and a /goal message. Use this skill whenever the user says "tld-goal-handoff", "goal handoff", "prep the handoff", "give me the compact and goal", "handoff prompt", or wants ready-to-paste /compact + /goal text for a ticket or Story. Reads the ticket(s) from Jira, resolves branch + commit format + Jira Done transition + local DB, then PRINTS two fenced blocks for the user to paste by hand — first /compact, then /goal after compaction finishes. There is NO hook, NO auto-fire, NO clipboard, and NO keystroke automation: this skill only composes and prints text. Optional argument: a ticket or Story key (e.g. /tld-goal-handoff LAB-398).
+  Generate the two copy-paste prompts for a manual TLD build handoff: a /compact message and a /goal message. Use this skill whenever the user says "tld-goal-handoff", "goal handoff", "prep the handoff", "give me the compact and goal", "handoff prompt", or wants ready-to-paste /compact + /goal text for a ticket or Story. Reads the ticket(s) from Jira, resolves branch + commit format + Jira Done transition + local DB, then PRINTS two fenced blocks for the user to paste by hand — first /compact, then /goal after compaction finishes. Each block INCLUDES its own leading slash command, so one click on the copy button yields a message the user can paste and send without typing anything. There is NO hook, NO auto-fire, NO clipboard, and NO keystroke automation: this skill only composes and prints text. Optional argument: a ticket or Story key (e.g. /tld-goal-handoff LAB-398).
 ---
 
 # TLD Goal Handoff — print the `/compact` and `/goal` prompts for manual paste
 
 Your job: produce TWO ready-to-paste text blocks and nothing else — a **`/compact`** message and a **`/goal`** message — so the user pastes them by hand. You do NOT run `/compact` or `/goal`, you do NOT use a hook, you do NOT touch the clipboard, you do NOT inject keystrokes. Compose and print, then stop.
 
-**The order the user will use them:** paste block 1 into `/compact`, wait for the compaction to fully finish, then paste block 2 into `/goal`.
+**The order the user will use them:** copy block 1, paste, send; wait for the compaction to fully finish; then copy block 2, paste, send.
 
 **Hard rules:**
-1. Block 1 (`/compact`) must be a single line of plain prose after the word `/compact`, containing **NO other slash-command token** (no `/goal`, no `/tld-*`). A second `/word` inside a `/compact` argument makes the app abort the compaction.
-2. Keep block 2 (`/goal`) under ~4000 characters. Never leave a `{placeholder}` — resolve every value.
+1. **Each fenced block is the ENTIRE message the user sends — slash command included.** Block 1's first characters are literally `/compact ` and block 2's first characters are literally `/goal `. The user's one click on the code-block copy button must yield text they can paste and send with zero typing. Never strip the slash command out of the fence and mention it only in the surrounding prose — that forces the user to type it back in by hand, which defeats the entire purpose of this skill.
+2. Block 1 is a single line: the literal token `/compact `, then plain prose. After that leading token it must contain **NO other slash-command token** (no `/goal`, no `/tld-*`). A second `/word` inside a `/compact` argument makes the app abort the compaction. (The leading `/compact` is the command itself, not a second token — it belongs in the block.)
+3. Keep block 2 (`/goal`) under ~4000 characters. Never leave a `{placeholder}` — resolve every value.
+4. Leave both fences **untagged** — no `bash`, no `text`, no language hint. A `bash` tag turns the block into a runnable shell command, and these are chat messages, not shell commands.
 
 ## Process
 
@@ -34,12 +36,12 @@ Resolve the argument key:
 - **Local DB:** campaign Stack → Database. If `.tld/goal-notes.md` exists, read it for env quirks and any prod-DB-to-never-touch; fold into Safety.
 
 ### 3. Compose Block 1 — the `/compact` message
-One line, plain prose, no other slash token. Shape:
+One line: the literal `/compact ` token, then plain prose, no other slash token. The `/compact ` prefix is **part of block 1**, not a label you put above it. Shape:
 
 `/compact Keep the campaign config, the {Story/this ticket}'s scope and its ticket list with a one-line status for each, and the outcome of any ticket already finished. Drop the previous ticket's verbose tool output, diffs, and resolved debugging so the next ticket starts from a clean slate.`
 
 ### 4. Compose Block 2 — the `/goal` message
-Fill real values. For a **single ticket**, drop the ordered list and the "one ticket at a time" framing. For a **Story**, keep them.
+Fill real values. The `/goal ` prefix on the first line is **part of block 2**, not a label you put above it. For a **single ticket**, drop the ordered list and the "one ticket at a time" framing. For a **Story**, keep them.
 
 ```
 /goal Drive {KEY} ({title}) through the TLD flow on branch {branch}{, one ticket at a time, in this order: {ORDERED-TICKET-LIST}}.
@@ -66,19 +68,31 @@ Safety (non-negotiable):
 At the end: write a wake-up report (per ticket: built/committed/skipped, commit hash, test results, anything flagged) and STOP.
 ```
 
-### 5. Print both blocks and stop
+### 5. Self-check before printing
+Verify all four, and fix any that fail before you print:
+
+| Check | Requirement |
+| --- | --- |
+| Block 1 opening | Starts with the exact characters `/compact ` — if not, prepend them |
+| Block 2 opening | Starts with the exact characters `/goal ` — if not, prepend them |
+| Slash tokens | Block 1 has exactly one `/word` (the leading `/compact`); block 2's `/goal` is its first token |
+| Fences | Both fences untagged — no `bash`, no `text`, no language hint |
+
+The test to apply: *if the user clicks copy and pastes without typing another character, does it send correctly?* If the answer is no, the block is wrong.
+
+### 6. Print both blocks and stop
 Print exactly this and nothing after it:
 
-**Step 1 — paste this into `/compact` first:**
+**Step 1 — copy this block, paste, send:**
 
 ```
-{block 1}
+{block 1, starting with /compact}
 ```
 
-**Step 2 — after the compaction fully finishes, paste this into `/goal`:**
+**Step 2 — after the compaction fully finishes, copy this block, paste, send:**
 
 ```
-{block 2}
+{block 2, starting with /goal}
 ```
 
-Then note the character count of block 2 (e.g. `goal message: 2,900 chars`). **STOP.** Do not run anything, do not invoke another skill, do not touch the clipboard or any hook. The user pastes these two blocks by hand.
+Then note the character count of block 2 (e.g. `goal message: 2,900 chars`). **STOP.** Do not run anything, do not invoke another skill, do not touch the clipboard or any hook. The user copies and pastes these two blocks by hand — each one whole, exactly as printed.
