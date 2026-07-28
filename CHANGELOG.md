@@ -8,6 +8,8 @@ All notable changes to Adventure Skills are recorded here. Versions follow seman
 
 ### Changed
 
+- `/tld-full-auto` now takes tickets labeled `no-tests` or `build-only` through a label-gated **no-tests path** instead of dying at stop condition 7: the RED phase (`/tld-write-tests`) is skipped by design (an explicit, reported skip), `/tld-build` green means the implementation is authored with no new-test requirement, and `/tld-run-test` verifies as a REGRESSION gate (existing suite must stay green; absence of new tests is not a failure and not AC-coverage drift) plus the usual file-scope drift check and manual QA plan. Mirrors the existing migration re-check pattern; if a ticket is both migration and labeled, the migration classification wins. Unlabeled tickets behave exactly as before. (AS-6)
+
 ### Fixed
 
 ### Removed
