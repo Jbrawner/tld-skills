@@ -22,22 +22,24 @@ A set of Claude Code skills for **Test-Led Development (TLD)**. Drives a project
 
 ## Two flows: TLD and NPC
 
-The framework ships with two parallel flows. Same ticket model, same hard stops, same Linear tracker — different verification.
+The framework ships with three routes. Same ticket model, same hard stops, same issue tracker (Linear or Jira). What differs is how the work gets verified.
 
-| | **TLD (core)** | **NPC ("no preview check")** |
-|---|---|---|
-| **Pipeline** | red → review → green → verify → commit | build → (optional QA pause) → commit |
-| **Tests** | mandatory; tests ARE the spec | none — explicitly skipped |
-| **Drift check** | yes — diff vs ticket AC | none |
-| **Best for** | features, bug fixes, anything that touches behavior | content edits, doc updates, copy changes, README tweaks |
-| **Trigger condition** | `Test Commands.Backend ≠ skip` AND ticket scope touches code | `Test Commands.Backend = skip` AND scope is content/docs only |
-| **Skills** | `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-partial-auto`, `/tld-align` | `/npc-partial`, `/npc-full` |
+| | **TLD (core)** | **TLD no-tests path** | **NPC ("no preview check")** |
+|---|---|---|---|
+| **Pipeline** | red → review → green → verify → commit | green → verify (regression only) → commit | build → (optional QA pause) → commit |
+| **Tests** | mandatory; tests ARE the spec | no new tests; the existing suite must stay green | none — explicitly skipped |
+| **Drift check** | yes — diff vs ticket AC | file scope only; missing new tests is not drift | none |
+| **Best for** | features, bug fixes, anything that touches behavior | bugs with no harness, config tweaks, skill and doc edits in a repo that still has a suite | content edits, doc updates, copy changes, README tweaks |
+| **Trigger condition** | `Test Commands.Backend ≠ skip` AND ticket scope touches code | the ticket carries the `no-tests` (or `build-only`) label | `Test Commands.Backend = skip` AND scope is content/docs only |
+| **Skills** | `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-partial-auto`, `/tld-align` | `/tld-full-auto` (label-gated), `/tld-build` | `/npc-partial`, `/npc-full` |
 
 **TLD is the core.** Hard stops, drift detection, and tests-as-spec are the central guardrails — use TLD for any change with functional impact.
 
-**NPC has its place.** A typo fix in a marketing page or a README clarification doesn't benefit from a red phase (there's no behavior to test) and dragging it through one wastes time. NPC trades the test-as-spec guarantee for speed on content-shaped work. The diff is the spec; manual review is the verification.
+**The no-tests path is for real work that has no harness.** A bug you can only confirm by hand, a config change, an edit to the skill files themselves. Label the ticket `no-tests` and `/tld-full-auto` skips the red phase on purpose instead of stopping at "this AC cannot be encoded as a test," then treats the existing suite as a regression gate. The checkpoint is honest about what it proves: regression-clean, not spec-verified. Your manual check is the spec verification. Unlabeled tickets are unaffected.
 
-When in doubt, default to TLD. NPC should fire when the campaign's test command is literally `skip` AND the change is text/docs. Anything else — even something that "feels small" — belongs in TLD.
+**NPC has its place.** A typo fix in a marketing page or a README clarification doesn't benefit from a red phase (there's no behavior to test) and dragging it through one wastes time. NPC trades the test-as-spec guarantee for speed on content-shaped work. The diff is the spec; manual review is the verification. NPC refuses to run when the campaign resolves to a real test command, so a repo with a working suite cannot land untested commits through it by accident.
+
+When in doubt, default to TLD. Reach for the no-tests label when the work is genuinely untestable rather than merely inconvenient to test, and let NPC fire only when the campaign's test command is literally `skip` AND the change is text/docs.
 
 ---
 
@@ -108,7 +110,7 @@ The flow has four steps:
 /campaign-init
 ```
 
-Creates `.tld/campaign.md` at the repo root with the four required sections (Project, Test Commands, Stack, Commit format) and bootstraps the seven required Linear workspace labels (`effort:low`, `effort:medium`, `effort:high`, `model:opus`, `model:sonnet`, `model:haiku`, `side-quest`). It will ask you which Linear team and project to point at, what command runs your tests, and where your stack lives.
+Creates `.tld/campaign.md` at the repo root with the four required sections (Project, Test Commands, Stack, Commit format) and bootstraps the eight required Linear workspace labels (`effort:low`, `effort:medium`, `effort:high`, `model:opus`, `model:sonnet`, `model:haiku`, `side-quest`, `no-tests`). It will ask you which Linear team and project to point at, what command runs your tests, and where your stack lives.
 
 ### 2. Verify Linear connectivity
 
@@ -116,7 +118,7 @@ Creates `.tld/campaign.md` at the repo root with the four required sections (Pro
 /campaign-test
 ```
 
-Pre-flight check. Verifies the campaign file is well-formed, that the Linear team and project actually exist, that your ticket prefix matches the Linear team, and that all seven required labels are present. Read-mostly; the only write path is creating any missing labels, and only after you say yes.
+Pre-flight check. Verifies the campaign file is well-formed, that the Linear team and project actually exist, that your ticket prefix matches the Linear team, and that all eight required labels are present. Read-mostly; the only write path is creating any missing labels, and only after you say yes.
 
 ### 3. Create or sync milestone structure
 
