@@ -39,6 +39,8 @@ This skill's ticket and milestone operations are written using Linear MCP tool n
 
 #### 1.2 Resolve current ticket
 
+**Case A0 — same-session setup context (check this first):** if THIS session already ran a formal `/tld-setup` whose output carries the active ticket (ID, AC, Files to Create/Modify) and nothing since indicates the ticket changed — no `/tld-next`, `/tld-skip`, or `/tld-cancel` has run, and the user has not said otherwise — use that in-conversation context as the current ticket and skip the tracker query below. A session without that context falls through to the cases below unchanged.
+
 Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
 
 **Case A — exactly one In-Progress ticket assigned to me:** That is the current ticket. Load it for full description / AC / files / milestone.
@@ -52,6 +54,10 @@ Do not guess, do not walk milestones — that is /tld-setup's job.
 If the tracker is unreachable at any step, stop and output:
   "Cannot reach the issue tracker — aborting. No offline mode."
 Do not fall back to cached state; there is none.
+
+#### 1.2a Claim the ticket (required for the chain to hold)
+
+`/tld-setup` marks the ticket **In Progress** but does **not** assign it, and every ticket resolution in this skill and in the phase skills it chains resolves "the current ticket" as *In Progress **and assigned to me***. So the moment the setup phase has identified the active ticket, **assign it to the current user** if it is not already — on Linear via `save_issue` (assignee = me), on Jira via `editJiraIssue` (or `assignJiraIssue`) with the current `accountId` from `atlassianUserInfo`. Skip this only if the ticket is already assigned to the current user. If it is already assigned to **someone else**, STOP — the ticket is claimed by another person (docs/JIRA.md § Concurrency); do not steal it. If the claim is not made, the next resolution finds **zero** In-Progress-assigned-to-me tickets and stops with "No In-Progress ticket found," breaking the chain mid-run — this bites hardest on Jira, where sub-tasks are often created unassigned.
 
 #### 1.3 Resolve test command
 

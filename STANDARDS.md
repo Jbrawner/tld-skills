@@ -165,6 +165,8 @@ Do not fall back to cached state; there is none.
 **When to use:** Action-mode skills (`/tld-align`, `/tld-partial-auto`, `/tld-build`, `/tld-commit`, `/tld-pr`, `/tld-run-test`, `/tld-skip`, `/tld-write-tests`, `/npc-partial`, `/npc-full`) that should refuse to auto-discover. Zero In-Progress = STOP and tell the user to run `/tld-setup`. Use the discovery form (above) for skills that should auto-pick. `/tld-cancel` uses the cancel-variant below — it adds "or pass a specific ticket ID to cancel" to the Case-B output and changes the Case-C question text to "pick the one to cancel."
 
 ```
+**Case A0 — same-session setup context (check this first):** if THIS session already ran a formal `/tld-setup` whose output carries the active ticket (ID, AC, Files to Create/Modify) and nothing since indicates the ticket changed — no `/tld-next`, `/tld-skip`, or `/tld-cancel` has run, and the user has not said otherwise — use that in-conversation context as the current ticket and skip the tracker query below. A session without that context falls through to the cases below unchanged.
+
 Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
 
 **Case A — exactly one In-Progress ticket assigned to me:** That is the current ticket. Load it for full description / AC / files / milestone.
@@ -251,7 +253,7 @@ When the classification is NPC, render the options block with `/npc-partial` and
 
 ### Canonical paste-block: Required workspace labels
 
-**When to use:** Skills that read or create the seven required workspace labels (`/campaign-init`'s bootstrap step, `/campaign-test`'s connectivity check). Embed the table verbatim — it is the source of truth for label names, hex colors, and descriptions. The label list is referenced by name elsewhere (recommendation hints, dashboards) so any rename requires updating every reader at the same time. **On the Jira path the color and description columns do not apply** (Jira labels are bare strings) and there is no create step — labels exist implicitly when first used, so the bootstrap is a no-op. See docs/JIRA.md. The seven label *names* are identical on both trackers.
+**When to use:** Skills that read or create the eight required workspace labels (`/campaign-init`'s bootstrap step, `/campaign-test`'s connectivity check). Embed the table verbatim — it is the source of truth for label names, hex colors, and descriptions. The label list is referenced by name elsewhere (recommendation hints, dashboards) so any rename requires updating every reader at the same time. **On the Jira path the color and description columns do not apply** (Jira labels are bare strings) and there is no create step — labels exist implicitly when first used, so the bootstrap is a no-op. See docs/JIRA.md. The eight label *names* are identical on both trackers.
 
 ```
 | Name | Color | Description |
@@ -263,6 +265,7 @@ When the classification is NPC, render the options block with `/npc-partial` and
 | `effort:medium` | `#F2994A` | Recommended reasoning effort: medium. Normal skill authoring, structured writing. |
 | `effort:high` | `#EB5757` | Recommended reasoning effort: high. Architectural design, pattern-setting work, contracts. |
 | `side-quest` | `#14B8A6` | Small polish or quick-fix work handled via `/tld-side-quest` outside the main TLD flow. |
+| `no-tests` | `#6B7280` | Ticket has no automatable test harness. `/tld-full-auto` skips the RED phase and verifies as a regression gate instead; `/tld-setup` recommends `/tld-build`. `build-only` is accepted as a synonym by every skill that reads this label, but `no-tests` is the one the bootstrap creates. |
 ```
 
 ### Canonical paste-block: Local DB safety check

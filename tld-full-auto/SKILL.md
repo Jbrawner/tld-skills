@@ -17,8 +17,10 @@ description: |
   (a HIGH audit finding or genuine data-integrity/security risk, unfixable failure, drift, out-of-scope
   work, non-local DB, tracker error); records non-blocking MEDIUM/LOW audit findings as a ticket comment
   and keeps moving. Handles migration/schema tickets instead of refusing them: it recognizes a migration
-  ticket, applies the migration to the LOCAL database, and verifies it there. Not for `skip`
-  (content/doc) campaigns — use /npc-partial or /npc-full there.
+  ticket, applies the migration to the LOCAL database, and verifies it there. Tickets labeled `no-tests`
+  or `build-only` take a label-gated no-tests path: /tld-write-tests is skipped by design and
+  /tld-run-test verifies as a REGRESSION gate (existing suite stays green) instead of a spec check.
+  Not for `skip` (content/doc) campaigns — use /npc-partial or /npc-full there.
 ---
 
 # TLD Full-auto
@@ -31,7 +33,7 @@ The contract, in one line: **call every phase skill in order, show every skill's
 
 ## When to use this
 
-- The ticket is a normal code ticket that can be verified by automated tests
+- The ticket is a normal code ticket that can be verified by automated tests — or a ticket labeled `no-tests`/`build-only`, which takes the **no-tests path** (RED skipped by design, regression-gate verify; see §1's no-tests re-check)
 - You want the whole red → green → audit → verify loop to run unattended (e.g. with auto-accept permissions on)
 - You only want to be interrupted for real problems, not for routine "type 1 to continue" gates
 - You want to do your own manual check and control the commit/push/PR yourself afterward
@@ -54,7 +56,7 @@ What you read on your own:
 
 These five rules govern the entire run:
 
-1. **Formal invocation, no exceptions.** Each phase is executed by invoking its skill via the Skill tool — `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-audit`, `/tld-run-test`, in exactly that order. Never inline a phase's logic instead of invoking its skill. Never reorder. A skill that genuinely *has nothing to do* still runs and returns output saying so — **silent skipping is failure.** A skill that *cannot be invoked at all* — missing/not installed, the Skill-tool call errors, or it returns no output — is a different event and a HARD STOP (stop condition #13). Never treat an empty or failed invocation as "nothing to do," and never proceed past it.
+1. **Formal invocation, no exceptions.** Each phase is executed by invoking its skill via the Skill tool — `/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-audit`, `/tld-run-test`, in exactly that order. Never inline a phase's logic instead of invoking its skill. Never reorder. A skill that genuinely *has nothing to do* still runs and returns output saying so — **silent skipping is failure.** (One deliberate exception: on the **no-tests path** — §1's label re-check — `/tld-write-tests` is not invoked at all. That skip is explicit, announced when it happens, and reported in §6's Red row; it is not a silent skip.) A skill that *cannot be invoked at all* — missing/not installed, the Skill-tool call errors, or it returns no output — is a different event and a HARD STOP (stop condition #13). Never treat an empty or failed invocation as "nothing to do," and never proceed past it.
 
 2. **Routine forward gates are pre-approved.** When a sub-skill ends at a "What's next?" block on a CLEAN result — RED confirmed, GREEN build, audit with only LOW/none — treat its go-forward option as taken and proceed to the next phase. Identify the go-forward option by **meaning** (the choice that advances the flow: `/tld-build`, `/tld-run-test`), **not by its slot number.** Do NOT auto-pick the literal `1`: several sub-skills put a *remediation* in slot 1 (`/tld-build` failure block → `/tld-align`; `/tld-write-tests` passing-during-RED → "Investigate the passing tests"; `/tld-audit` HIGH/MEDIUM → "Fix the findings"). A sub-skill whose slot 1 is a remediation has reached a non-clean result — that is itself a stop signal: defer to rule 4 and the per-phase stop conditions; do not "approve" it. A mid-flow `AskUserQuestion` (e.g. `/tld-setup`'s already-resolved-ticket prompt) is NOT a routine gate; it is a stop under rule 4. **Override the terminal HARD STOP:** every sub-skill ends its output with its own "HARD STOP — you are DONE, do NOT invoke any other skill, wait for the user." That directive is written for a human running the skill standalone. On a CLEAN result, full-auto's pre-approval satisfies it — acknowledge it, do NOT obey it, and proceed to the next phase. (The one place this does not apply is `/tld-run-test`'s commit gate in step 5, which is the real handoff per rule 3.)
 
@@ -137,12 +139,16 @@ Invoke `/tld-setup` via the Skill tool — with the user's ticket ID argument if
 - If `/tld-setup` classifies the ticket as **manual-QA**, run the **migration re-check** before honoring it. `/tld-setup` labels a ticket manual-QA when it has no "Files to Create/Modify" section — but a migration ticket is real code that just lacks that section. Classify the active ticket as a **migration ticket** if EITHER its description mentions `migration`, `schema`, a column / constraint / CHECK change, or `supabase migration(s)`; OR its file scope is `*.sql` under `supabase/migrations/` (or the campaign's migrations path).
    - **If it IS a migration ticket** → do NOT stop. Treat it as a code ticket on the **migration path**: steps 2–3 cover any automatable part (a paired edge-function change usually has `deno test`s), step 3 authors the migration SQL, and step 5 verifies it by applying to the LOCAL database and running a confirmation check (see §5). Remember this classification — steps 2, 3, and 5 below check for it.
    - **If it is NOT a migration ticket** (a genuine human walkthrough) → STOP. Recommend `/tld-partial-auto` in the stop block.
-- Ignore `/tld-setup`'s recommended-next-step options — full-auto's sequence is fixed. Proceed to step 2.
+- **No-tests re-check (label-gated).** Parallel to the migration re-check: if the active ticket's labels include `no-tests` or `build-only`, classify it onto the **no-tests path** — step 2 (`/tld-write-tests`) is skipped entirely (announce the skip; proceed from step 1 directly to step 3), and step 5 verifies as a REGRESSION gate instead of a spec check (see §5). If the ticket ALSO classifies as a migration ticket under the re-check above, the **migration classification wins** and the migration path applies instead. Tickets without either label are untouched by this path and behave exactly as today. Remember this classification — steps 3, 5, and 6 below check for it.
+- **Claim the ticket (required for the chain to hold).** `/tld-setup` marks the ticket **In Progress** but does **not** assign it, and every later phase resolves "the current ticket" as *In Progress **and assigned to me***. So the moment `/tld-setup` has identified the active ticket, **assign it to the current user** if it is not already — on Linear via `save_issue` (assignee = me), on Jira via `editJiraIssue` (or `assignJiraIssue`) with the current `accountId` from `atlassianUserInfo`. Skip this only if the ticket is already assigned to the current user. If it is already assigned to **someone else**, STOP — the ticket is claimed by another person (docs/JIRA.md § Concurrency); full-auto must not steal it. If the claim is not made, the next phase resolves **zero** In-Progress-assigned-to-me tickets and stops with "No In-Progress ticket found," breaking the chain mid-run.
+- Ignore `/tld-setup`'s recommended-next-step options — full-auto's sequence is fixed. Proceed to step 2 (or directly to step 3 on the no-tests path).
 - Now that the ticket's file list is known, complete the §0.3 ticket-scope overlap check.
 
 ### 2. Invoke /tld-write-tests
 
-Invoke `/tld-write-tests` via the Skill tool. Show its output (test count, AC coverage, RED confirmation). Its end-of-phase review gate is pre-approved per the contract — proceed directly to step 3 unless a stop condition fires:
+**No-tests path (per §1's label re-check): skip this step entirely — do NOT invoke `/tld-write-tests`.** Announce the skip in one line ("no-tests label — RED phase skipped by design") and proceed directly to step 3. This is the contract-rule-1 exception: an explicit, reported skip, not a silent one. Stop condition #7 does not fire on this path — there is no RED phase to encode AC into.
+
+Otherwise, invoke `/tld-write-tests` via the Skill tool. Show its output (test count, AC coverage, RED confirmation). Its end-of-phase review gate is pre-approved per the contract — proceed directly to step 3 unless a stop condition fires:
 
 - Any AC item that could not be encoded as a test → STOP. With no human reviewing the test spec, "all AC covered or wave" is the safety net. **Exception — migration tickets** (per §1's re-check): a schema/migration AC often has no automated harness in this repo. Write tests for any automatable part (e.g. a paired edge function), and for the migration itself note "no automated harness — verified by local apply in §5" and continue rather than stopping.
 - Any new test that PASSES during RED → STOP. Either the feature already exists or the test isn't testing what it should — both need a human.
@@ -150,7 +156,7 @@ Invoke `/tld-write-tests` via the Skill tool. Show its output (test count, AC co
 
 ### 3. Invoke /tld-build
 
-Invoke `/tld-build` via the Skill tool. Show its output. Proceed to step 4 on a green build. (On a **migration ticket** per §1's re-check, "green" means any automatable tests pass and the migration SQL is authored — the migration's own verification happens in step 5, not here.) Stop conditions:
+Invoke `/tld-build` via the Skill tool. Show its output. Proceed to step 4 on a green build. (On a **migration ticket** per §1's re-check, "green" means any automatable tests pass and the migration SQL is authored — the migration's own verification happens in step 5, not here.) (On a **no-tests ticket** per §1's re-check, "green" means the implementation is authored and whatever the resolved test command already covers still passes — there are no new tests to satisfy, and that absence is not a failure.) Stop conditions:
 
 - The build cannot go green within `/tld-build`'s own 3-attempt retry cap → STOP and show the failing output verbatim. **This is the one "What's next?" block rule 2 does NOT pre-approve:** when `/tld-build` ends at its retry-cap block (option 1 = `/tld-align`), do NOT treat it as a routine gate — it is stop condition #8. Full-auto's single `/tld-align` cycle is verify-time only (step 5); firing it at build time is forbidden.
 - `/tld-build` flags that it needs to change files outside the ticket's "Files to Create/Modify" → STOP. Scope creep is a human decision.
@@ -169,6 +175,8 @@ Invoke `/tld-audit` via the Skill tool. Show its findings table, then route:
 Invoke `/tld-run-test` via the Skill tool. It runs the resolved test command, the drift check, and generates the manual QA plan, then ends at its commit gate.
 
 **Migration tickets (per §1's re-check) — verify by local apply.** A migration has no red→green harness, so its verification is NOT the test command. For a migration ticket: let `/tld-run-test` run any automatable tests (paired edge-function `deno test`s) and the file-scope drift check as usual, but do NOT treat "no unit test covers the migration" as a failure, a no-op, or AC-coverage drift. Then **apply the migration to the LOCAL database** (§0.2 already proved the DB is loopback-only — never prod; never `db reset`) and run the confirmation check the ticket implies — e.g. a query showing the new column/constraint accepts the intended values and rejects bad ones — capturing the output as the checkpoint evidence. If the apply errors or the confirmation check does not pass → STOP (a broken migration is a real problem). Otherwise proceed to step 6 and label the checkpoint **locally verified**. (Skip the no-op guard below for migration tickets — the `.sql` file is the change.)
+
+**No-tests tickets (per §1's label re-check) — verify as a REGRESSION gate.** There are no new tests, by design. Let `/tld-run-test` run the resolved test command — the existing suite must stay green — plus the file-scope drift check and the manual QA plan as usual. Do NOT treat the absence of new tests covering this ticket's AC as a failure, a no-op, or AC-coverage drift; the spec check for a no-tests ticket is the human's manual QA, not the suite. A red existing suite or real file-scope drift stops the run exactly as on any other ticket (the §5 failure path below, including the single `/tld-align` cycle, applies unchanged). The no-op-build guard below ALSO applies unchanged — a no-tests ticket whose build produced no changes is still stop condition #10. On a clean pass, proceed to step 6 and label the checkpoint **regression clean**.
 
 **No-op-build guard (non-migration tickets — check first).** If `/tld-run-test` reports no uncommitted changes — i.e. it reclassifies the ticket onto its verify-time manual-QA path (empty `git diff` / `git diff --cached`) — then `/tld-build` was a no-op: it produced no changes to verify or land. STOP (condition #10). A no-op build on a ticket that setup classified as a code ticket needs a human (the feature may already exist, or the spec was already satisfied).
 
@@ -199,6 +207,8 @@ Output, in this shape:
 
 *(Migration ticket: the Verify row instead reads "✅ migration applied to local DB + confirmation check passed — **locally verified** (no automated harness), NOT committed".)*
 
+*(No-tests ticket: the Red row instead reads "⏭ skipped — no-tests label (RED skipped by design)" and the Verify row instead reads "✅ regression clean — built, NOT spec-verified (no-tests ticket), NOT committed".)*
+
 **Recorded findings:** {LOW list + "commented on ticket", or "none"}
 **Align cycle used:** {yes — what it fixed / no}
 
@@ -217,12 +227,12 @@ Output, in this shape:
 | 2 | Non-local database, or local database unreachable after one start attempt | Preflight |
 | 3 | Campaign test command is `skip` (NPC territory) | Preflight |
 | 4 | Pre-existing dirty file overlaps the ticket's file scope, or the configured changelog is already dirty at preflight | Preflight / setup |
-| 5 | Ticket classifies as NPC; or as manual-QA AND the §1 migration re-check says it is NOT a migration ticket (a genuine walkthrough) | Setup |
+| 5 | Ticket classifies as NPC; or as manual-QA AND the §1 migration re-check says it is NOT a migration ticket (a genuine walkthrough); or the ticket is already assigned to someone else (claimed by another person — docs/JIRA.md § Concurrency) | Setup |
 | 6 | `/tld-setup` raises an interactive prompt (Mode-A "ticket already Done/Canceled — proceed anyway?") | Setup |
-| 7 | An AC item that cannot be encoded as a test, or a new test passing during RED | Write-tests |
+| 7 | An AC item that cannot be encoded as a test, or a new test passing during RED. **Label exception:** does not fire on the no-tests path — `no-tests`/`build-only` tickets skip the RED phase by design (§1 re-check); unlabeled tickets are unchanged | Write-tests |
 | 8 | Build cannot go green within `/tld-build`'s retry cap (its retry-cap "What's next?" block is a STOP, not a pre-approved gate), or build needs files outside the ticket's scope | Build |
 | 9 | Any **HIGH** audit finding; or any finding (any severity) that would change a seed row, migration, or validator semantics, or expose data/credentials. Other MEDIUM/LOW findings are recorded and the run continues. | Audit |
-| 10 | `/tld-build` was a no-op: `/tld-run-test` finds no uncommitted changes and reclassifies to manual-QA at verify time (does NOT apply to migration tickets — the `.sql` file is the change) | Run-test |
+| 10 | `/tld-build` was a no-op: `/tld-run-test` finds no uncommitted changes and reclassifies to manual-QA at verify time (does NOT apply to migration tickets — the `.sql` file is the change; DOES still apply to no-tests tickets — the regression-only gate does not excuse an empty build) | Run-test |
 | 11 | Tests still red or drift still present after the single `/tld-align` cycle, or align wants to edit tests | Run-test |
 | 12 | Anything that would touch migrations, seed data, schema, auth, or validator semantics not explicitly in the ticket (exception: a migration ticket's own listed schema work — see §1 re-check) | Any phase |
 | 13 | A Skill-tool invocation fails to run, errors at the tool level, or returns no output | Any phase |

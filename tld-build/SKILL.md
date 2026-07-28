@@ -33,6 +33,8 @@ This skill's ticket and milestone operations are written using Linear MCP tool n
 
 ### 1a. Resolve current ticket
 
+**Case A0 — same-session setup context (check this first):** if THIS session already ran a formal `/tld-setup` whose output carries the active ticket (ID, AC, Files to Create/Modify) and nothing since indicates the ticket changed — no `/tld-next`, `/tld-skip`, or `/tld-cancel` has run, and the user has not said otherwise — use that in-conversation context as the current ticket and skip the tracker query below. A session without that context falls through to the cases below unchanged.
+
 Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
 
 **Case A — exactly one In-Progress ticket assigned to me:** That is the current ticket. Load it for full description / AC / files / milestone.
@@ -70,6 +72,8 @@ If the Full command is also empty, stop and output:
   "No test command defined in .tld/campaign.md Test Commands. Run /campaign-edit to set one."
 
 Use the resolved command for any test run in this skill. Do not invent commands.
+
+**Literal-skip guard:** if the resolved command is the literal `skip` (case-insensitive) or an `echo`-style SKIP placeholder (a command that merely prints "SKIP…" instead of running anything), do NOT execute it — a placebo command only fakes a green run. Treat it as "no runnable suite" and state that in the output. In `/tld-run-test`, this routes to the manual-QA-style verify path instead of a test run.
 
 ### 1c. Local DB safety check
 

@@ -33,9 +33,10 @@ Print the reference card below, then determine the user's current position in th
 |-------|-------------|-------------|
 | `/tld-partial-auto` | Chains the full pipeline with 2 human gates (test-spec review + QA), commits on approval, marks Done | Code tickets you want automated but with review checkpoints |
 | `/tld-full-auto` | Runs the pipeline hands-off to a verified checkpoint, then STOPS before commit and preps your manual check; only flags real problems | Code tickets you want driven to ready-to-land unattended, keeping the commit/PR in your hands |
+| `/tld-full-auto` on a `no-tests` ticket | Same skill, label-gated path: skips the red phase on purpose and verifies as a regression gate. Checkpoint reads "regression clean, NOT spec-verified" | Real work with no automatable harness (untestable bug, config tweak, skill/doc edit) in a repo that still has a test suite. Label the ticket `no-tests` or `build-only` |
 | `/tld-pr` | Lands a verified ticket: commit → push → open PR, then stops before merge | After `/tld-full-auto`'s checkpoint (or any committed ticket) when you're ready to ship |
-| `/npc-partial` | Build → STOP for manual QA on uncommitted diff → commit + tld-next on approval | Doc/content tickets where test command is `skip` and you want one QA pause |
-| `/npc-full` | Build → commit → tld-next, no review pause | Doc/content tickets where test command is `skip` and you trust the build |
+| `/npc-partial` | Build → STOP for manual QA on uncommitted diff → commit + tld-next on approval | Doc/content tickets where test command is `skip` and you want one QA pause. Refuses to run if the campaign has a real test command |
+| `/npc-full` | Build → commit → tld-next, no review pause | Doc/content tickets where test command is `skip` and you trust the build. Refuses to run if the campaign has a real test command |
 
 ### Recovery + Navigation
 

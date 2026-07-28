@@ -31,6 +31,8 @@ What you read on your own:
 
 ### 1. Verify the active ticket
 
+**Case A0 — same-session setup context (check this first):** if THIS session already ran a formal `/tld-setup` whose output carries the active ticket (ID, AC, Files to Create/Modify) and nothing since indicates the ticket changed — no `/tld-next`, `/tld-skip`, or `/tld-cancel` has run, and the user has not said otherwise — use that in-conversation context as the current ticket and skip the tracker query below. A session without that context falls through to the cases below unchanged.
+
 Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
 
 **Case A — exactly one In-Progress ticket assigned to me:** That is the current ticket. Load it for full description / AC / files / milestone.
@@ -44,6 +46,16 @@ Do not guess, do not walk milestones — that is /tld-setup's job.
 If the tracker is unreachable at any step, stop and output:
   "Cannot reach the issue tracker — aborting. No offline mode."
 Do not fall back to cached state; there is none.
+
+### 1a. Runnable-suite guard (refuse real-suite campaigns)
+
+NPC exists for campaigns with no test signal — it must not land untested commits where a real suite is available. Before invoking `/tld-build`, resolve the test command exactly as `tld-build/SKILL.md` step 1b does: collect the affected scope (the ticket's "Files to Create/Modify" plus uncommitted paths), classify it against the campaign Stack paths to pick the Backend / Frontend / Landing / Full command, and fall back to the Full command when the chosen one is empty.
+
+If the resolved command is **runnable** — not blank, not the literal `skip` (case-insensitive), and not an `echo`-style SKIP placeholder (a command that merely prints "SKIP…" instead of running anything) — STOP and output:
+
+"This campaign has a runnable test command ({command}). NPC skips testing — use /tld-run-test, /tld-partial-auto, or a no-tests-labeled ticket via /tld-full-auto instead."
+
+There is no override keyword. Campaigns whose commands are blank, the literal `skip`, or echo-SKIP placeholders behave exactly as before — the guard passes silently and the flow continues.
 
 ### 2. Invoke /tld-build
 
