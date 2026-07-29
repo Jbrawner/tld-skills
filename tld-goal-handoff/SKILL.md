@@ -13,7 +13,7 @@ Your job: produce TWO ready-to-paste text blocks and nothing else — a **`/comp
 **Hard rules:**
 1. **Each fenced block is the ENTIRE message the user sends — slash command included.** Block 1's first characters are literally `/compact ` and block 2's first characters are literally `/goal `. The user's one click on the code-block copy button must yield text they can paste and send with zero typing. Never strip the slash command out of the fence and mention it only in the surrounding prose — that forces the user to type it back in by hand, which defeats the entire purpose of this skill.
 2. Block 1 is a single line: the literal token `/compact `, then plain prose. After that leading token it must contain **NO other slash-command token** (no `/goal`, no `/tld-*`). A second `/word` inside a `/compact` argument makes the app abort the compaction. (The leading `/compact` is the command itself, not a second token — it belongs in the block.)
-3. Keep block 2 (`/goal`) under ~4000 characters — the per-ticket flow tags and commit-suffix rules fit that budget for a typical 5-ticket story; if a larger story would blow past it, condense ticket titles first (never drop the flow tags). Never leave a `{placeholder}` — resolve every value.
+3. **Block 2 (`/goal`) MUST come in under 4000 characters, measured — not estimated, not "about".** Over 4000 and `/goal` does not run at all; this is a hard app limit, not a style preference. Measure the composed block before printing it (step 5) and trim in the order given there until it is under. Printing a block you have not measured, or printing one you measured at 4000+, is a failure of this skill even if every other check passes. Never leave a `{placeholder}` — resolve every value.
 4. Leave both fences **untagged** — no `bash`, no `text`, no language hint. A `bash` tag turns the block into a runnable shell command, and these are chat messages, not shell commands.
 
 ## Process
@@ -83,7 +83,7 @@ At the end: write a wake-up report (per ticket: built/committed/skipped, commit 
 The commit-suffix rules mirror the family's landing conventions: ` — TLD verified` is what `/tld-run-test` step 5 appends after a green verify, and ` — NPC` is `/npc-partial` step 4's marker for a landing with no test verification. The composed goal must keep them distinct — a no-test landing never claims ` — TLD verified`.
 
 ### 5. Self-check before printing
-Verify all four, and fix any that fail before you print:
+Verify all five, and fix any that fail before you print:
 
 | Check | Requirement |
 | --- | --- |
@@ -91,6 +91,25 @@ Verify all four, and fix any that fail before you print:
 | Block 2 opening | Starts with the exact characters `/goal ` — if not, prepend them |
 | Slash tokens | Block 1 has exactly one `/word` (the leading `/compact`); block 2's `/goal` is its first token |
 | Fences | Both fences untagged — no `bash`, no `text`, no language hint |
+| **Block 2 length** | **Measured under 4000 characters.** Trim and re-measure until it is. Do not print an unmeasured block, and do not print a 4000+ block with a note admitting it is over |
+
+**How to measure — actually run it.** Write the fully composed block 2 to a scratch file and count it:
+
+```bash
+wc -m /path/to/scratch/goal-block.txt
+```
+
+An eyeballed or recalled count is not a measurement. Estimating the length and printing anyway is precisely how a 4,300-character block ships with "4,300 characters" written next to it.
+
+**Trim order when it is over** — the fixed scaffolding is ~2,800 characters before a single ticket is listed, so trim where the characters actually are, top of this list first:
+
+| Lever | Typical saving | Notes |
+| --- | --- | --- |
+| Drop braced optional bullets that do not apply | up to ~300 | "Omit" means delete the bullet, not leave it braced |
+| Cut `Ticket-type handling` bullets for classes not in this run | ~150 each | A story with no `[no-tests]` and no migration ticket needs neither bullet |
+| Condense ticket titles to 3–5 words each | ~10–20 per ticket | Smallest lever — never the only one that will save you |
+
+**Never trim:** the METHOD "STOP and report, do not hand-roll it" bullet, the Safety push / PR / merge bullet, the commit-suffix rules, or any ticket's flow tag. If the block is still over 4000 after every lever above, say so and hand back a Story split rather than quietly shipping an over-cap block.
 
 The test to apply: *if the user clicks copy and pastes without typing another character, does it send correctly?* If the answer is no, the block is wrong.
 
@@ -109,4 +128,4 @@ Print exactly this and nothing after it:
 {block 2, starting with /goal}
 ```
 
-Then note the character count of block 2 (e.g. `goal message: 2,900 chars`). **STOP.** Do not run anything, do not invoke another skill, do not touch the clipboard or any hook. The user copies and pastes these two blocks by hand — each one whole, exactly as printed.
+Then report the block 2 character count you measured in step 5 (e.g. `goal message: 2,900 chars — measured, under the 4000 cap`). This is a receipt for a check that already passed, not the moment you find out: if the number you are about to write is 4000 or higher, you are printing the wrong block — go back to step 5 and trim. **STOP.** Do not run anything, do not invoke another skill, do not touch the clipboard or any hook. The user copies and pastes these two blocks by hand — each one whole, exactly as printed.
