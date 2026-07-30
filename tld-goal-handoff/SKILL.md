@@ -77,7 +77,10 @@ Safety (non-negotiable):
 - Push the branch after committing so progress is durable — UNLESS a PR is already open for this branch, in which case do NOT push automatically; stop and defer to the user (a push updates the PR and re-triggers CI/reviewers), and the user will say what to do. Do NOT open a PR or merge UNLESS this goal explicitly asks for one — if it does (e.g. "put up a PR", "message X about merging"), that instruction authorizes it, so do it. Otherwise the user handles PRs and merges. Never push to or merge the default branch; never force-push.
 - If a single ticket is blocked (env failure, ambiguity, full-auto can't proceed), SKIP it, log why, CONTINUE.
 
-At the end: write a wake-up report (per ticket: built/committed/skipped, commit hash, test results, anything flagged) and STOP.
+After ALL tickets:
+1. Run /tld-gate via the Skill tool. Not good until it passes; if it fails, fix what is safe, else flag it.
+2. Only if this goal asks for a PR: run the FULL E2E suite locally to completion BEFORE pushing. Never push a red or unfinished E2E.
+3. Wake-up report (per ticket: built/committed/skipped, hash, tests; plus gate and E2E results). STOP.
 ```
 
 The commit-suffix rules mirror the family's landing conventions: ` — TLD verified` is what `/tld-run-test` step 5 appends after a green verify, and ` — NPC` is `/npc-partial` step 4's marker for a landing with no test verification. The composed goal must keep them distinct — a no-test landing never claims ` — TLD verified`.
@@ -101,7 +104,7 @@ wc -m /path/to/scratch/goal-block.txt
 
 An eyeballed or recalled count is not a measurement. Estimating the length and printing anyway is precisely how a 4,300-character block ships with "4,300 characters" written next to it.
 
-**Trim order when it is over** — the fixed scaffolding is ~2,800 characters before a single ticket is listed, so trim where the characters actually are, top of this list first:
+**Trim order when it is over** — the fixed scaffolding measures ~3,050 characters in a typical run (~3,300 with every braced bullet still present) before a single ticket is listed, leaving roughly 950 characters for the ticket list and the substituted values, so trim where the characters actually are, top of this list first:
 
 | Lever | Typical saving | Notes |
 | --- | --- | --- |
