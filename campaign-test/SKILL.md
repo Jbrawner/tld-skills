@@ -4,7 +4,7 @@ description: |
   Pre-flight connection check for this repo's `.tld/campaign.md`. Validates the schema on every run (the
   required four sections, plus the optional v0.2 sections and reject-unknown per docs/CAMPAIGN_SCHEMA.md),
   and when tracker = Linear also verifies Linear reachability, team / project existence, ticket-prefix
-  match, and the eight required workspace labels. Read-mostly: the only write path is creating missing
+  match, and the nine required workspace labels. Read-mostly: the only write path is creating missing
   workspace labels, and only after an explicit user Yes via AskUserQuestion (default No). Use this skill
   whenever the user says "campaign-test", "campaign test", "test connections", "verify setup", or wants to
   diagnose a misconfigured campaign before `/tld-setup` fails.
@@ -52,7 +52,7 @@ Branch on `Issue tracker`:
 1. **Connector authenticated + reachable:** call `atlassianUserInfo`. On failure, retry once; on a second failure print `❌ Atlassian MCP unreachable / not authenticated — authenticate the connector and re-run /campaign-test.` and HARD STOP (skip steps 4–8). On success, hold the `account_id`.
 2. **Resolve cloudId:** call `getAccessibleAtlassianResources` and pick the site whose `url` matches your workspace. If none → ❌ `No accessible Atlassian site — check the connector's authorized scopes.`
 3. **Project exists:** call `getVisibleJiraProjects` and look for a project whose `key` equals the configured `Ticket prefix` (the Jira project key — `Project name` is only a display label). Hold that key as `{key}` for the next check. If not found → ❌ `Jira project '{Ticket prefix}' not found — check the key with /campaign-edit.` ✅ otherwise.
-4. **Labels in use (advisory only):** Jira labels have no registry, so "missing" cannot be proven. Run `searchJiraIssuesUsingJql` with `project = "{key}" AND labels in ("model:sonnet", "model:opus", "model:haiku", "effort:low", "effort:medium", "effort:high", "side-quest", "no-tests")` and report which of the eight appear in use as ✅; report the rest as ⏭ `(not yet used — Jira creates labels on first apply)`. Informational only: do not fail on unused labels and do not offer to create them (there is no create step on Jira).
+4. **Labels in use (advisory only):** Jira labels have no registry, so "missing" cannot be proven. Run `searchJiraIssuesUsingJql` with `project = "{key}" AND labels in ("model:sonnet", "model:opus", "model:haiku", "effort:low", "effort:medium", "effort:high", "side-quest", "no-tests", "auto-land")` and report which of the nine appear in use as ✅; report the rest as ⏭ `(not yet used — Jira creates labels on first apply)`. Informational only: do not fail on unused labels and do not offer to create them (there is no create step on Jira).
 
 Then skip to step 7.
 
@@ -100,7 +100,7 @@ Each check runs independently; continue through all three even if an earlier one
 
 Call `list_issue_labels` with no team filter to get workspace-level labels.
 
-For each of these eight required labels, check case-sensitive name match:
+For each of these nine required labels, check case-sensitive name match:
 
 - `model:sonnet`
 - `model:opus`
@@ -110,6 +110,7 @@ For each of these eight required labels, check case-sensitive name match:
 - `effort:high`
 - `side-quest`
 - `no-tests`
+- `auto-land`
 
 Report each as ✅ present or ❌ missing. Collect the set of missing label names for step 6b.
 
@@ -141,6 +142,7 @@ On **Yes**: for each label in the missing set, call `create_issue_label` with th
 | `effort:high` | `#EB5757` | Recommended reasoning effort: high. Architectural design, pattern-setting work, contracts. |
 | `side-quest` | `#14B8A6` | Small polish or quick-fix work handled via `/tld-side-quest` outside the main TLD flow. |
 | `no-tests` | `#6B7280` | Ticket has no automatable test harness. `/tld-full-auto` skips the RED phase and verifies as a regression gate instead; `/tld-setup` recommends `/tld-build`. `build-only` is accepted as a synonym by every skill that reads this label, but `no-tests` is the one the bootstrap creates. |
+| `auto-land` | `#0EA5E9` | Ticket is opted in to `/tld-autoland` — small, low-risk work allowed to merge into the default branch unattended once CI is green. This label is the ONLY door into that flow; without it autoland skips the ticket. Never apply it to migration, auth, RLS, secrets, seed, billing, or CI-config work — autoland refuses those surfaces regardless of the label. |
 
 Do not invent new labels. Do not create labels that weren't reported missing in step 6.
 
