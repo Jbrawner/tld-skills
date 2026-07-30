@@ -18,5 +18,5 @@
 - Changelog path: CHANGELOG.md
 
 ## Commit format
-- Pattern: feat/(AS-XXX): title
+- Pattern: feat(AS-XXX): title
 - Co-author: 
