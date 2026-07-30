@@ -93,12 +93,12 @@ Guard rails:
 
 ## Labels
 
-The eight required TLD labels (`model:sonnet`, `model:opus`, `model:haiku`, `effort:low`, `effort:medium`, `effort:high`, `side-quest`, `no-tests`) map to plain Jira labels — the same strings. Jira labels differ from Linear labels:
+The nine required TLD labels (`model:sonnet`, `model:opus`, `model:haiku`, `effort:low`, `effort:medium`, `effort:high`, `side-quest`, `no-tests`, `auto-land`) map to plain Jira labels — the same strings. Jira labels differ from Linear labels:
 
 - **No color, no description.** The color/description columns from the canonical labels table do not apply on the Jira path; only the eight names matter.
-- **No create step.** Any string becomes a valid label the moment it is first applied. There is no label registry to bootstrap, so `/campaign-init`'s "create the eight labels" step is a **no-op** on Jira.
+- **No create step.** Any string becomes a valid label the moment it is first applied. There is no label registry to bootstrap, so `/campaign-init`'s "create the nine labels" step is a **no-op** on Jira.
 - **Weaker safety net.** A mistyped label (`modle:opus`) does not error the way a missing Linear label does. `/campaign-test`'s label audit can only report which of the eight are currently in use, not which are "defined."
-- **Routing labels matter more than the rest.** `no-tests` (and its accepted synonym `build-only`) is not cosmetic: `/tld-full-auto` reads it to skip the RED phase, and `/tld-goal-handoff` reads it to tag a ticket's flow. A typo here does not fail loudly — the ticket just silently takes the normal test-verified path and stops when it cannot write tests.
+- **Routing labels matter more than the rest.** `no-tests` (and its accepted synonym `build-only`) is not cosmetic: `/tld-full-auto` reads it to skip the RED phase, and `/tld-goal-handoff` reads it to tag a ticket's flow. A typo here does not fail loudly — the ticket just silently takes the normal test-verified path and stops when it cannot write tests. `auto-land` is the other routing label: it is the sole eligibility gate for `/tld-autoland`, and a typo fails **safe** — the ticket is skipped with "not labeled `auto-land`" rather than merged. There is no synonym for it, deliberately; a flow that merges into the default branch should match one exact string and nothing else.
 
 ---
 

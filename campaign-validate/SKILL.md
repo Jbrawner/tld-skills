@@ -21,7 +21,7 @@ You are running a schema-only check against this repo's campaign at `{cwd}/.tld/
 ## When to use this vs `/campaign-test`
 
 - **Use `/campaign-validate`** when you only need to confirm the file parses correctly — e.g., right after `/campaign-edit`, on an offline machine, or to debug a `/tld-setup` failure that complains about a malformed file before any Linear call would fire.
-- **Use `/campaign-test`** when you need full connectivity verification — Linear reachability, team / project existence, ticket-prefix match, and the eight required workspace labels. It does everything `/campaign-validate` does AND the network-dependent checks.
+- **Use `/campaign-test`** when you need full connectivity verification — Linear reachability, team / project existence, ticket-prefix match, and the nine required workspace labels. It does everything `/campaign-validate` does AND the network-dependent checks.
 
 If the user is unsure which to run, default to `/campaign-validate` — it's faster, free of network calls, and a clean schema is a prerequisite for `/campaign-test` passing anyway.
 

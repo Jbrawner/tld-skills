@@ -99,15 +99,15 @@ required sections. If the user takes the default, append nothing.
 
 ### 6. Bootstrap workspace labels
 
-**If tracker = Jira:** skip label creation. Jira labels are free-text and exist implicitly the moment they are first applied to an issue — there is no label registry to bootstrap and no `create_issue_label` equivalent (see docs/JIRA.md). The eight label *names* below are still what the pipeline applies; they just need no setup. Note the skip in the output.
+**If tracker = Jira:** skip label creation. Jira labels are free-text and exist implicitly the moment they are first applied to an issue — there is no label registry to bootstrap and no `create_issue_label` equivalent (see docs/JIRA.md). The nine label *names* below are still what the pipeline applies; they just need no setup. Note the skip in the output.
 
 **If tracker is any other non-Linear value:** skip this step entirely. Remember the tracker so you can note the skip in the output.
 
-If tracker = Linear, the TLD framework needs eight workspace-level labels. They may already exist from a previous `/campaign-init` run; this step is idempotent.
+If tracker = Linear, the TLD framework needs nine workspace-level labels. They may already exist from a previous `/campaign-init` run; this step is idempotent.
 
 Call `list_issue_labels` with no team filter to get workspace labels. Build the set of existing label names (case-sensitive).
 
-For each of the eight required labels below that is NOT in the existing set, call `create_issue_label` with the exact name, color, and description:
+For each of the nine required labels below that is NOT in the existing set, call `create_issue_label` with the exact name, color, and description:
 
 | Name | Color | Description |
 |---|---|---|
@@ -119,10 +119,11 @@ For each of the eight required labels below that is NOT in the existing set, cal
 | `effort:high` | `#EB5757` | Recommended reasoning effort: high. Architectural design, pattern-setting work, contracts. |
 | `side-quest` | `#14B8A6` | Small polish or quick-fix work handled via `/tld-side-quest` outside the main TLD flow. |
 | `no-tests` | `#6B7280` | Ticket has no automatable test harness. `/tld-full-auto` skips the RED phase and verifies as a regression gate instead; `/tld-setup` recommends `/tld-build`. `build-only` is accepted as a synonym by every skill that reads this label, but `no-tests` is the one the bootstrap creates. |
+| `auto-land` | `#0EA5E9` | Ticket is opted in to `/tld-autoland` — small, low-risk work allowed to merge into the default branch unattended once CI is green. This label is the ONLY door into that flow; without it autoland skips the ticket. Never apply it to migration, auth, RLS, secrets, seed, billing, or CI-config work — autoland refuses those surfaces regardless of the label. |
 
 Track how many you created vs. how many already existed. You'll report the counts in step 8.
 
-If a `create_issue_label` call fails partway through the eight, keep going for the rest — the step is additive and rerunning `/campaign-init` (or re-running this step manually) will complete the missing ones.
+If a `create_issue_label` call fails partway through the nine, keep going for the rest — the step is additive and rerunning `/campaign-init` (or re-running this step manually) will complete the missing ones.
 
 ### 7. Write the file
 

@@ -228,7 +228,7 @@ Returns all workspace-level labels (not filtered by team).
 |-------|------|-------|
 | `name` | string | Case-sensitive label name, e.g. `"model:sonnet"` |
 
-The skills check for exact name matches against the eight required TLD labels (`model:sonnet`, `model:opus`, `model:haiku`, `effort:low`, `effort:medium`, `effort:high`, `side-quest`, `no-tests`).
+The skills check for exact name matches against the nine required TLD labels (`model:sonnet`, `model:opus`, `model:haiku`, `effort:low`, `effort:medium`, `effort:high`, `side-quest`, `no-tests`, `auto-land`).
 
 ---
 

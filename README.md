@@ -41,6 +41,26 @@ The framework ships with three routes. Same ticket model, same hard stops, same 
 
 When in doubt, default to TLD. Reach for the no-tests label when the work is genuinely untestable rather than merely inconvenient to test, and let NPC fire only when the campaign's test command is literally `skip` AND the change is text/docs.
 
+### How the work lands
+
+The three routes above decide how a ticket gets *verified*. A separate axis decides who *lands* it — and by default, that is always you.
+
+| Landing mode | Stops at | Skills |
+|---|---|---|
+| **You land it** (default) | A verified, uncommitted checkpoint, then an open PR. Merging is yours. | `/tld-full-auto` → `/tld-commit` or `/tld-pr` |
+| **Autoland** (opt-in per ticket) | Merged into the default branch. No stops at all. | `/tld-autoland` |
+
+**Every skill in this framework stops before merge except one.** `/tld-autoland` exists for the category of work where a review gate costs more than it protects: small, obvious bug fixes you'd approve without reading. It runs the same `/tld-full-auto` pipeline, then commits, pushes, opens a PR, waits for CI, and squash-merges — one branch and one PR per ticket, so a batch can be handed over in a single command and one bad fix never blocks the rest.
+
+It is gated hard on the way in, because the merge gate is gone:
+
+- The ticket must carry the **`auto-land`** label. There is no override flag and no approval keyword that admits an unlabeled ticket — you opt each one in when you file it.
+- Migrations, schema, auth, RLS, secrets, seed data, billing, and CI/branch-protection config are **refused outright**, label or not — screened once on the ticket text and again on the real diff, because a one-line ticket can still produce a migration.
+- Nothing merges on a red check, an unfinished check, a conflict, or any state it cannot positively confirm. Unknown is treated exactly like failed.
+- A ticket that fails anywhere is **parked, not dropped**: the work is committed and pushed to its own branch, the reason lands on the ticket, and the run continues to the next one.
+
+If you would want to look at the diff before it hits your default branch, that ticket is not an autoland ticket. Use `/tld-full-auto` and `/tld-pr`.
+
 ---
 
 ## Install
@@ -110,7 +130,7 @@ The flow has four steps:
 /campaign-init
 ```
 
-Creates `.tld/campaign.md` at the repo root with the four required sections (Project, Test Commands, Stack, Commit format) and bootstraps the eight required Linear workspace labels (`effort:low`, `effort:medium`, `effort:high`, `model:opus`, `model:sonnet`, `model:haiku`, `side-quest`, `no-tests`). It will ask you which Linear team and project to point at, what command runs your tests, and where your stack lives.
+Creates `.tld/campaign.md` at the repo root with the four required sections (Project, Test Commands, Stack, Commit format) and bootstraps the nine required Linear workspace labels (`effort:low`, `effort:medium`, `effort:high`, `model:opus`, `model:sonnet`, `model:haiku`, `side-quest`, `no-tests`, `auto-land`). It will ask you which Linear team and project to point at, what command runs your tests, and where your stack lives.
 
 ### 2. Verify Linear connectivity
 
@@ -118,7 +138,7 @@ Creates `.tld/campaign.md` at the repo root with the four required sections (Pro
 /campaign-test
 ```
 
-Pre-flight check. Verifies the campaign file is well-formed, that the Linear team and project actually exist, that your ticket prefix matches the Linear team, and that all eight required labels are present. Read-mostly; the only write path is creating any missing labels, and only after you say yes.
+Pre-flight check. Verifies the campaign file is well-formed, that the Linear team and project actually exist, that your ticket prefix matches the Linear team, and that all nine required labels are present. Read-mostly; the only write path is creating any missing labels, and only after you say yes.
 
 ### 3. Create or sync milestone structure
 
