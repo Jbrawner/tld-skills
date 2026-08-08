@@ -102,6 +102,18 @@ The nine required TLD labels (`model:sonnet`, `model:opus`, `model:haiku`, `effo
 
 ---
 
+## Story Points (point estimates)
+
+Linear's point estimate is a first-class issue field (`estimate`). Jira's is a **custom field**, which changes three things for any skill that writes a size:
+
+- **The field id is per-instance.** There is no fixed name to hard-code — `Story Points` is `customfield_10016` on many Jira Cloud sites but not all, and a site can carry both `Story Points` and a legacy `Story point estimate`. Resolve it at call time with `getJiraIssueTypeMetaWithFields` for the project + issue type and match on the field's human name; do not assume an id.
+- **It is screen-scoped, and Sub-task screens commonly omit it.** Jira only accepts a field that is on the create/edit screen for that project *and that issue type*. Since TLD creates work as Sub-tasks, the usual failure is not "wrong id" but "Story Points is configured for Story and Epic, not Sub-task" — the write is rejected even though the field exists. Adding it is a Jira project-configuration change (screens, not code), so a skill cannot fix it at runtime.
+- **A rejected size must not fail the operation.** The point value is metadata; the ticket's AC, files, labels, and parent link are the payload. Skills that set a size report that the size was not applied and continue, rather than aborting a ticket creation that otherwise fully succeeded.
+
+`/tld-ticket` step 6 is the current writer. If the size silently matters to your reporting, check once that the field is on the Sub-task screen rather than trusting per-ticket output.
+
+---
+
 ## Concurrency (multiple assignees)
 
 Jira is multi-person, so "the one ticket that is In Progress" is project-wide ambiguous. Every neutral "current ticket" operation scopes to **the current user**:

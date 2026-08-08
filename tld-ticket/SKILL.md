@@ -41,7 +41,7 @@ This skill's ticket and milestone operations are written using Linear MCP tool n
     "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
   Do not invent an adapter.
 
-On the Jira path, a new ticket is created as a **Sub-task** under the active milestone Story (`createJiraIssue`, issuetype `Sub-task`, `parent` = the Story key), with the `model:*` / `effort:*` labels applied as plain Jira labels.
+On the Jira path, a new ticket is created as a **Sub-task** under the active milestone Story (`createJiraIssue`, issuetype `Sub-task`, `parent` = the Story key), with the `model:*` / `effort:*` labels applied as plain Jira labels and the **Story Points** field set to the size chosen in step 4.
 
 ### 1. Determine ticket type
 
@@ -68,9 +68,9 @@ Before creating the ticket, understand the scope:
 
 Apply the template for the ticket type. Fill in every field. If you can't determine a field, ask the user rather than leaving it blank.
 
-### 4. Ask for model + effort
+### 4. Ask for model, effort, and size
 
-Before presenting for review, call AskUserQuestion twice (separate questions in one tool call is fine) to collect the two labels that will be applied to the ticket:
+Before presenting for review, call AskUserQuestion (the three questions below can go in one tool call) to collect the two labels and the point size that will be applied to the ticket:
 
 1. **Model** — enum. Options in this order:
    - **sonnet** (default) — normal skill authoring, structured writing
@@ -80,16 +80,30 @@ Before presenting for review, call AskUserQuestion twice (separate questions in 
    - **low** — mechanical edits, grep-replace, short additions
    - **medium** (default) — normal authoring, structured writing
    - **high** — architectural design, pattern-setting work
+3. **Size (points)** — the ticket's expected **agent burn** to complete solo, in points. **Size it deliberately; do not default blindly.** A point measures *burn*: the compute time and tokens one agent (one "robot") spends finishing this ticket **alone**, scaling with its complexity. No humans and no "sittings" are involved — agents run this work. **1 point ≈ 10 minutes of solo agent burn** (team empirical median; real burn ~10–15 min). The base unit exists to model **burn rate / throughput** — what one robot clears, and how that scales to two or more. Estimate "how much would one agent burn doing this alone?" and map it with the rubric below. Present your estimate as the first option marked `(Recommended)` with a one-line rationale (e.g. "1 — ~10 min solo agent burn"). Offer the neighbouring sizes as the other options.
 
-If the user closes the prompt or gives no answer to either question, default to `sonnet` + `medium`. Record the chosen values — they appear in the step 5 preview and are applied as `model:{model}` / `effort:{effort}` labels by `save_issue` in step 6.
+**Sizing rubric — points are ~10-min units of solo agent burn (time × complexity/tokens).** The workflow decomposes work into uniform ~10-min agent units, so **pt-1 is the norm**: almost everything `/tld-ticket` creates is a sub-task and should be a 1. Size up only when a single ticket genuinely burns more — more complex, more tokens, longer to run — and can't be split.
+
+| Points | Solo agent burn | When |
+|--------|-----------------|------|
+| **1** (default) | **~10 min** | One self-contained agent unit. **Almost every sub-task lands here.** |
+| **2** | ~20 min | Genuinely heavier — more complexity/tokens — but still one ticket |
+| **3** | ~30 min | Uncommon — usually a signal to split into pt-1 units (see Template Rule 5) |
+| **5 / 8 / 13** | ~50 / 80 / 130 min | Story/Epic-sized rollups, essentially never a single ticket — split it |
+
+Bias to **1**. Only propose 2+ when solo agent burn clearly exceeds ~15 min AND the work can't be split; if it can be split, recommend splitting into pt-1 units instead. Whole numbers only, round up, and snap anything above 3 to the Fibonacci set (1/2/3/5/8/13).
+
+If the user closes the prompt or gives no answer, default to `sonnet` + `medium` + **1 point**. Record the chosen values — they appear in the step 5 preview, the labels are applied as `model:{model}` / `effort:{effort}` by `save_issue` in step 6, and the size is written to the ticket's point estimate.
 
 ### 5. Present for review
 
-Show the user the full ticket before creating it. Format it exactly as it will appear in Linear so they can review. Include the model + effort labels collected in step 4 at the top of the preview (e.g., `**Labels:** `model:sonnet` · `effort:medium``) so the user can spot a wrong pick before it lands.
+Show the user the full ticket before creating it. Format it exactly as it will appear in Linear so they can review. Include the model + effort labels and the size collected in step 4 at the top of the preview (e.g., `**Labels:** `model:sonnet` · `effort:medium` — **Size:** 1 pt`) so the user can spot a wrong pick before it lands.
 
 ### 6. Create in Linear
 
-After user approval, call `save_issue` to create the ticket in the project and team from `.tld/campaign.md` (Project.Project name and Project.Team). Pass the labels from step 4 as `["model:{model}", "effort:{effort}"]`.
+After user approval, call `save_issue` to create the ticket in the project and team from `.tld/campaign.md` (Project.Project name and Project.Team). Pass the labels from step 4 as `["model:{model}", "effort:{effort}"]`, and set the ticket's **point estimate** to the size from step 4 — on Linear this is the issue `estimate` field; on Jira set the **Story Points** field. Jira's is a per-instance custom field, not a fixed id — resolve it with `getJiraIssueTypeMetaWithFields` for the project + issue type and match on the field name rather than hard-coding `customfield_10016`. See docs/JIRA.md § Story Points (point estimates).
+
+If the point field can't be written (the common case is Story Points not being on the Jira **Sub-task** screen in this workspace, which is a Jira project-configuration change, not something the skill can fix), report that the size wasn't applied and continue — the ticket is still created and every other field still lands. Do not fail the whole creation over the point field.
 
 If `save_issue` fails with a label-not-found error (e.g., the workspace is missing `model:sonnet` or `effort:medium`), stop and output:
 
