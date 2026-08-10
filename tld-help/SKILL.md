@@ -67,6 +67,7 @@ Print the reference card below, then determine the user's current position in th
 |-------|-------------|-------------|
 | `/tld-gate` | Full regression at milestone boundaries | When `/tld-next` says a milestone is complete |
 | `/tld-side-quest` | Small fix in an isolated worktree | Polish, minor fix, or config tweak |
+| `/rls-audit` | RLS + SECURITY DEFINER sweep of the live local database, filing a ticket per confirmed new finding | On a recurring schedule (weekly suits most projects), and after any migration touching policies, grants, or DEFINER functions |
 
 ### Campaign Config
 

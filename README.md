@@ -231,7 +231,7 @@ A few hard assumptions are baked in. Plan around them.
 |---|---|---|
 | **Issue tracker** | Linear | Every ticket-state skill calls Linear MCP tools by name. `/campaign-init` accepts Jira / GitHub Issues / Other in the schema, but downstream TLD skills will fail until per-tracker adapters land. |
 | **Test runner** | Vitest or Jest | The verify phase parses output that looks like Vitest/Jest. Mocha / AVA / `node:test` may technically work; pytest / RSpec / `go test` / `cargo test` are untried. |
-| **Local database** | Supabase local at `127.0.0.1:54321` | `/tld-gate`, `/tld-audit`'s RLS checks, and the local-DB safety check all target that endpoint. Other Postgres setups will fail or produce misleading output. |
+| **Local database** | Supabase local at `127.0.0.1:54321` | `/tld-gate`, `/tld-audit`'s RLS checks, and the local-DB safety check all target that endpoint. Other Postgres setups will fail or produce misleading output. `/rls-audit` is the exception: it resolves the port from the repo's Supabase config or `DATABASE_URL`, works against any Postgres, and refuses any host that is not loopback. |
 | **Linear MCP surface** | `save_milestone` does not expose `sortOrder` | Newly-created milestones land at the bottom of the list. Reorder by hand in the Linear UI after `/campaign-plan` or `/milestone-create`. One-time fix per reorder. |
 
 For the full list, see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker adapter interface contract (every Linear MCP call the TLD skills make, with parameters, response fields, and edge cases), see [docs/ADAPTERS.md](docs/ADAPTERS.md).
