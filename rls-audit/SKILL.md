@@ -149,6 +149,14 @@ filing it, because it teaches everyone to ignore the label. Search the tracker f
 carrying the `rls-audit` label, and compare on the **affected object name**, not the ticket title: the same
 hole re-detected next week will word itself differently.
 
+**Search the stable `rls-audit` label only. Never put a dated label in the de-dup query.** A query
+naming a specific month goes stale the moment the month turns, and it fails silently: the search returns
+nothing, every finding looks new, and the sweep files a duplicate of every open ticket. Dated labels
+exist to group a run's output for reading, never to find it again.
+
+Findings tracked by an older ticket that predates this skill will not carry the `rls-audit` label at all.
+Those belong in the baseline's `rls_audit_known_open` instead, which is why they never reach this step.
+
 | situation | action |
 | --- | --- |
 | an open ticket already names this object | do not file. Comment only if something genuinely changed. Report it as "still open, KEY" |
@@ -158,7 +166,9 @@ hole re-detected next week will word itself differently.
 ### 4c — Create the ticket
 
 - Type: bug, or task for a verify/product-decision item.
-- Labels: `rls-audit`, the run month (e.g. `rls-audit-2026-08`), and `security`.
+- Labels: `rls-audit`, `security`, and a dated grouping label built from **today's date at the moment of
+  the run** in the form `rls-audit-YYYY-MM`. Read the current date; never copy a month out of this file,
+  a previous run, or a schedule's prompt.
 - Fold findings sharing one root cause into one ticket; separate causes get separate tickets.
 - Body: the affected object, the exact hole, how to reproduce it (the direct call that reaches it), the
   fix, and a **regression guard** — a test asserting the grant or policy stays closed. This class of bug
@@ -186,6 +196,12 @@ there to ask. Two failure modes a scheduled run must handle:
   costs nothing; a false all-clear costs everything this check is for.
 - **It runs in whatever checkout the schedule names**, so resolve every path from that repo root, and name
   the project in the report so the result is not mistaken for a different repo.
+
+A schedule's prompt is written once and then runs for years, so nothing in it may be time-bound: no
+month, no year, no "current" ticket keys, no expected finding counts that a landed fix will invalidate.
+Anything dated is derived at run time from the actual date. A stale constant in a recurring prompt does
+not raise an error, it just quietly stops matching, which is the failure mode this whole skill exists to
+catch.
 
 ## Baseline maintenance
 
