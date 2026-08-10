@@ -32,16 +32,21 @@ for confirmed new findings and (b) the project's baseline file, which is this sk
 | File | Where | What |
 | --- | --- | --- |
 | `rls-audit.sql` | next to this skill | the engine, identical for every project |
-| `.tld/rls-audit-baseline.sql` | in the audited repo | that project's config, accepted exceptions, and known-open findings |
+| `rls-audit-baseline.sql` | in the audited repo | that project's config, accepted exceptions, and known-open findings |
 | `baseline.example.sql` | next to this skill | template to copy when a repo has no baseline yet |
 
 ## Step 1 — Resolve the project and its baseline
 
 Work from the current repo root.
 
-1. Look for `.tld/rls-audit-baseline.sql`. If it is missing, say so plainly and continue: the sweep still
-   runs, but with no baseline **every** finding reports as NEW, so treat the first run as establishing a
-   baseline rather than as a list of emergencies. Offer to write one from `baseline.example.sql` at the end.
+1. Find the baseline, taking the first that exists: `.tld/rls-audit-baseline.sql`,
+   `.claude/rls-audit-baseline.sql`, then `rls-audit-baseline.sql` at the repo root. Prefer `.tld/` when
+   writing a new one, but check whether the repo gitignores `.tld/` first: the baseline is worthless
+   uncommitted, so in that case put it in `.claude/` instead.
+
+   If none exists, say so plainly and continue: the sweep still runs, but with no baseline **every**
+   finding reports as NEW, so treat the first run as establishing a baseline rather than as a list of
+   emergencies. Offer to write one from `baseline.example.sql` at the end.
 2. Determine the local database connection. In order:
    - a `[db] port` in `supabase/config.toml` or `backend/supabase/config.toml` (Supabase default: `54322`,
      user/password `postgres`/`postgres`, database `postgres`);
@@ -65,7 +70,7 @@ Load the baseline first so its config wins, in one psql session:
 
 ```bash
 PGPASSWORD=postgres psql -h 127.0.0.1 -p <port> -U postgres -d postgres -q \
-  -f .tld/rls-audit-baseline.sql \
+  -f <the baseline resolved in Step 1> \
   -f <path to this skill>/rls-audit.sql
 ```
 

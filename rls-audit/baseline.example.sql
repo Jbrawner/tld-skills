@@ -1,4 +1,5 @@
--- rls-audit baseline — TEMPLATE. Copy to `.tld/rls-audit-baseline.sql` in your repo and edit.
+-- rls-audit baseline — TEMPLATE. Copy into your repo as `rls-audit-baseline.sql` and edit.
+-- Put it in `.tld/`, or in `.claude/` if the repo gitignores `.tld/`, or at the repo root.
 --
 -- This file is the entire per-project surface of /rls-audit. It holds three things:
 --   1. config      — what this project's roles, schemas and naming conventions are
@@ -6,7 +7,7 @@
 --   3. known_open  — deviations already tracked by an open ticket
 --
 -- It is loaded BEFORE the engine, in the same psql session:
---   psql "$CONN" -f .tld/rls-audit-baseline.sql -f <skill>/rls-audit.sql
+--   psql "$CONN" -f <this file> -f <skill>/rls-audit.sql
 --
 -- Commit it. It is the audit's memory: without it every known finding reads as new every week, and a
 -- report that cries wolf every week is a report nobody reads.
