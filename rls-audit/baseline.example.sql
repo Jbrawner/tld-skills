@@ -22,13 +22,15 @@ CREATE TEMP TABLE IF NOT EXISTS rls_audit_known_open (objkey text, ticket text);
 -- ---- 1. config ----------------------------------------------------------------------------------
 -- Only override what differs from the defaults. Defaults are Supabase-shaped:
 --   schemas='public', client_roles='anon,authenticated', data_rpc_pattern='report\_%',
---   auth_guard_regex='auth\.(uid|role)\(\)', membership_guard_regex='' (none)
+--   auth_guard_regex='auth\.(uid|role)\(\)'
+--
+-- There is deliberately no "treat my permission helpers as a guard" regex. A body that calls
+-- is_member(auth.uid(), x) is already recognised as guarded; such a regex would therefore only ever
+-- excuse a body calling is_member(<caller-supplied arg>, x), which is not a guard, because an
+-- anonymous caller just passes somebody else's id. Safe helpers go on `accepted` below instead, where
+-- each one carries a reason and a human has read it.
 
 INSERT INTO rls_audit_config (ckey, cvalue) VALUES
-  -- Name this project's permission helpers so a function that calls one is not flagged as unguarded.
-  -- Leave unset if the project has none; an empty regex would match everything.
-  ('membership_guard_regex', 'is_org_member|is_org_admin|current_tenant_id'),
-
   -- Where /rls-audit files its findings, for repos with no `.tld/campaign.md`. These configure this
   -- audit only, and campaign.md's Project -> Issue tracker wins wherever it exists. Omit them all and
   -- the sweep still runs; it just reports instead of filing.

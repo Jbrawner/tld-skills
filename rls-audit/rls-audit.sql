@@ -44,11 +44,9 @@ FROM (VALUES
   -- LIKE pattern for data-returning RPCs that must always be guarded (reporting endpoints and such).
   -- Set to something unmatchable (e.g. an empty string) to switch check R4 off.
   ('data_rpc_pattern', 'report\_%'),
-  -- Regex that counts as an in-body authentication guard.
-  ('auth_guard_regex', 'auth\.(uid|role)\(\)'),
-  -- Optional extra regex of project membership/permission helpers that also count as a guard.
-  -- Empty means "none"; an empty regex would otherwise match every function.
-  ('membership_guard_regex', '')
+  -- Regex that counts as an in-body authentication guard. This is deliberately the ONLY guard the
+  -- engine infers on its own; see the note on definers_guarded below for why.
+  ('auth_guard_regex', 'auth\.(uid|role)\(\)')
 ) AS v(ckey, cvalue)
 WHERE NOT EXISTS (SELECT 1 FROM rls_audit_config c WHERE c.ckey = v.ckey);
 
@@ -57,8 +55,7 @@ cfg AS (
   SELECT
     string_to_array(max(cvalue) FILTER (WHERE ckey = 'schemas'), ',')        AS schemas,
     max(cvalue) FILTER (WHERE ckey = 'data_rpc_pattern')                     AS data_rpc_pattern,
-    max(cvalue) FILTER (WHERE ckey = 'auth_guard_regex')                     AS auth_guard_regex,
-    nullif(max(cvalue) FILTER (WHERE ckey = 'membership_guard_regex'), '')   AS membership_guard_regex
+    max(cvalue) FILTER (WHERE ckey = 'auth_guard_regex')                     AS auth_guard_regex
   FROM rls_audit_config
 ),
 -- Only roles that actually exist here. to_regrole returns NULL for an unknown role name.
@@ -85,12 +82,18 @@ definers AS (
   FROM pg_proc p JOIN audited_ns n ON n.oid = p.pronamespace
   WHERE p.prosecdef
 ),
--- A function is "guarded" if its body authenticates, or names one of the project's permission helpers.
+-- A function is "guarded" only if its body authenticates. Naming a permission helper is NOT enough.
+--
+-- An earlier version also accepted a configurable "membership helper" regex as a guard, and it was
+-- removed because it silently hid the exact shape this sweep exists to catch. A body that calls
+-- is_member(auth.uid(), x) already matches auth_guard_regex, so the extra regex only ever changed the
+-- verdict for a body that calls is_member(<caller-supplied arg>, x) — which is not a guard at all,
+-- because an anonymous caller simply passes somebody else's id. It turned the riskiest pattern into a
+-- clean pass. Do not reintroduce it: a genuinely safe wrapper that delegates to a guarded callee goes
+-- on the baseline's `accepted` list, where it carries a written reason and a human actually read it.
 definers_guarded AS (
   SELECT d.*,
-         (d.def ~* (SELECT auth_guard_regex FROM cfg))                       AS has_auth_guard,
-         ((SELECT membership_guard_regex FROM cfg) IS NOT NULL
-           AND d.def ~* (SELECT membership_guard_regex FROM cfg))            AS has_membership_guard
+         (d.def ~* (SELECT auth_guard_regex FROM cfg))                       AS has_auth_guard
   FROM definers d
 ),
 
@@ -144,7 +147,6 @@ r1 AS (
   WHERE d.client_executable
     AND d.result_type NOT IN ('trigger','void','boolean')
     AND NOT d.has_auth_guard
-    AND NOT d.has_membership_guard
 ),
 
 -- R2: same shape, but the function returns only boolean/void — a probe or a fire-and-forget write.
@@ -156,7 +158,6 @@ r2 AS (
   WHERE d.client_executable
     AND d.result_type IN ('void','boolean')
     AND NOT d.has_auth_guard
-    AND NOT d.has_membership_guard
 ),
 
 -- R3: a policy whose USING clause is literally true, granted to a client role. Sometimes correct

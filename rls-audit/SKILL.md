@@ -114,8 +114,13 @@ psql "$CONN" -c "select pg_get_functiondef('public.<fn>(<argtypes>)'::regprocedu
   project's baseline with a one-line reason naming what it delegates to, then re-run to confirm it is quiet.
   Adding a row there is a security sign-off: only do it after actually reading the function.
 
-If the project's own permission helpers keep showing up as unguarded, set `membership_guard_regex` in the
-baseline config to name them, rather than accepting each function one at a time.
+A project's own permission helpers will show up here, and each one belongs on `rls_audit_accepted`
+individually, with the reason. There is deliberately **no** config regex for "treat these helper names as
+a guard", and adding one back would be a regression rather than a convenience: a body calling
+`is_member(auth.uid(), x)` already counts as guarded, so such a regex could only ever change the verdict
+for a body calling `is_member(<a caller-supplied argument>, x)`, which is not a guard at all, since an
+anonymous caller simply passes somebody else's id. It would turn the single riskiest shape into a silent
+clean pass. Reviewing four helpers once is cheaper than never being told again.
 
 For the four structural checks (`rls-disabled`, `definer-no-search-path`, `write-policy-no-with-check`,
 `report-rpc-unguarded`) a NEW row is almost always a genuine regression. `policy-world-open` has real
@@ -129,6 +134,14 @@ mean a weekend run sits on a real hole until someone happens to look.
 
 The judgment is in Step 3, not here. Only file what you confirmed by reading the function. Never file a
 row you have not triaged, and never file a `KNOWN-OPEN` row.
+
+**Never cap how many tickets get filed.** No "top N", no "the most severe few", no sampling, no quietly
+stopping once the list feels long. Every confirmed finding is filed. When the volume is genuinely large,
+fold findings that share ONE root cause into a single ticket covering all of them: that is consolidation
+and it loses nothing, unlike truncation, which loses precisely the findings nobody will ever see. A
+capped report is worse than a long one because it is indistinguishable from a complete one, so the gap is
+invisible and the work silently never happens. If anything is left out for any reason at all, including a
+tracker error partway through, Step 5 must name it and say why.
 
 ### 4a — Resolve the tracker
 
@@ -182,9 +195,14 @@ in 4b is the real de-dup guard, so a dirty file is never a reason to skip filing
 
 ## Step 5 — Report
 
-Lead with a table: total rows, NEW versus KNOWN-OPEN, and every confirmed finding with its severity and
-ticket key (new, already open, or regression-of). If nothing is new, say so in one line: "posture
+Lead with a table: total rows, NEW versus KNOWN-OPEN, and **every** confirmed finding with its severity
+and ticket key (new, already open, or regression-of). If nothing is new, say so in one line: "posture
 unchanged, N items still tracked under KEY".
+
+Then state anything that did not make it: a row left untriaged, a ticket that failed to create, a check
+that could not run. List each one and why. "Here are the findings" must never quietly mean "here are some
+of the findings", and a report that omits something silently is the one failure this whole skill is built
+to prevent.
 
 ## Running on a schedule
 
