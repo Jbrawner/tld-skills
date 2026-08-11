@@ -283,22 +283,51 @@ def resolve_roots(baseline: Baseline, repo: Path) -> tuple[list[tuple[str, Path]
     return resolved, missing
 
 
-def collect_docs(roots: list[tuple[str, Path]], cfg: dict) -> tuple[list[Doc], int]:
-    """Return the swept documents plus how many were dropped by exclude_globs.
+def iter_tree(root: Path, skipped: list[str]) -> list[Path]:
+    """Walk root, pruning any subdirectory that is its own checkout.
+
+    A directory carrying a .git entry is a linked worktree, a submodule, or a nested clone. Its
+    documents are another branch's copy of the same tree, so descending into it sweeps every doc
+    once per checkout: the duplicates read exactly like real findings at triage, they carry a path
+    no reviewer can act on, and their identity disappears the moment the worktree is deleted, so
+    the baseline can never settle. Presence of .git is the test rather than the directory name,
+    because worktrees take arbitrary names and only some projects park them under a predictable
+    parent. Each pruned directory is appended to skipped so the report can name it: a tree quietly
+    narrowed reads exactly like a tree with nothing wrong in it.
+    """
+    out: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        here = Path(dirpath)
+        keep = []
+        for d in sorted(dirnames):
+            child = here / d
+            if (child / ".git").exists():
+                skipped.append(child.as_posix())
+                continue
+            keep.append(d)
+        dirnames[:] = keep
+        for f in sorted(filenames):
+            out.append(here / f)
+    return out
+
+
+def collect_docs(roots: list[tuple[str, Path]], cfg: dict) -> tuple[list[Doc], int, list[str]]:
+    """Return the swept documents, how many were dropped by exclude_globs, and pruned checkouts.
 
     The exclusion count is returned so scoping is never invisible: a doc set narrowed by config
     reads exactly like a doc set with nothing wrong in it unless the report says how many were
-    left out.
+    left out. Nested checkouts are returned by name for the same reason.
     """
     docs: list[Doc] = []
     seen: set[str] = set()
     excluded = 0
+    skipped_checkouts: list[str] = []
     doc_globs = list(cfg["doc_globs"])
     binary_globs = list(cfg["binary_globs"])
     exclude_globs = list(cfg["exclude_globs"])
 
     for name, root in roots:
-        for path in sorted(root.rglob("*")):
+        for path in iter_tree(root, skipped_checkouts):
             if not path.is_file():
                 continue
             try:
@@ -337,7 +366,7 @@ def collect_docs(roots: list[tuple[str, Path]], cfg: dict) -> tuple[list[Doc], i
                 doc.read_error = str(exc)
         except OSError as exc:
             doc.read_error = str(exc)
-    return docs, excluded
+    return docs, excluded, skipped_checkouts
 
 
 # --------------------------------------------------------------------------------------
@@ -761,7 +790,7 @@ def main() -> int:
             print(f"  unresolved root: {m}", file=sys.stderr)
         return 2
 
-    docs, excluded_count = collect_docs(roots, cfg)
+    docs, excluded_count, skipped_checkouts = collect_docs(roots, cfg)
     docs_by_key = {d.key: d for d in docs}
 
     if args.list_docs:
@@ -826,6 +855,7 @@ def main() -> int:
                     "doc_roots": [{"name": n, "path": str(p)} for n, p in roots],
                     "docs_text": len([d for d in docs if d.kind == "text"]),
                     "docs_excluded_by_config": excluded_count,
+                    "nested_checkouts_skipped": skipped_checkouts,
                     "exclude_globs": list(cfg["exclude_globs"]),
                     "docs_not_machine_checked": binary_docs,
                     "accepted_suppressions": [
@@ -851,6 +881,13 @@ def main() -> int:
     )
     if excluded_count:
         print(f"  exclude patterns       : {', '.join(cfg['exclude_globs'])}")
+    if skipped_checkouts:
+        print(
+            f"  nested checkouts       : {len(skipped_checkouts)} pruned "
+            f"(worktree, submodule or nested clone; their docs belong to another checkout)"
+        )
+        for c in skipped_checkouts:
+            print(f"                           {c}")
     print(
         f"  configured checks      : {len(baseline.anchors)} anchors, "
         f"{len(baseline.retired_terms)} retired terms, {len(baseline.watches)} watches, "
