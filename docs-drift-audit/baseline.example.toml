@@ -1,0 +1,158 @@
+# docs-drift-audit baseline — TEMPLATE. Copy into your repo as `docs-drift-baseline.toml` and edit.
+# Put it in `.tld/`, or in `.claude/` if the repo gitignores `.tld/`, or at the repo root.
+#
+# This file is the entire per-project surface of /docs-drift-audit. It holds four things:
+#   1. config        — where the docs live, what a file path looks like here, where to file
+#   2. checks        — the claims this project wants verified (anchors, retired terms, watches)
+#   3. accepted      — findings a human reviewed and deliberately accepted
+#   4. known_open    — findings already tracked by an open ticket
+#
+# It is passed to the engine:
+#   python3 <skill>/docs-drift-audit.py --repo . --baseline <this file>
+#
+# COMMIT IT. It is the audit's memory. Without it every known finding reads as new every run,
+# and a report that cries wolf every run is a report nobody reads.
+#
+# Adding a row to `accepted` is a sign-off, not a way to quiet a noisy check. Only add one after
+# actually opening the doc and the code and confirming the doc is right, and always leave the reason.
+#
+# NOTHING IN THIS FILE MAY BE TIME-BOUND. No month, no year, no "as of" date, no expected finding
+# count. Every threshold here is a relative window computed at run time. A dated constant in a
+# recurring config does not raise an error, it just quietly stops matching.
+
+# ---- 1. config -----------------------------------------------------------------------------------
+# Only override what differs from the engine defaults. Defaults:
+#   doc_globs = ["**/*.md", "**/*.mdx", "**/*.txt"]
+#   binary_globs = ["**/*.docx", "**/*.pdf", "**/*.pptx", "**/*.xlsx", "**/*.key", "**/*.pages"]
+#   exclude_globs = node_modules, .git, dist, build, .venv, vendor, Office lock files, .DS_Store
+#   path_check = true, stale_check = true, stale_days = 30, command_timeout = 60
+
+[config]
+# Owner/Name, so links of the form https://github.com/Owner/Name/blob/<ref>/<path> are resolved
+# back to <path> and existence-checked like any other path reference. Leave blank to skip that.
+github_repo = "Owner/Name"
+
+# Only flag a doc as stale when the code it describes moved on by more than this many days.
+stale_days = 30
+
+# Extra places a path reference is allowed to resolve, relative to the repo root. Every path is
+# already tried doc-relative (what a markdown link literally means) and repo-relative (how prose
+# usually writes one) with no config at all. Add a root here when this project's docs habitually
+# write paths from inside a subtree: a test plan that says `rls/foo.test.ts` for a file that lives
+# at `backend/tests/rls/foo.test.ts` needs "backend/tests" here.
+#
+# Widen this before reaching for `accepted`. A search root fixes a whole habit; an accepted row
+# signs off one path and has to be written again for the next one.
+path_search_roots = ["src", "src/components", "tests"]
+
+# Setting this REPLACES the default list rather than adding to it, so repeat the noise directories.
+# Two kinds of document belong here rather than on the `accepted` list, because they are wrong to
+# audit at all rather than wrong one line at a time:
+#   - append-only history (changelogs, release notes). Every entry names paths and routes as they
+#     were the day it was written. Flagging them asks for the record to be falsified.
+#   - generated trees (native build scaffolding, vendored copies, exported bundles).
+# The engine prints how many documents each run excluded, so narrowing the sweep stays visible.
+exclude_globs = [
+  "**/node_modules/**", "**/.git/**", "**/dist/**", "**/build/**",
+  "**/.venv/**", "**/vendor/**", "**/~$*", "**/.DS_Store",
+  "**/CHANGELOG.md",
+]
+
+# Where /docs-drift-audit files findings, for repos with no `.tld/campaign.md`. These configure
+# this audit only; campaign.md's Project -> Issue tracker wins wherever it exists. Omit them all
+# and the sweep still runs, it just reports instead of filing.
+tracker = "Jira"                       # Jira or Linear
+tracker_cloud_id = "00000000-0000-0000-0000-000000000000"
+tracker_project = "ABC"
+ticket_labels = "docs-drift,documentation"
+
+# ---- 1b. doc roots -------------------------------------------------------------------------------
+# Each root gets a NAME. Document identity is `name/relative-path`, so the identity that `accepted`
+# and `known_open` match on stays stable even when the absolute path differs between machines.
+# A root may live outside the repository — product docs in a synced drive folder are the common case.
+#
+# `path` may be absolute, repo-relative, `~`-relative, or a GLOB. Use a glob to keep a machine-
+# specific segment (a synced-drive account folder, a versioned directory) out of a committed file.
+# The first matching directory wins, sorted, so the result is the same on every run.
+#
+# Two roots must never sweep the same file, or it gets reported twice under two identities and each
+# has to be accepted separately. When one root contains another, exclude the inner one by path in
+# `exclude_globs` — the exclusion is matched against the path relative to each root, so excluding
+# `docs/**` drops docs/ from a root at the repository top without touching a root pointed at docs/.
+
+[[doc_roots]]
+name = "repo-docs"
+path = "docs"
+
+# Everything else in the repository: the agent-facing instruction files, per-package notes, specs.
+# Pair this with "docs/**" in exclude_globs so it does not re-sweep the root above.
+# [[doc_roots]]
+# name = "repo-root"
+# path = "."
+
+# Docs outside the repository. The glob keeps the account folder out of the committed file.
+# [[doc_roots]]
+# name = "product-docs"
+# path = "~/Library/CloudStorage/GoogleDrive-*/My Drive/Product"
+
+# ---- 2a. anchors ---------------------------------------------------------------------------------
+# An anchor is one checkable claim: a value stated in a doc, and the read-only command that computes
+# the true value from the code. This is the precise half of the audit; everything else is heuristic.
+#
+#   id       stable name, used in the finding's object identity. Never rename casually.
+#   doc      the document key: <root name>/<path within that root>. Exact, not a glob — a glob would
+#            hide the case where the doc was renamed and the check silently went inert.
+#   extract  regex with exactly ONE capture group, run against the doc text (case-insensitive).
+#   command  shell command run at the repo root. Its LAST line of stdout is the true value.
+#            Must be read-only. The engine refuses anything that looks like it writes.
+#   kind     "int" (compare numerically, ignoring commas) or "text" (default, case-insensitive).
+#   note     one line explaining what the claim is, printed with a mismatch.
+#
+# When the extract pattern stops matching, that is reported as `anchor-not-found` at HIGH, not as a
+# pass. A check that quietly stopped checking is the failure this audit exists to catch.
+
+[[anchors]]
+id = "public-api-route-count"
+doc = "repo-docs/API.md"
+extract = "(\\d+)\\s+public endpoints"
+command = "grep -rhoE \"app\\.(get|post|put|delete)\\(\" src/routes | wc -l | tr -d ' '"
+kind = "int"
+note = "The doc states how many public endpoints exist; the router is the source of truth."
+
+# ---- 2b. retired terms ---------------------------------------------------------------------------
+# A name, route, flag, or product term the code retired. Documentation that still uses it sends
+# readers somewhere that no longer works. Cheap to check and consistently high yield.
+
+[[retired_terms]]
+id = "legacy-intake-route"
+pattern = "/intake\\b"
+reason = "The /intake route was retired and now redirects; docs should name the current route."
+# Docs where the old name is legitimately quoted (history, changelogs, migration notes).
+allow_docs = ["repo-docs/CHANGELOG.md"]
+
+# ---- 2c. watches ---------------------------------------------------------------------------------
+# Pairs a doc with the code it describes. When that code has moved on by more than `stale_days` and
+# the doc has not, the doc is flagged LOW. This one over-flags by design: a doc can be perfectly
+# accurate and simply older than the code. Treat it as a prompt to read, not as a defect.
+
+[[watches]]
+id = "architecture"
+doc = "repo-docs/ARCHITECTURE.md"
+code = ["src/**/*.ts", "src/index.ts"]
+
+# ---- 3. accepted (reviewed, correct as written) ---------------------------------------------------
+# `check` may be a specific check name or "*" to accept the object across every check.
+# `objkey` is the exact OBJECT column from the report.
+
+[[accepted]]
+check = "broken-repo-path"
+objkey = "repo-docs/CONTRIBUTING.md :: path:path/to/your/file.ts"
+reason = "Illustrative placeholder in an example block, not a real path."
+
+# ---- 4. known_open (tracked by an open ticket) ----------------------------------------------------
+# Pairs an object with the ticket that will fix it, so a recurring run reports it as tracked rather
+# than new. Delete the row once the fix lands; the finding stops matching anyway.
+
+[[known_open]]
+objkey = "repo-docs/ROADMAP.md :: watch:roadmap"
+ticket = "ABC-123"
