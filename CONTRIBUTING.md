@@ -58,7 +58,7 @@ This is intentional and is **not** drift across the commit-emitting skills — t
 
 ## Canonical shared blocks
 
-The 14 canonical reusable blocks (6 shared blocks + 8 paste-blocks) have moved to **[STANDARDS.md](STANDARDS.md)**. The rules around editing them (the "no-drift rule" above) still apply — STANDARDS.md is now the source of truth that skill copies must match.
+The 15 canonical reusable blocks (6 shared blocks + 9 paste-blocks) have moved to **[STANDARDS.md](STANDARDS.md)**. The rules around editing them (the "no-drift rule" above) still apply — STANDARDS.md is now the source of truth that skill copies must match.
 
 For the canonical set of approval keywords every gate skill accepts, see [STANDARDS.md § Approval keyword set](STANDARDS.md#approval-keyword-set).
 

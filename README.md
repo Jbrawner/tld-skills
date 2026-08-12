@@ -234,6 +234,7 @@ A few hard assumptions are baked in. Plan around them.
 | **Local database** | Supabase local at `127.0.0.1:54321` | `/tld-gate`, `/tld-audit`'s RLS checks, and the local-DB safety check all target that endpoint. Other Postgres setups will fail or produce misleading output. `/rls-audit` is the exception: it resolves the port from the repo's Supabase config or `DATABASE_URL`, works against any Postgres, and refuses any host that is not loopback. |
 | **Linear MCP surface** | `save_milestone` does not expose `sortOrder` | Newly-created milestones land at the bottom of the list. Reorder by hand in the Linear UI after `/campaign-plan` or `/milestone-create`. One-time fix per reorder. |
 | **Python** | 3.11 or newer, on `PATH` as `python3` | Only `/docs-drift-audit` needs it. Its engine reads the per-repo baseline with `tomllib`, which entered the standard library in 3.11; nothing else is imported from outside the standard library, so there is no install step. Every other skill is unaffected. |
+| **Node** | 18 or newer, on `PATH` as `node` | `/test-audit` and `/quality-sweep` ship an engine as a single `.mjs` file each. Both import only `node:fs` and `node:path`, so there is no install step and no dependency to keep current. Every other skill is unaffected. |
 
 For the full list, see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker adapter interface contract (every Linear MCP call the TLD skills make, with parameters, response fields, and edge cases), see [docs/ADAPTERS.md](docs/ADAPTERS.md).
 
@@ -245,7 +246,7 @@ For the full list, see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker a
 |---|---|
 | [LIMITATIONS.md](LIMITATIONS.md) | Known constraints — Linear-only, Vitest/Jest assumed, Supabase local DB assumed |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Test-led philosophy, hard-stop rules, the no-drift rule, and the full Campaign File + Linear Milestone contract (campaign schema, milestone description schema, the `## Order` parser algorithm, and the writer/reader matrix) |
-| [STANDARDS.md](STANDARDS.md) | Canonical text of the 14 reusable shared blocks (6 shared + 8 paste-blocks) that appear verbatim across multiple skills (the source of truth for `scripts/verify-block-alignment.py`) |
+| [STANDARDS.md](STANDARDS.md) | Canonical text of the 15 reusable shared blocks (6 shared + 9 paste-blocks) that appear verbatim across multiple skills (the source of truth for `scripts/verify-block-alignment.py`) |
 | [CHANGELOG.md](CHANGELOG.md) | Release history — what's added, changed, and removed |
 | [RELEASING.md](RELEASING.md) | How to cut a new release — the 4-step procedure, what the workflow automates, recovery if it fails, and PAT rotation |
 | [docs/ADAPTERS.md](docs/ADAPTERS.md) | Issue tracker adapter interface — every MCP call the TLD skills make, parameters and response fields, and edge cases (auto-linking, rate limits) for future Jira / GitHub Issues adapter authors |

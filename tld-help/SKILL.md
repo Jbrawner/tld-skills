@@ -69,6 +69,8 @@ Print the reference card below, then determine the user's current position in th
 | `/tld-side-quest` | Small fix in an isolated worktree | Polish, minor fix, or config tweak |
 | `/rls-audit` | RLS + SECURITY DEFINER sweep of the live local database, filing a ticket per confirmed new finding | On a recurring schedule (weekly suits most projects), and after any migration touching policies, grants, or DEFINER functions |
 | `/docs-drift-audit` | Sweeps the docs (including ones outside the repo) for claims the code contradicts, filing a ticket per confirmed new finding | On a recurring schedule, and after anything that renames a route, retires a table, or changes a price or limit |
+| `/test-audit` | Sweeps the whole suite for tests that cannot fail and tests nothing runs, filing a ticket per confirmed new finding | On a recurring schedule, and after any change to a runner config or a CI test job |
+| `/quality-sweep` | Multi-agent read of the whole tree through one lens per run (bugs, failure paths, performance, copy, accessibility and so on), filing a ticket per confirmed new finding | On a recurring schedule, one lens per slot, ranked so the most impactful runs while there is budget left |
 
 ### Campaign Config
 

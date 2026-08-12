@@ -146,7 +146,17 @@ tracker error partway through, Step 5 must name it and say why.
 ### 4a — Resolve the tracker
 
 Read `Project → Issue tracker` from `.tld/campaign.md` if the repo has one, and follow the canonical
-**Tracker resolution** block in `STANDARDS.md` for it.
+Tracker resolution block below for it.
+
+**Tracker resolution:**
+
+This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+
+- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
+- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Any other tracker** — stop and output:
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+  Do not invent an adapter.
 
 If the repo has no campaign file, read the tracker keys from the baseline's `rls_audit_config`:
 `tracker`, `tracker_cloud_id`, `tracker_project`, `ticket_labels`. These configure this skill only; they
@@ -228,3 +238,43 @@ catch.
 - `rls_audit_accepted` holds reviewed exceptions. Grow it only via Step 3, always with the reason.
 - Both match on the object **name**, so a brand-new overload reusing an accepted name is not flagged. If a
   review ever adds an overload to an accepted name, re-read every overload.
+
+## Canonical blocks this skill does not embed
+
+Recorded so a later reader does not mistake an omission for drift:
+
+- **Load project config** does not apply. That block hard-stops when `.tld/campaign.md` is missing,
+  and this skill must run in repos that have no campaign file, configuring itself from its own
+  baseline instead.
+- **Local DB safety check** is deliberately replaced, not omitted. Step 1 states the substitution and
+  why: a flat loopback-only refusal is the stronger rule for a read-only sweep that must work without
+  a campaign file.
+- **Approval keyword set** does not apply. There is no approval gate: filing is the default, by
+  design, because the skill is built to run with nobody watching.
+- **Milestone completion check**, **Recommendation hint**, both **Manual-QA classification**
+  variants, **Resolve next ticket (discovery)**, both **Require current ticket** variants, **Author
+  Order block**, **Flow selection**, and **Required workspace labels** do not apply. Those govern
+  the per-ticket build flow; this skill does not pick up, advance, or complete a ticket.
+
+---
+
+### Numbered shortcut recognition
+
+When you present the "What's next?" options at the end of your output, the user may respond with just a number (e.g., "1" or "2"). If the user's next message is a bare number matching one of the options you presented, treat it as if they typed the corresponding slash command and invoke that skill immediately.
+
+---
+
+**What's next?**
+
+> **1.** Write or extend the baseline: turn this run's triage into accepted exceptions with their reasons
+>    Best for: the sweep over-flagged, and the same rows will otherwise come back every week
+
+> **2.** Nothing, the report and the tickets are the output
+>    Best for: a scheduled run, or an interactive run that came back clean
+
+> **3.** `/docs-drift-audit`, `/test-audit` or `/quality-sweep`: run the other recurring sweeps as well
+>    Best for: you are doing a periodic health pass and want them in one sitting
+
+Type **1**, **2**, or **3** to proceed.
+
+**HARD STOP: After outputting the above, you are DONE. Do NOT invoke any other skill. Wait for the user to pick an option or type a command.**
