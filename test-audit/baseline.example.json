@@ -1,0 +1,102 @@
+{
+  "_comment": [
+    "Copy this to the audited repo and delete the underscore keys. Preferred location",
+    "is .tld/test-audit-baseline.json; if the repo gitignores .tld/, use",
+    ".claude/test-audit-baseline.json or test-audit-baseline.json at the root, so the",
+    "file is committed and reviewed like any other code.",
+    "",
+    "Nothing in this file may be time-bound. No month, no year, no run counts, no",
+    "'as of' notes. It is read unattended for years, and a stale constant does not",
+    "raise an error, it just quietly stops matching.",
+    "",
+    "Every regex is a JavaScript regex in a JSON string, so each backslash is doubled."
+  ],
+
+  "config": {
+    "_comment_runners": [
+      "One entry per test runner configuration in the repo, and the audit is only as",
+      "honest as this list. A test file no declared runner collects is reported as",
+      "suite-not-collected, so a runner you forget to declare turns its whole suite",
+      "into false findings, and a runner that genuinely does not exist hides real",
+      "ones. include_regex matches the repo-relative POSIX path.",
+      "Leave the list empty and the collection check reports SKIPPED, never a pass."
+    ],
+    "runners": [
+      {
+        "name": "unit",
+        "config": "vitest.config.ts",
+        "include_regex": "^src/.*\\.(test|spec)\\.[cm]?[jt]sx?$"
+      },
+      {
+        "name": "browser end-to-end",
+        "config": "playwright.config.ts",
+        "include_regex": "^e2e/.*\\.(spec|test)\\.[cm]?[jt]sx?$"
+      }
+    ],
+
+    "_comment_ci": [
+      "Where CI job definitions live, and which job names own tests. A job whose name",
+      "matches ci_test_job_regex and whose condition is constantly false is reported:",
+      "it reports as satisfied on every run without executing anything.",
+      "Leave ci_workflow_dir empty and that check reports SKIPPED, never a pass."
+    ],
+    "ci_workflow_dir": ".github/workflows",
+    "ci_test_job_regex": "test|spec|e2e|check|lint|build",
+
+    "_comment_tracker": [
+      "Only needed when the repo has no .tld/campaign.md. That file always wins.",
+      "ticket_labels are the STABLE labels every filed ticket carries and the de-dup",
+      "search looks for. Never put a dated label here. The skill adds a dated grouping",
+      "label at filing time, built from the real date of the run."
+    ],
+    "tracker": "jira",
+    "tracker_cloud_id": "",
+    "tracker_project": "ABC",
+    "ticket_labels": ["test-audit"],
+
+    "_comment_patterns": [
+      "Every pattern below has a working default in the engine and only needs setting",
+      "when this project genuinely differs. Loosen one and the check goes quiet, which",
+      "is the failure this whole file exists to prevent, so change them deliberately.",
+      "assertion_helper_regex is the usual one worth setting: it teaches the engine",
+      "that a call like expectRowCount(...) is an assertion. Helpers defined in the",
+      "same file are detected automatically and need no entry here."
+    ],
+    "test_file_regex": "\\.(test|spec)\\.[cm]?[jt]sx?$",
+    "ignore_dirs": ["node_modules", "dist", "build", ".git", "coverage", ".next", "vendor", "__snapshots__"],
+    "assertion_helper_regex": "\\b(?:expect|assert|verify|ensure|check|should)[A-Z_]\\w*\\s*\\("
+  },
+
+  "_comment_accepted": [
+    "Reviewed exceptions. A row here is suppressed entirely and counted, so adding a",
+    "name is a sign-off: you opened the file, read the case, and concluded the check",
+    "is over-flagging on a pattern that is genuinely fine. It is never a way to quiet",
+    "a noisy check. Every entry carries a reason written for someone who was not",
+    "there, saying what was checked and what made it benign. A reason that only says",
+    "'known' or 'by design' is not a reason.",
+    "Omit check to accept an object for every check."
+  ],
+  "accepted": [
+    {
+      "check": "conditional-skip",
+      "object": "e2e/tests/example.spec.ts",
+      "reason": "Runner project scoping, not a disabled test. The skip reads test.skip(testInfo.project.name !== 'chromium', ...) and playwright.config.ts defines a chromium project, so the condition is false there and the case executes."
+    }
+  ],
+
+  "_comment_known_open": [
+    "Findings that are real and already on a ticket. They report as KNOWN-OPEN <key>",
+    "instead of NEW, so a recurring sweep stops re-filing them, and they are never",
+    "filed again from here.",
+    "Prune a row when its ticket closes. A closed ticket left in this list suppresses",
+    "the finding forever, which is the one way this check goes quiet while the defect",
+    "is still in the tree. The skill re-checks the status of every key it reads."
+  ],
+  "known_open": [
+    {
+      "check": "no-assertion",
+      "object": "src/components/Example.test.tsx::does the thing",
+      "ticket": "ABC-123"
+    }
+  ]
+}

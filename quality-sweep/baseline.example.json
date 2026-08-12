@@ -1,0 +1,203 @@
+{
+  "_comment": [
+    "Copy this to the audited repo and delete the underscore keys. Preferred location",
+    "is .tld/quality-sweep-baseline.json; if the repo gitignores .tld/, use",
+    ".claude/quality-sweep-baseline.json or quality-sweep-baseline.json at the root, so",
+    "the file is committed and reviewed like any other code. An uncommitted baseline",
+    "forgets everything between runs, which defeats the entire point of the check.",
+    "",
+    "Nothing in this file may be time-bound. No month, no year, no 'as of' notes, no",
+    "expected finding counts that a landed fix would invalidate. It is read unattended",
+    "for years, and a stale constant does not raise an error, it just quietly stops",
+    "matching. Dates appear in exactly one place: last_completed, which is written from",
+    "the real clock and only ever compared as a delta, never to a literal.",
+    "",
+    "The one exception to project-neutrality: this file is where every project-specific",
+    "thing goes. The engine and the skill next to it name no project on purpose."
+  ],
+  "config": {
+    "_comment_labels": [
+      "family_label is the STABLE label every filed ticket carries and the de-dup search",
+      "looks for. Never put a date in it. The lens label is derived as",
+      "<family_label>-<lens>. dated_label_format is a grouping label built at filing time",
+      "from the real date of the run, for reading a month's output. It is never searched."
+    ],
+    "family_label": "quality-sweep",
+    "dated_label_format": "quality-sweep-YYYY-MM",
+    "_comment_tracker": [
+      "Only needed when the repo has no .tld/campaign.md. That file always wins.",
+      "Leave these empty and the skill reports findings in full, says no tracker is",
+      "configured, and names the keys that would enable filing. It never guesses."
+    ],
+    "tracker": "jira",
+    "tracker_cloud_id": "",
+    "tracker_project": "ABC",
+    "ticket_labels": [
+      "quality-sweep"
+    ],
+    "_comment_sibling_labels": [
+      "The stable labels of the OTHER recurring checks that read this same repository and",
+      "file into this same tracker. Step 4b searches these in addition to the family label.",
+      "Without them the de-dup is blind to a sibling audit ticket and files a duplicate of it.",
+      "Leave the list empty if this is the only recurring check the project runs.",
+      "Never dated, for the same reason the family label is never dated."
+    ],
+    "sibling_labels": [
+      "some-other-audit"
+    ],
+    "_comment_max_run": [
+      "Wall-clock envelope in minutes. The engine prints a DEADLINE from it and forces",
+      "PARTIAL once it passes, so a long sweep cannot spill into a working day and cannot",
+      "report clean after overrunning. Stopping early is allowed; stopping early and",
+      "reporting clean is not."
+    ],
+    "max_run_minutes": 55,
+    "_comment_non_signals": [
+      "Tool output that is loud and meaningless in this project. A finding resting on one",
+      "of these is not a finding. Every project has at least one, and writing it down is",
+      "what stops the same non-finding being re-investigated every single week."
+    ],
+    "non_signals": [
+      "the type checker's error count on this repo, which is dominated by one known config issue",
+      "the root linter's exit code, which is non-zero on a clean tree and is not gated in CI"
+    ],
+    "_comment_do_not_raise": [
+      "Topics a human has already settled and does not want re-litigated. Re-raising one",
+      "wastes a whole run's attention. Each needs the reason, so a later reader can tell a",
+      "settled decision from a forgotten one."
+    ],
+    "do_not_raise": [
+      {
+        "topic": "example: adding a default value to the location picker",
+        "reason": "deliberate product decision, the prompt is the feature"
+      }
+    ]
+  },
+  "_comment_lenses": [
+    "One entry per standing question. rank drives which gets a scheduled slot first, so",
+    "the most impactful runs while there is budget left. Run lenses in straight rank",
+    "order: alternating them looks fairer and is worse, because whichever slot runs dry",
+    "then loses the same top-ranked lens every week.",
+    "",
+    "focus_areas is the sweep's precision and the only field that can make it lie in both",
+    "directions. An area you forget to declare is never looked at; an area declared too",
+    "broadly spends the budget everywhere and finds nothing anywhere.",
+    "",
+    "preflight lists what must be reachable before the sweep starts. A failed preflight is",
+    "a SKIPPED RUN, never a clean pass, and never a reason to substitute a shallower check.",
+    "",
+    "last_completed is written from the real clock, and only when a run finished COMPLETE.",
+    "A lens being starved of budget week after week shows up as a growing number here",
+    "rather than as silence, which is the only way that failure is ever visible."
+  ],
+  "lenses": {
+    "bug-hunt": {
+      "title": "Bug hunt",
+      "rank": 1,
+      "enabled": true,
+      "review_folder": "docs/auto_reviews/bug_hunt",
+      "topic_labels": [
+        "bug"
+      ],
+      "focus_areas": [
+        "writes that can half-complete and still report success",
+        "arithmetic on quantities or money that mixes units or currencies",
+        "visibility and permission checks that differ between the client and the server",
+        "state that two code paths can update concurrently"
+      ],
+      "severity_scale": "S1 data loss or wrong output a user acts on, S2 wrong behaviour with a workaround, S3 narrow or cosmetic",
+      "evidence_bar": "name the input, the code path, and the wrong output. A finding that cannot name all three is unconfirmed, reported and filed as such, never dropped",
+      "granularity": "one ticket per root cause, naming every affected site",
+      "permissions": [
+        "read the repository",
+        "read the local database schema"
+      ],
+      "preflight": [],
+      "benign_patterns": [
+        {
+          "pattern": "a client-side check with no server equivalent in the same file",
+          "why": "the server enforces it in its own layer. Confirm by reading the enforcing code, never by reading a comment claiming it exists"
+        }
+      ],
+      "last_completed": null
+    },
+    "performance": {
+      "title": "Performance",
+      "rank": 5,
+      "enabled": true,
+      "review_folder": "docs/auto_reviews/performance",
+      "topic_labels": [
+        "performance"
+      ],
+      "focus_areas": [
+        "queries that fetch every row to compute a small aggregate",
+        "requests issued once per item in a list",
+        "bundle weight and what is loaded before first paint",
+        "refetch loops caused by an unstable dependency"
+      ],
+      "severity_scale": "S1 grows without bound with data size, S2 fixed but large, S3 measurable but small",
+      "evidence_bar": "name the payload, the count, or the byte size. A finding with no number is unconfirmed",
+      "granularity": "one ticket per pattern, naming every call site",
+      "permissions": [
+        "read the repository",
+        "build the project read-only"
+      ],
+      "preflight": [
+        "the package manager can install dependencies offline or the tree is already installed"
+      ],
+      "benign_patterns": [
+        {
+          "pattern": "a list query with no pagination on a table that is bounded by design",
+          "why": "the row count has a hard ceiling set elsewhere. Confirm the ceiling exists in code, not in an assumption"
+        }
+      ],
+      "last_completed": null
+    }
+  },
+  "_comment_benign": [
+    "Cross-lens benign patterns. The finders are told to over-flag on purpose, because a",
+    "check tuned until it is quiet is a check that has stopped working. This list is what",
+    "makes that affordable: triage becomes a lookup rather than a fresh investigation.",
+    "Every entry needs the reason, written for someone who was not there.",
+    "Set lens to a slug to scope an entry, or omit it to apply everywhere."
+  ],
+  "benign_patterns": [
+    {
+      "pattern": "generated files under a build output directory",
+      "why": "not written by hand and replaced on every build, so a finding there is a finding about the generator"
+    }
+  ],
+  "_comment_accepted": [
+    "Reviewed exceptions. Adding an object here is a SIGN-OFF: it means somebody opened",
+    "the file, read the code, and concluded the sweep is over-flagging on something",
+    "genuinely fine. It is never a way to make a noisy check quiet, and a reason that only",
+    "says 'known' or 'by design' is not a reason.",
+    "",
+    "object is <lens>::<repo-relative path>::<symbol>, matched exactly. Renaming the file",
+    "or the symbol detaches the row, so re-point it in the same edit as the rename."
+  ],
+  "accepted": [
+    {
+      "object": "performance::src/example/Widget.tsx::useWidgetData",
+      "reason": "the query looks unbounded but the table is capped at one row per lab by a unique constraint, verified in the schema"
+    }
+  ],
+  "_comment_known_open": [
+    "Findings already tracked by an open ticket. The next run reports these as KNOWN-OPEN",
+    "instead of re-triaging them, and never re-files them.",
+    "",
+    "PRUNE A ROW WHEN ITS TICKET CLOSES. A closed key left here suppresses the finding",
+    "forever, which is the one way this check goes quiet while the defect is still in the",
+    "tree. Step 3 re-checks the status of every key precisely because this gets forgotten.",
+    "",
+    "Findings that are re-detected after their ticket CLOSED are filed as a regression of",
+    "that key, which is the most valuable thing a recurring check produces. That is why",
+    "closed tickets are deliberately never seeded into this list."
+  ],
+  "known_open": [
+    {
+      "object": "bug-hunt::src/example/importer.ts::parseRow",
+      "ticket": "ABC-123"
+    }
+  ]
+}
