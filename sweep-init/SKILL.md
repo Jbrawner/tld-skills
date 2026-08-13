@@ -224,9 +224,42 @@ constant does not raise an error, it quietly stops matching, and here that inver
 de-dup finds nothing, everything looks new, and the run duplicates every open ticket every week. A
 dated label on ticket output is fine, because it is built at run time. A date inside a lookup is not.
 
-**If the sweeps will run in a throwaway worktree**, the wrapper points the baseline at the main
-checkout, deliberately, so the bookkeeping accumulates in one reviewable place instead of being
-discarded with the worktree. Say so in the wrapper, with the reason, or a later reader will "fix" it.
+**Point every wrapper's baseline at a persistent bookkeeping worktree, never at the main checkout and
+never at the run's own throwaway worktree.** Both of those alternatives fail, in opposite directions:
+
+| Where the baseline lives | How it fails |
+| --- | --- |
+| The run's throwaway worktree | Bookkeeping is deleted with the worktree, so the de-dup forgets every ticket it filed and the next run duplicates all of them |
+| The user's main checkout | The sweep leaves uncommitted edits in a tree somebody works in. A `git stash`, a `git checkout -- .`, or a branch switch silently discards them, and the loss is invisible until the duplicate tickets arrive |
+
+So create one persistent worktree per project, outside the repository, pinned to a branch nobody
+works in by hand:
+
+```bash
+git -C <repo-root> branch chore/sweep-bookkeeping main
+git -C <repo-root> worktree add ~/.claude/sweep-bookkeeping/<repo-basename> chore/sweep-bookkeeping
+```
+
+Put the baselines there and have every wrapper read and write that copy, leaving its edits
+uncommitted exactly as before. Nothing stashes or resets that tree, so the bookkeeping is durable,
+and a human merges the branch when they want to review what accumulated. Keep it outside the
+repository: a worktree parked under a gitignored directory inside the repo tends to get treated as
+disposable and swept up with the ephemeral ones.
+
+**Then give each wrapper a sync step**, or the sweeps drift from the curated config:
+
+```bash
+git -C ~/.claude/sweep-bookkeeping/<repo-basename> fetch origin main
+git -C ~/.claude/sweep-bookkeeping/<repo-basename> merge --no-edit origin/main
+```
+
+A baseline has two halves with two different authors. The curated half (config, lenses, focus areas,
+benign patterns, accepted exceptions) is edited by a human on `main`. The bookkeeping half
+(`known_open`, `last_completed`) is written by the sweeps on the branch. Without the sync, a lens
+runs against focus areas the human already corrected and looks in the wrong place. The two halves
+occupy different regions of the file, so a clean merge is the normal case, and **a conflict is a
+SKIPPED RUN** rather than something for the run to resolve by guessing. Say all of this in the
+wrapper, with the reason, or a later reader will "fix" it back to the main checkout.
 
 ## Step 8: Propose a schedule, then ask
 
