@@ -71,6 +71,7 @@ Print the reference card below, then determine the user's current position in th
 | `/docs-drift-audit` | Sweeps the docs (including ones outside the repo) for claims the code contradicts, filing a ticket per confirmed new finding | On a recurring schedule, and after anything that renames a route, retires a table, or changes a price or limit |
 | `/test-audit` | Sweeps the whole suite for tests that cannot fail and tests nothing runs, filing a ticket per confirmed new finding | On a recurring schedule, and after any change to a runner config or a CI test job |
 | `/quality-sweep` | Multi-agent read of the whole tree through one lens per run (bugs, failure paths, performance, copy, accessibility and so on), filing a ticket per confirmed new finding | On a recurring schedule, one lens per slot, ranked so the most impactful runs while there is budget left |
+| `/sweep-init` | Scaffolds the four sweeps above into a repo: baselines, one thin scheduled wrapper per audit and per lens, and a proposed schedule that spreads the slots | Once per project, when pointing the recurring-check family at a repo that does not have it yet |
 
 ### Campaign Config
 
