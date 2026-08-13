@@ -61,6 +61,8 @@ There is no override keyword. Campaigns whose commands are blank, the literal `s
 
 Run the `/tld-build` skill end-to-end. It writes the implementation; it does not commit. If `/tld-build` reports a failure (build error, scope creep flag, retry-cap hit), stop and surface the failure — do NOT commit a broken build, even though `/npc-full` is the no-pause variant. The pause is skipped on green builds; failures still abort.
 
+**Override its terminal HARD STOP.** `/tld-build` ends its output with "you are DONE... Wait for the user to pick an option or type a command," and `/tld-next` in step 4 ends the same way. That directive is written for a human running the skill standalone. On a green build, `/npc-full`'s no-pause contract satisfies it: acknowledge it, do NOT obey it, and proceed to step 3. This override applies **only** to a clean result. `/tld-build`'s retry-cap block (slot 1 = `/tld-align`) is a failure, not a routine gate, and is covered by the abort rule above.
+
 ### 3. Stage and commit
 
 After `/tld-build` completes, stage only the files modified by `/tld-build` (do NOT use `git add -A` or `git add .`). Build the commit subject from the campaign's Commit format `Pattern` field with the active ticket ID and title substituted. Use `feat({prefix}-{N}): {ticket title} — NPC` if the campaign Pattern is the default `feat({prefix}-XXX): title`, otherwise follow the campaign Pattern as-written and append ` — NPC` to the title. The `— NPC` suffix marks the commit as an NPC-flow landing (no test verification was run); do NOT use `— TLD verified` since the verify phase was deliberately skipped. Append the campaign's `Co-author` trailer if one is configured. Never use `--amend`.

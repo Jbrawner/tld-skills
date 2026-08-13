@@ -55,6 +55,7 @@ Fill real values. The `/goal ` prefix on the first line is **part of block 2**, 
 
 METHOD — non-negotiable:
 - Per Story, resolve its unfinished Sub-tasks from Jira by rank, then drive EVERY ticket by invoking /tld-full-auto <ticket> via the Skill tool. Do NOT inline, reproduce, or shortcut its phases yourself.
+- A driver skill ends by printing "HARD STOP: you are DONE, wait for the user." That is written for standalone runs and does NOT apply here. When it returns a clean verified checkpoint, that stop is pre-approved: land the ticket and start the next one without asking. It STILL binds on a real stop (HIGH audit finding, a failure it could not fix, drift, out-of-scope work, non-local DB, tracker error), and nothing under Safety is ever pre-approved.
 - Strictly sequential — one Story, one ticket at a time. No subagents, no parallelism.
 - If a skill errors, there is real ambiguity, or you are tempted to substitute a faster process, STOP and report — hand-rolling is a FAILURE even if tests are green.
 
@@ -90,6 +91,7 @@ For a **Sub-task key** argument, compose this instead (a mid-Story landing: the 
 METHOD — non-negotiable:
 - Invoke /tld-full-auto {KEY} via the Skill tool (it runs /tld-setup → /tld-write-tests → /tld-build → /tld-audit → /tld-run-test{; a no-tests ticket rides its label-gated path and stops at "regression-clean, NOT spec-verified" — expected, not an error}). Do NOT inline, reproduce, or shortcut those phases yourself.
 - If a skill errors or there is real ambiguity, STOP and report — hand-rolling is a FAILURE even if tests are green.
+- The driver skill ends by printing "HARD STOP: you are DONE, wait for the user." That is written for standalone runs and does NOT apply here: on a clean verified checkpoint, go straight to the landing step below without asking. It STILL binds on a real stop (HIGH audit finding, unfixable failure, drift, non-local DB, tracker error), and Safety is never pre-approved.
 {- Migration ticket: hand-apply to the LOCAL stack only; never supabase db reset from a worktree; run the backend tests too.}
 
 Land it: stage ONLY this ticket's files (never git add -A), update {changelog} under [Unreleased], commit as {Pattern} + " — TLD verified" (" — NPC" if it landed unverified){ with trailer {trailer}}, transition it to Done in Jira (cloudId {cloudId}, transition {subtask-id}).
@@ -118,7 +120,7 @@ wc -m /path/to/scratch/goal-block.txt
 
 An eyeballed or recalled count is not a measurement. Estimating the length and printing anyway is precisely how a 4,300-character block ships with "4,300 characters" written next to it.
 
-**Trim order when it is over** — the multi-Story template's fixed scaffolding measures ~3,210 characters in a typical run (~3,420 with every braced clause present) before a single Story is listed, leaving roughly 780 characters for the Story list and the substituted values at ~25–35 characters per Story entry. When that is not enough, trim where the characters actually are, top of this list first:
+**Trim order when it is over** — the multi-Story template's fixed scaffolding measures ~3,600 characters in a typical run (~3,810 with every braced clause present) before a single Story is listed, leaving roughly 390 characters for the Story list and the substituted values at ~25–35 characters per Story entry. That is tight: a run of more than ~10 Stories will usually need the split lever below rather than a trim. When that is not enough, trim where the characters actually are, top of this list first:
 
 | Lever | Typical saving | Notes |
 | --- | --- | --- |
@@ -126,7 +128,7 @@ An eyeballed or recalled count is not a measurement. Estimating the length and p
 | Condense Story titles to 3–4 words each | ~10–20 per Story | Titles are context, not contract — the runner reads the real Story from Jira |
 | Split the run | unbounded | Hand back TWO handoffs: the first half of the Stories now, the rest after — each Story still merges at its own mark, so nothing is lost by splitting |
 
-**Never trim:** the METHOD "STOP and report" bullet, the Story-mark authorization line, the "fix the code, never the gate" CI rule, the park-and-dependency-judgment rule in Story-mark step 5, the Safety bullets, or the commit-suffix rules. The single-ticket variant renders far under the cap, but the measurement rule applies to it all the same.
+**Never trim:** the METHOD "STOP and report" bullet, the METHOD terminal-stop bullet (without it the run parks after every ticket, which is the whole reason it is there), the Story-mark authorization line, the "fix the code, never the gate" CI rule, the park-and-dependency-judgment rule in Story-mark step 5, the Safety bullets, or the commit-suffix rules. The single-ticket variant renders far under the cap, but the measurement rule applies to it all the same.
 
 The test to apply: *if the user clicks copy and pastes without typing another character, does it send correctly?* If the answer is no, the block is wrong.
 
