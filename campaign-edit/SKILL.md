@@ -84,13 +84,13 @@ Use AskUserQuestion again with the fields in the chosen category as options. Inc
 
 For the **Issue tracker** field, present the same enum `/campaign-init` uses, in this order (AskUserQuestion automatically adds "Other" for free-text):
 
-- **Linear (Recommended)** — the framework was built against Linear MCP and ships with wired tooling.
-- **Jira** — schema accepts it; downstream skills will need adaptation.
+- **Jira (Recommended)** — the framework's default tracker, via the Atlassian MCP connector (Jira Cloud). See docs/JIRA.md.
+- **Linear** — supported via Linear MCP. Contract: docs/ADAPTERS.md.
 - **GitHub Issues** — schema accepts it; downstream skills will need adaptation.
 
-If the user picks anything other than `Linear`, print this advisory verbatim and then use AskUserQuestion to confirm before writing:
+If the user picks anything other than `Jira` or `Linear`, print this advisory verbatim and then use AskUserQuestion to confirm before writing:
 
-> **Heads up:** The skills framework was built against Linear MCP and only Linear has been exercised end to end. Other trackers (Jira, GitHub Issues, anything else) are accepted in the schema but **untested** — the TLD pipeline calls Linear MCP tools by name and will need some massaging while you use it (manual ticket-status flips, manual `## Order` updates, hand-rolled label workflow, etc.). It's still worth the try if you're already invested in another tracker — most of the framework's value (hard-stop discipline, drift checks, side-quest isolation, the campaign file itself) works regardless of where tickets live. See LIMITATIONS.md and docs/ADAPTERS.md for the full surface a future adapter would need to cover.
+> **Heads up:** Only Jira (docs/JIRA.md) and Linear (docs/ADAPTERS.md) are wired end to end. Other trackers (GitHub Issues, anything else) are accepted in the schema but **unimplemented** — the TLD pipeline resolves tracker calls for those two only, and anything else will need adapter work (manual ticket-status flips, manual `## Order` updates, hand-rolled label workflow, etc.). It's still worth the try if you're already invested in another tracker — most of the framework's value (hard-stop discipline, drift checks, side-quest isolation, the campaign file itself) works regardless of where tickets live. See LIMITATIONS.md and docs/ADAPTERS.md for the full surface a future adapter would need to cover.
 
 Do not block the edit. If the user confirms, proceed to step 6. If they decline, abort the edit and return to step 3 so they can pick a different field (or stop).
 

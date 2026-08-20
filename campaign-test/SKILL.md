@@ -69,7 +69,7 @@ Then skip to step 7.
 
 If `Issue tracker` = `Linear`, continue to step 4.
 
-### 4. Linear reachability (fail-fast with one retry, then bail)
+### 4. tracker reachability (fail-fast with one retry, then bail)
 
 Call `list_teams` to confirm Linear MCP is reachable.
 
@@ -80,7 +80,7 @@ Call `list_teams` to confirm Linear MCP is reachable.
 When bailing, print:
 
 ```
-❌ Linear unreachable after 2 attempts ({short reason from last failure}).
+❌ Tracker unreachable after 2 attempts ({short reason from last failure}).
 
 Fix the connection (check MCP server status, auth, network) and re-run `/campaign-test`.
 Until Linear is reachable, `/tld-setup` and the rest of the pipeline cannot proceed.

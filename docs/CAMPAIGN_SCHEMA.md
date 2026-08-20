@@ -26,7 +26,7 @@ These four must be present. Their fields and validation rules are unchanged from
 
 ```markdown
 ## Project
-- Issue tracker: {Linear | Jira | ...}
+- Issue tracker: {Jira | Linear | ...}
 - Project name: {display name}
 - Team: {team / workspace}
 - Ticket prefix: {e.g. DROSS}

@@ -1,16 +1,16 @@
 ---
 name: tld-ticket
 description: |
-  Create standardized Linear tickets that the TLD pipeline can consume cleanly. Supports feature, bug, QA, and
+  Create standardized tracker tickets that the TLD pipeline can consume cleanly. Supports feature, bug, QA, and
   polish ticket types. Each type has a template with the exact fields the TLD skills need (AC, files, pattern refs,
   test command). Use this skill whenever the user says "tld-ticket", "create a ticket", "new ticket", "file a bug",
-  "add a ticket for", or wants to create a Linear ticket that will flow through the TLD pipeline. Also use when
+  "add a ticket for", or wants to create a ticket that will flow through the TLD pipeline. Also use when
   the user describes work that should be tracked but hasn't been ticketed yet.
 ---
 
 # TLD Ticket
 
-You are creating a standardized Linear ticket that the TLD pipeline can consume cleanly. Every ticket you create must have the fields that `/tld-setup`, `/tld-write-tests`, and `/tld-build` expect. No vague descriptions, no missing AC, no ambiguous scope.
+You are creating a standardized tracker ticket that the TLD pipeline can consume cleanly. Every ticket you create must have the fields that `/tld-setup`, `/tld-write-tests`, and `/tld-build` expect. No vague descriptions, no missing AC, no ambiguous scope.
 
 ## When to use this
 
@@ -33,12 +33,12 @@ You determine the ticket type from context and apply the right template.
 
 **Tracker resolution:**
 
-This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+This skill's ticket and milestone operations are written using neutral adapter names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
 
-- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
-- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Jira** (default) — perform each operation per docs/JIRA.md (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Linear** — call the Linear MCP tools directly; they match the adapter names used in this skill. Contract: docs/ADAPTERS.md.
 - **Any other tracker** — stop and output:
-    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Jira, Linear. See LIMITATIONS.md."
   Do not invent an adapter.
 
 On the Jira path, a new ticket is created as a **Sub-task** under the active milestone Story (`createJiraIssue`, issuetype `Sub-task`, `parent` = the Story key), with the `model:*` / `effort:*` labels applied as plain Jira labels and the **Story Points** field set to the size chosen in step 4.
@@ -58,8 +58,8 @@ Based on the user's description, classify as one of:
 
 Before creating the ticket, understand the scope:
 
-1. **Read active milestones** — Call `list_milestones` for the configured Linear project (sorted by `sortOrder` ascending), then `get_milestone` on each in-progress milestone to read its description and `## Order` section. This shows you whether the new work fits into an existing milestone (add it to that milestone's `## Order`) or is standalone (no milestone, fix-on-main)
-2. **Check existing tickets** in Linear to avoid duplicates (use `list_issues` with a keyword search)
+1. **Read active milestones** — Call `list_milestones` for the configured project (sorted by `sortOrder` ascending), then `get_milestone` on each in-progress milestone to read its description and `## Order` section. This shows you whether the new work fits into an existing milestone (add it to that milestone's `## Order`) or is standalone (no milestone, fix-on-main)
+2. **Check existing tickets** in the tracker to avoid duplicates (use `list_issues` with a keyword search)
 3. **Identify affected files** by reading the codebase. Use grep/glob to find the files that would need to change
 4. **Identify pattern references** by finding existing files that follow the same patterns (same type of component, similar endpoint, etc.)
 5. **Determine the test command** by reading `.tld/campaign.md`'s Test Commands section (Backend, Frontend, Landing, Full) — pick the one matching the files the new ticket will modify
@@ -97,9 +97,9 @@ If the user closes the prompt or gives no answer, default to `sonnet` + `medium`
 
 ### 5. Present for review
 
-Show the user the full ticket before creating it. Format it exactly as it will appear in Linear so they can review. Include the model + effort labels and the size collected in step 4 at the top of the preview (e.g., `**Labels:** `model:sonnet` · `effort:medium` — **Size:** 1 pt`) so the user can spot a wrong pick before it lands.
+Show the user the full ticket before creating it. Format it exactly as it will appear in the tracker so they can review. Include the model + effort labels and the size collected in step 4 at the top of the preview (e.g., `**Labels:** `model:sonnet` · `effort:medium` — **Size:** 1 pt`) so the user can spot a wrong pick before it lands.
 
-### 6. Create in Linear
+### 6. Create in the tracker
 
 After user approval, call `save_issue` to create the ticket in the project and team from `.tld/campaign.md` (Project.Project name and Project.Team). Pass the labels from step 4 as `["model:{model}", "effort:{effort}"]`, and set the ticket's **point estimate** to the size from step 4 — on Linear this is the issue `estimate` field; on Jira set the **Story Points** field. Jira's is a per-instance custom field, not a fixed id — resolve it with `getJiraIssueTypeMetaWithFields` for the project + issue type and match on the field name rather than hard-coding `customfield_10016`. See docs/JIRA.md § Story Points (point estimates).
 

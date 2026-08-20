@@ -83,12 +83,12 @@ The tracker, team, prefix, and project name from this block are the only ones th
 
 **Tracker resolution:**
 
-This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+This skill's ticket and milestone operations are written using neutral adapter names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
 
-- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
-- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Jira** (default) — perform each operation per docs/JIRA.md (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Linear** — call the Linear MCP tools directly; they match the adapter names used in this skill. Contract: docs/ADAPTERS.md.
 - **Any other tracker** — stop and output:
-    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Jira, Linear. See LIMITATIONS.md."
   Do not invent an adapter.
 
 **Comment operation (full-auto-specific).** Full-auto posts ticket comments of its own (LOW-findings notes in §4, stop-reason comments in rule 4). The canonical Tracker-resolution block does not name a comment tool, so resolve it explicitly: on **Linear** use the comment-create call; on **Jira** use `addCommentToJiraIssue`. Every comment is best-effort — if the post fails, note it in the final report and keep moving; a lost comment never aborts a healthy run.

@@ -1,6 +1,6 @@
 # Adventure Skills
 
-A set of Claude Code skills for **Test-Led Development (TLD)**. Drives a project through small Linear tickets one at a time, with hard stops between phases, drift detection against the ticket spec, side quests in isolated git worktrees, and milestone-boundary gate checks.
+A set of Claude Code skills for **Test-Led Development (TLD)**. Drives a project through small Jira tickets one at a time, with hard stops between phases, drift detection against the ticket spec, side quests in isolated git worktrees, and milestone-boundary gate checks.
 
 ---
 
@@ -22,7 +22,7 @@ A set of Claude Code skills for **Test-Led Development (TLD)**. Drives a project
 
 ## Two flows: TLD and NPC
 
-The framework ships with three routes. Same ticket model, same hard stops, same issue tracker (Linear or Jira). What differs is how the work gets verified.
+The framework ships with three routes. Same ticket model, same hard stops, same issue tracker (Jira or Linear). What differs is how the work gets verified.
 
 | | **TLD (core)** | **TLD no-tests path** | **NPC ("no preview check")** |
 |---|---|---|---|
@@ -130,27 +130,27 @@ The flow has four steps:
 /campaign-init
 ```
 
-Creates `.tld/campaign.md` at the repo root with the four required sections (Project, Test Commands, Stack, Commit format) and bootstraps the nine required Linear workspace labels (`effort:low`, `effort:medium`, `effort:high`, `model:opus`, `model:sonnet`, `model:haiku`, `side-quest`, `no-tests`, `auto-land`). It will ask you which Linear team and project to point at, what command runs your tests, and where your stack lives.
+Creates `.tld/campaign.md` at the repo root with the four required sections (Project, Test Commands, Stack, Commit format) and bootstraps the nine required workspace labels (`effort:low`, `effort:medium`, `effort:high`, `model:opus`, `model:sonnet`, `model:haiku`, `side-quest`, `no-tests`, `auto-land`). It will ask you which team and project to point at, what command runs your tests, and where your stack lives.
 
-### 2. Verify Linear connectivity
+### 2. Verify tracker connectivity
 
 ```
 /campaign-test
 ```
 
-Pre-flight check. Verifies the campaign file is well-formed, that the Linear team and project actually exist, that your ticket prefix matches the Linear team, and that all nine required labels are present. Read-mostly; the only write path is creating any missing labels, and only after you say yes.
+Pre-flight check. Verifies the campaign file is well-formed, that the team and project actually exist, that your ticket prefix matches, and that all nine required labels are present. Read-mostly; the only write path is creating any missing labels, and only after you say yes.
 
 ### 3. Create or sync milestone structure
 
-If your Linear project is empty:
+If your tracker project is empty:
 
 ```
 /campaign-plan
 ```
 
-Walks scope → milestones → tickets and creates everything in Linear, including the `## Order` section on each milestone description that the TLD skills read to know which ticket is next.
+Walks scope → milestones → tickets and creates everything in the tracker. On Jira that is a milestone **Story** with its tickets as child **Sub-tasks**, ordered by Jira's native rank. On Linear it also writes the `## Order` section on each milestone description that the TLD skills read to know which ticket is next.
 
-If you already have milestones and tickets in Linear but the milestones are missing `## Order` sections:
+If you already have milestones and tickets on Linear but the milestones are missing `## Order` sections (this step is Linear-only — Jira has no Order text):
 
 ```
 /milestone-sync
@@ -174,7 +174,7 @@ This is the real campaign file from the Adventure Skills repo itself, showing th
 # Campaign: Adventure Skills
 
 ## Project
-- Issue tracker: Linear
+- Issue tracker: Jira
 - Project name: Adventure Skills
 - Team: 2ndFoundry
 - Ticket prefix: 2ND
@@ -229,14 +229,14 @@ A few hard assumptions are baked in. Plan around them.
 
 | Area | Assumed | Why it matters |
 |---|---|---|
-| **Issue tracker** | Linear | Every ticket-state skill calls Linear MCP tools by name. `/campaign-init` accepts Jira / GitHub Issues / Other in the schema, but downstream TLD skills will fail until per-tracker adapters land. |
+| **Issue tracker** | Jira or Linear | Jira (Cloud, via the Atlassian MCP connector) is the default; Linear is also wired end to end. `/campaign-init` accepts GitHub Issues / Other in the schema, but downstream TLD skills will fail on those until per-tracker adapters land. |
 | **Test runner** | Vitest or Jest | The verify phase parses output that looks like Vitest/Jest. Mocha / AVA / `node:test` may technically work; pytest / RSpec / `go test` / `cargo test` are untried. |
 | **Local database** | Supabase local at `127.0.0.1:54321` | `/tld-gate`, `/tld-audit`'s RLS checks, and the local-DB safety check all target that endpoint. Other Postgres setups will fail or produce misleading output. `/rls-audit` is the exception: it resolves the port from the repo's Supabase config or `DATABASE_URL`, works against any Postgres, and refuses any host that is not loopback. |
-| **Linear MCP surface** | `save_milestone` does not expose `sortOrder` | Newly-created milestones land at the bottom of the list. Reorder by hand in the Linear UI after `/campaign-plan` or `/milestone-create`. One-time fix per reorder. |
+| **Linear MCP surface** (Linear only) | `save_milestone` does not expose `sortOrder` | Newly-created milestones land at the bottom of the list. Reorder by hand in the Linear UI after `/campaign-plan` or `/milestone-create`. One-time fix per reorder. |
 | **Python** | 3.11 or newer, on `PATH` as `python3` | Only `/docs-drift-audit` needs it. Its engine reads the per-repo baseline with `tomllib`, which entered the standard library in 3.11; nothing else is imported from outside the standard library, so there is no install step. Every other skill is unaffected. |
 | **Node** | 18 or newer, on `PATH` as `node` | `/test-audit` and `/quality-sweep` ship an engine as a single `.mjs` file each. Both import only `node:fs` and `node:path`, so there is no install step and no dependency to keep current. Every other skill is unaffected. |
 
-For the full list, see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker adapter interface contract (every Linear MCP call the TLD skills make, with parameters, response fields, and edge cases), see [docs/ADAPTERS.md](docs/ADAPTERS.md).
+For the full list, see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker adapter interface contract (every tracker call the TLD skills make, with parameters, response fields, and edge cases), see [docs/JIRA.md](docs/JIRA.md) for Jira and [docs/ADAPTERS.md](docs/ADAPTERS.md) for Linear.
 
 ---
 
@@ -244,8 +244,8 @@ For the full list, see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker a
 
 | Document | What's in it |
 |---|---|
-| [LIMITATIONS.md](LIMITATIONS.md) | Known constraints — Linear-only, Vitest/Jest assumed, Supabase local DB assumed |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Test-led philosophy, hard-stop rules, the no-drift rule, and the full Campaign File + Linear Milestone contract (campaign schema, milestone description schema, the `## Order` parser algorithm, and the writer/reader matrix) |
+| [LIMITATIONS.md](LIMITATIONS.md) | Known constraints — Jira/Linear only, Vitest/Jest assumed, Supabase local DB assumed |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Test-led philosophy, hard-stop rules, the no-drift rule, and the full Campaign File + Milestone contract (campaign schema, milestone description schema, the `## Order` parser algorithm, and the writer/reader matrix) |
 | [STANDARDS.md](STANDARDS.md) | Canonical text of the 15 reusable shared blocks (6 shared + 9 paste-blocks) that appear verbatim across multiple skills (the source of truth for `scripts/verify-block-alignment.py`) |
 | [CHANGELOG.md](CHANGELOG.md) | Release history — what's added, changed, and removed |
 | [RELEASING.md](RELEASING.md) | How to cut a new release — the 4-step procedure, what the workflow automates, recovery if it fails, and PAT rotation |

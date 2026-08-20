@@ -4,7 +4,7 @@ description: |
   Create a single Linear milestone with an optional set of tickets and a populated
   `## Order` section. Use this skill whenever the user says "milestone-create",
   "milestone create", "add a milestone", "new milestone", "one more phase", or wants
-  to scaffold one milestone without the full /campaign-plan flow. Writes to Linear
+  to scaffold one milestone without the full /campaign-plan flow. Writes to the tracker
   only — does NOT touch `.tld/campaign.md`. For full project planning from scratch
   use /campaign-plan. For repairing Order sections on existing milestones use
   /milestone-sync.
@@ -14,7 +14,7 @@ description: |
 
 You are creating ONE Linear milestone and (optionally) its tickets. At the end, Linear has a new milestone with a six-section description (Purpose / Scope / Order / Exit Criteria / Dependencies / Risk), plus any ticket ideas the user provided, each assigned to the milestone with `model:*` + `effort:*` labels. The milestone's `## Order` section is populated with the final ticket IDs in the sequence the user gave.
 
-This skill writes to Linear only. It does NOT modify `.tld/campaign.md`. The campaign file has no Milestones or Active section — all structure lives in the tracker. If you need the full project-planning flow (scope → many phases → tickets), use /campaign-plan instead.
+This skill writes to the tracker only. It does NOT modify `.tld/campaign.md`. The campaign file has no Milestones or Active section — all structure lives in the tracker. If you need the full project-planning flow (scope → many phases → tickets), use /campaign-plan instead.
 
 ## Process
 
@@ -31,16 +31,18 @@ The tracker, team, prefix, and project name from this block are the only ones th
 
 **Tracker resolution:**
 
-This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+This skill's ticket and milestone operations are written using neutral adapter names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
 
-- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
-- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Jira** (default) — perform each operation per docs/JIRA.md (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Linear** — call the Linear MCP tools directly; they match the adapter names used in this skill. Contract: docs/ADAPTERS.md.
 - **Any other tracker** — stop and output:
-    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Jira, Linear. See LIMITATIONS.md."
   Do not invent an adapter.
 
-If the tracker is not `Linear`, stop and output:
-  "/milestone-create writes Linear structure directly — it is not adapted to {tracker}. Create the milestone in your tracker manually, then use /milestone-sync to author its Order section."
+**Jira path:** create the milestone as a **Story**, and any tickets as **Sub-tasks** whose `parent` is that Story, created in the intended sequence (new sub-tasks rank at the bottom, so creation order sets the rank). There is no `## Order` section to author — order is Jira's native rank. See docs/JIRA.md § Milestone and ordering.
+
+If the tracker is neither `Jira` nor `Linear`, stop and output:
+  "/milestone-create writes tracker structure directly — it is not adapted to {tracker}. Create the milestone in your tracker manually, then use /milestone-sync to author its Order section."
 
 ### 2. Collect milestone name + description
 
@@ -75,7 +77,7 @@ If the user picks option 2, skip to step 6. The milestone's `## Order` section w
 
 AskUserQuestion with two options:
 
-1. **Default every ticket to `model:sonnet` + `effort:medium`** — fastest; you can re-label individual tickets in Linear later.
+1. **Default every ticket to `model:sonnet` + `effort:medium`** — fastest; you can re-label individual tickets in the tracker later.
 2. **Set `model:*` and `effort:*` per ticket** — slower; asks per ticket as they're created in step 7.
 
 Record the choice.
@@ -145,7 +147,7 @@ If `save_milestone` fails, stop and report the failure. No partial state to clea
 
 Walk the ticket list in order. For each ticket title:
 
-1. **Draft the ticket description.** Keep it short — one-paragraph summary that grounds the title, plus a "Files to Create/Modify" section as `TBD` if unknown, plus a bulleted AC placeholder (`- [ ] TBD — refine before /tld-setup`). The user refines later (via Linear UI or /tld-ticket edits). This skill does not try to deeply spec each ticket.
+1. **Draft the ticket description.** Keep it short — one-paragraph summary that grounds the title, plus a "Files to Create/Modify" section as `TBD` if unknown, plus a bulleted AC placeholder (`- [ ] TBD — refine before /tld-setup`). The user refines later (via the tracker UI or /tld-ticket edits). This skill does not try to deeply spec each ticket.
 2. **Pick labels.**
    - Default mode (step 5 option 1): apply `model:sonnet` + `effort:medium`.
    - Per-ticket mode (step 5 option 2): AskUserQuestion twice for this ticket — model (`sonnet` / `opus` / `haiku`) and effort (`low` / `medium` / `high`). Apply the picked `model:*` + `effort:*` labels.
@@ -210,7 +212,7 @@ Order section: {populated with N tickets | empty — add via /tld-ticket}
 {if no tickets} Add tickets with /tld-ticket, then /tld-setup to pick one up.
 ```
 
-⚠️ Linear places new milestones at the bottom of the project. If this milestone should appear elsewhere in the order, drag it into position in the Linear UI now (Linear API does not support `sortOrder` writes). See LIMITATIONS.md.
+**Linear only:** ⚠️ Linear places new milestones at the bottom of the project. If this milestone should appear elsewhere in the order, drag it into position in the Linear UI now (Linear API does not support `sortOrder` writes). See LIMITATIONS.md. On Jira, order is native rank — reorder by dragging in the backlog.
 
 ### Numbered shortcut recognition
 
@@ -232,7 +234,7 @@ When you present the "What's next?" options at the end of your output, the user 
 >    Best for: need one more phase scaffolded
 
 > **4.** /campaign-show — review what's in the project now
->    Best for: want to sanity-check milestones + tickets in Linear before diving in
+>    Best for: want to sanity-check milestones + tickets in the tracker before diving in
 
 Type **1**, **2**, **3**, or **4** to proceed.
 

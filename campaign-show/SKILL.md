@@ -2,7 +2,7 @@
 name: campaign-show
 description: |
   Display this repo's `.tld/campaign.md` configuration — all four sections (Project, Test Commands, Stack,
-  Commit format) — plus an optional Linear snapshot showing milestone names and progress. Use this skill
+  Commit format) — plus an optional tracker snapshot showing milestone names and progress. Use this skill
   whenever the user says "campaign-show", "campaign show", "show campaign", "what campaign am I on",
   "view campaign", "current project", or wants to see the per-repo project configuration. Read-only;
   does not modify any files.
@@ -24,12 +24,12 @@ Parse the four sections: Project, Test Commands, Stack, Commit format.
 
 **Tracker resolution:**
 
-This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+This skill's ticket and milestone operations are written using neutral adapter names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
 
-- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
-- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Jira** (default) — perform each operation per docs/JIRA.md (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Linear** — call the Linear MCP tools directly; they match the adapter names used in this skill. Contract: docs/ADAPTERS.md.
 - **Any other tracker** — stop and output:
-    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Jira, Linear. See LIMITATIONS.md."
   Do not invent an adapter.
 
 ### 2. Display the four sections
