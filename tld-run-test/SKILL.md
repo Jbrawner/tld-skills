@@ -23,19 +23,19 @@ The tracker, team, prefix, and project name from this block are the only ones th
 
 **Tracker resolution:**
 
-This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+This skill's ticket and milestone operations are written using neutral adapter names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
 
-- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
-- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Jira** (default) — perform each operation per docs/JIRA.md (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Linear** — call the Linear MCP tools directly; they match the adapter names used in this skill. Contract: docs/ADAPTERS.md.
 - **Any other tracker** — stop and output:
-    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Jira, Linear. See LIMITATIONS.md."
   Do not invent an adapter.
 
 ### 1a. Resolve current ticket
 
 **Case A0 — same-session setup context (check this first):** if THIS session already ran a formal `/tld-setup` whose output carries the active ticket (ID, AC, Files to Create/Modify) and nothing since indicates the ticket changed — no `/tld-next`, `/tld-skip`, or `/tld-cancel` has run, and the user has not said otherwise — use that in-conversation context as the current ticket and skip the tracker query below. A session without that context falls through to the cases below unchanged.
 
-Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira).
+Resolve "me" via the tracker's current-user call, then query the configured project for issues that are In Progress AND assigned to me (see docs/JIRA.md for Jira, docs/ADAPTERS.md for Linear).
 
 **Case A — exactly one In-Progress ticket assigned to me:** That is the current ticket. Load it for full description / AC / files / milestone.
 
@@ -265,7 +265,7 @@ Report:
 
 Before presenting options, check if this was the last ticket in its milestone:
 1. Read the current ticket and note its milestone (the tracker's current-ticket + milestone lookup — see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira)
-2. Read that milestone's ordered ticket list (Linear: the `## Order` section of the milestone description; Jira: the milestone Story's child tickets by rank)
+2. Read that milestone's ordered ticket list (Jira: the milestone Story's child tickets by rank; Linear: the `## Order` section of the milestone description)
 3. Look up each ticket's status
 4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
 5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
@@ -302,7 +302,7 @@ Report:
 
 Before presenting options, check if this was the last ticket in its milestone:
 1. Read the current ticket and note its milestone (the tracker's current-ticket + milestone lookup — see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira)
-2. Read that milestone's ordered ticket list (Linear: the `## Order` section of the milestone description; Jira: the milestone Story's child tickets by rank)
+2. Read that milestone's ordered ticket list (Jira: the milestone Story's child tickets by rank; Linear: the `## Order` section of the milestone description)
 3. Look up each ticket's status
 4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
 5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.

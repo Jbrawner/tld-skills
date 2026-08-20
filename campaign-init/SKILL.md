@@ -7,7 +7,7 @@ description: |
   exists in the current repo. Creates the four required sections (Project, Test Commands,
   Stack, Commit format) and can optionally scaffold the v0.2 sections (Pipelines, Allowed
   statuses); omitting them yields today's fixed default flow. Canonical schema:
-  docs/CAMPAIGN_SCHEMA.md. Linear and Jira are both supported issue trackers (see
+  docs/CAMPAIGN_SCHEMA.md. Jira and Linear are both supported issue trackers (see
   LIMITATIONS.md); GitHub Issues and Other are accepted in the schema but unimplemented —
   no TLD skill resolves operations against them.
 ---
@@ -35,8 +35,8 @@ If `{cwd}/.tld/` does not exist yet, note that — you'll create it in step 7.
 Walk the four fields in order using AskUserQuestion.
 
 **Issue tracker** — enum. Options in this order:
-- **Linear (Recommended)** — the framework was built against Linear MCP and ships with wired tooling.
-- **Jira** — supported via the Atlassian MCP connector (Jira Cloud). See docs/JIRA.md.
+- **Jira (Recommended)** — the framework's default tracker, via the Atlassian MCP connector (Jira Cloud). See docs/JIRA.md.
+- **Linear** — supported via Linear MCP. Contract: docs/ADAPTERS.md.
 - **GitHub Issues** — schema accepts it; downstream skills will need adaptation.
 
 AskUserQuestion automatically provides an "Other" option; accept any free-text value the user supplies there.
@@ -47,11 +47,11 @@ If the user picks `Jira`, print this note before moving on:
 
 If the user picks `GitHub Issues` or a free-text `Other` value (anything other than `Linear` or `Jira`), immediately print this advisory before moving on:
 
-> **Heads up:** Only Linear and Jira are wired end to end. Other trackers (GitHub Issues, anything else) are accepted in the schema but **unimplemented** — the TLD pipeline resolves tracker calls for Linear (docs/ADAPTERS.md) and Jira (docs/JIRA.md) only, and will need adapter work for anything else (manual ticket-status flips, hand-rolled label workflow, etc.). It's still worth the try if you're already invested in another tracker — most of the framework's value (hard-stop discipline, drift checks, side-quest isolation, the campaign file itself) works regardless of where tickets live. See LIMITATIONS.md and docs/ADAPTERS.md for the full surface a future adapter would need to cover.
+> **Heads up:** Only Jira and Linear are wired end to end. Other trackers (GitHub Issues, anything else) are accepted in the schema but **unimplemented** — the TLD pipeline resolves tracker calls for Linear (docs/ADAPTERS.md) and Jira (docs/JIRA.md) only, and will need adapter work for anything else (manual ticket-status flips, hand-rolled label workflow, etc.). It's still worth the try if you're already invested in another tracker — most of the framework's value (hard-stop discipline, drift checks, side-quest isolation, the campaign file itself) works regardless of where tickets live. See LIMITATIONS.md and docs/ADAPTERS.md for the full surface a future adapter would need to cover.
 
 **Project name** — free text, non-empty (re-ask if empty). In the prompt, explain that this is both the display name AND the identifier the framework will use to look the project up in the chosen tracker. Examples: for Linear it's the Linear project name (e.g. "Adventure Skills"); for Jira it's the display project name (the Jira project key is taken from the Ticket prefix field below, e.g. prefix "PROJ" for tickets like "PROJ-123"); for GitHub Issues it would be the `owner/repo` slug.
 
-**Team** — free text. Label the prompt "Linear team" when tracker=Linear, otherwise "Team / workspace". Blank is technically allowed, but if the user leaves it blank print this warning before moving on:
+**Team** — free text. Label the prompt "Linear team" when tracker=Linear, "Jira project" when tracker=Jira, otherwise "Team / workspace". Blank is technically allowed, but if the user leaves it blank print this warning before moving on:
 
 > ⚠️ **Heads up:** Leaving Team blank will fail `/campaign-validate` (which requires a non-empty Team) and Linear team-existence checks in `/campaign-test`. Recommend filling it in now to avoid an error in the next setup steps.
 

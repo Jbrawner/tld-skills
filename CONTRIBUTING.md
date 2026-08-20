@@ -68,7 +68,7 @@ For the canonical set of approval keywords every gate skill accepts, see [STANDA
 
 Skills no longer parse a playbook. Structure and runtime state live in two places and nowhere else:
 
-1. **Linear** — authoritative for milestone list (sorted by `sortOrder`), per-milestone metadata (purpose, scope, exit criteria), the ordered ticket sequence within each milestone (the `## Order` section of the milestone description), and every ticket's status (Todo / In Progress / Done / Canceled).
+1. **The tracker** — authoritative for the milestone list, per-milestone metadata (purpose, scope, exit criteria), the ordered ticket sequence within each milestone, and every ticket's status (Todo / In Progress / Done / Canceled). How the order is stored is tracker-specific: on Jira it is the sub-tasks' native rank; on Linear it is the `## Order` section of the milestone description, and milestones sort by `sortOrder`.
 2. **`.tld/campaign.md`** — a per-repo file holding only static local config: which issue tracker and project to talk to, what test commands to run, where the stack lives, and how commits should be formatted. No milestone list. No Active section. No ticket-order cache.
 
 The rest of this section defines the exact contract both sides must meet.
@@ -108,7 +108,7 @@ That is the whole file. If a skill needs a value that is not in one of these fou
 
 **Location:** `{repo-root}/.tld/campaign.md`. The directory is gitignored; the file is per-clone.
 
-### Linear milestone description schema
+### Linear milestone description schema (Linear only)
 
 Every milestone created by the planning skills (or by hand) must have a description with these six sections, in this order:
 
@@ -166,14 +166,14 @@ Every TLD and campaign skill falls into exactly one category below. This matrix 
 | Category | Skills | Write target |
 |---|---|---|
 | **Writes `.tld/campaign.md`** | `/campaign-init`, `/campaign-edit` | Local file — creates or edits the four sections |
-| **Writes Linear structure** (milestones, tickets, milestone descriptions) | `/campaign-plan`, `/milestone-create`, `/milestone-sync`, `/tld-ticket`, `/tld-cancel` | Linear — creates/modifies milestones and tickets; writes `## Order` sections (`/tld-cancel` rewrites the active milestone's `## Order` to remove the canceled ticket) |
-| **Writes Linear ticket status** (state transitions) | `/tld-setup`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-commit`, `/tld-run-test`, `/tld-pr`, `/tld-side-quest` | Linear — flips ticket status (Todo ↔ In Progress ↔ Done ↔ Canceled, plus side-quest branches). `/tld-cancel` appears here AND in "Writes Linear structure" because it does both. `/tld-pr` marks the ticket Done as part of landing it (see the landing-step note below the table). |
-| **Read-only** | `/tld-write-tests`, `/tld-build`, `/tld-align`, `/tld-audit`, `/tld-save-point`, `/tld-dashboard`, `/tld-help`, `/tld-gate`, `/campaign-show`, `/campaign-test`, `/campaign-validate` | Nothing — queries Linear and/or the campaign file |
-| **Local-git only** (no Linear, no campaign.md) | `/tld-recenter` | Local git — creates a fresh branch off `main`; refuses if working tree is dirty |
+| **Writes tracker structure** (milestones, tickets, milestone descriptions) | `/campaign-plan`, `/milestone-create`, `/milestone-sync`, `/tld-ticket`, `/tld-cancel` | The tracker — creates/modifies milestones and tickets; writes `## Order` sections (`/tld-cancel` rewrites the active milestone's `## Order` to remove the canceled ticket) |
+| **Writes tracker ticket status** (state transitions) | `/tld-setup`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-commit`, `/tld-run-test`, `/tld-pr`, `/tld-side-quest` | The tracker — flips ticket status (Todo ↔ In Progress ↔ Done ↔ Canceled, plus side-quest branches). `/tld-cancel` appears here AND in "Writes tracker structure" because it does both. `/tld-pr` marks the ticket Done as part of landing it (see the landing-step note below the table). |
+| **Read-only** | `/tld-write-tests`, `/tld-build`, `/tld-align`, `/tld-audit`, `/tld-save-point`, `/tld-dashboard`, `/tld-help`, `/tld-gate`, `/campaign-show`, `/campaign-test`, `/campaign-validate` | Nothing — queries the tracker and/or the campaign file |
+| **Local-git only** (no tracker, no campaign.md) | `/tld-recenter` | Local git — creates a fresh branch off `main`; refuses if working tree is dirty |
 | **Aggregator** (writes indirectly, via sub-skills) | `/tld-partial-auto`, `/tld-full-auto`, `/npc-partial`, `/npc-full` | Whatever sub-skills write. `/tld-partial-auto` and the NPC variants chain `/tld-build` → commit → `/tld-next`. `/tld-full-auto` runs the pipeline only to a verified checkpoint and stops before commit — it never commits, pushes, opens a PR, or marks Done itself. `/tld-full-auto` is the one aggregator that also writes a tracker resource of its own: a best-effort ticket comment (LOW audit findings on a clean run; the stop reason on any stop). |
 | **Merges the default branch** (the only such skill) | `/tld-autoland` | This repo + the tracker. Wraps `/tld-full-auto` per ticket and then does the landing itself: commits, marks the ticket Done, pushes a per-ticket branch, opens a PR, and squash-merges it once CI reports green. Also writes ticket comments (merge receipts, park reasons) and transitions a parked ticket back to Todo. See the merge note below the table. |
-| **Writes external repo** (PR against the skills repo) | `/tld-experience` | `Jbrawner/tld-skills` — pushes a branch and opens a PR with a new SKILL.md. Does not touch the current repo's Linear or campaign.md. |
-| **Writes release artifacts** (CHANGELOG bump + release branch + GitHub Release) | `/tld-release` | This repo — bumps `CHANGELOG.md`, opens a release-branch PR, and after merge runs `gh release create` to publish a tagged GitHub Release. Then watches the marketplace auto-bump workflow that runs in `Jbrawner/claude-skills`. Does not touch Linear or `.tld/campaign.md`. |
+| **Writes external repo** (PR against the skills repo) | `/tld-experience` | `Jbrawner/tld-skills` — pushes a branch and opens a PR with a new SKILL.md. Does not touch the current repo's tracker or campaign.md. |
+| **Writes release artifacts** (CHANGELOG bump + release branch + GitHub Release) | `/tld-release` | This repo — bumps `CHANGELOG.md`, opens a release-branch PR, and after merge runs `gh release create` to publish a tagged GitHub Release. Then watches the marketplace auto-bump workflow that runs in `Jbrawner/claude-skills`. Does not touch the tracker or `.tld/campaign.md`. |
 | **Deletes only** | `/campaign-remove` | Local file — removes `.tld/campaign.md` |
 
 `/tld-gate` is read-only because ticket statuses are set by `/tld-next` before the gate runs; the gate verifies but does not transition.
@@ -190,12 +190,12 @@ Two rules follow for anyone changing this skill. **Do not add an override** — 
 
 `/tld-recenter` is the only TLD skill that does NOT embed the canonical "Load project config" block. It operates purely on git state (`git status`, `git checkout`, `git pull --ff-only`, `git checkout -b`) and intentionally does not read `.tld/campaign.md` — there is no project config it needs. Every other skill in this matrix loads the campaign first.
 
-### Error handling: Linear unreachable
+### Error handling: tracker unreachable
 
-There is no offline mode. If a Linear call fails (network error, auth failure, rate limit, 5xx), the skill surfaces the error and exits. Skills must not proceed against stale cached state — the campaign file has no ticket-order or status cache by design, so there is nothing to fall back to.
+There is no offline mode. If a tracker call fails (network error, auth failure, rate limit, 5xx), the skill surfaces the error and exits. Skills must not proceed against stale cached state — the campaign file has no ticket-order or status cache by design, so there is nothing to fall back to.
 
 ### Rule: no local state cache
 
-Linear ticket status (Todo / In Progress / Done / Canceled) is the **sole** indicator of runtime position. The campaign file has no `Active.Current`, no `Active.Order`, no per-milestone cache. Resume after `/clear` works by reading the In-Progress ticket from Linear, not from disk.
+Tracker ticket status (Todo / In Progress / Done / Canceled) is the **sole** indicator of runtime position. The campaign file has no `Active.Current`, no `Active.Order`, no per-milestone cache. Resume after `/clear` works by reading the In-Progress ticket from the tracker, not from disk.
 
 Adding a local state cache re-introduces drift risk — don't. If a skill thinks it needs one, it is solving the wrong problem.

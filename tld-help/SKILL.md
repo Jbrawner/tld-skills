@@ -18,7 +18,7 @@ Print the reference card below, then determine the user's current position in th
 
 | # | Skill | What it does | When to use |
 |---|-------|-------------|-------------|
-| 1 | `/tld-setup` | Loads next ticket from milestone + Linear | Start of every ticket |
+| 1 | `/tld-setup` | Loads next ticket from milestone + tracker | Start of every ticket |
 | 2 | `/tld-write-tests` | Writes failing tests from the AC | After setup (red phase) |
 | 3 | `/tld-build` | Implements code to make tests pass | After tests are written (green phase) |
 | 4 | `/tld-audit` | Security + architecture review | After build, before verify (optional) |
@@ -46,20 +46,20 @@ Print the reference card below, then determine the user's current position in th
 | `/tld-align` | Fixes implementation after test failures | After `/tld-run-test` fails |
 | `/tld-commit` | Commits the current ticket; asks **commit only** (stay In Progress) vs **commit and progress** (mark Done + next). No push/PR. | Per-ticket landing in a multi-ticket story; or finishing a commit after a detour |
 | `/tld-pr` | Lands a verified ticket: commit → push → open PR, stops before merge | Story end — one PR for all the story's tickets |
-| `/tld-skip` | Reverts to Todo (or Skipped state if Linear team has one) | When a ticket is practically blocked or out of order for today |
+| `/tld-skip` | Reverts to Todo (or Skipped state if the tracker has one) | When a ticket is practically blocked or out of order for today |
 | `/tld-cancel` | Marks the current ticket Canceled and removes it from the milestone Order | When a ticket is no longer needed and should not be picked up again |
 | `/tld-recenter` | Cuts a fresh branch off the latest default branch (detects via `origin/HEAD` → `main` → `master`); refuses if working tree is dirty | After a PR merges, before starting the next ticket |
-| `/tld-save-point` | Recovers your position from milestone + Linear | Start of a new conversation |
+| `/tld-save-point` | Recovers your position from milestone + tracker | Start of a new conversation |
 | `/tld-dashboard` | Shows progress across all milestones and tickets | When you want the big picture |
 
 ### Planning
 
 | Skill | What it does | When to use |
 |-------|-------------|-------------|
-| `/campaign-plan` | Full planning — scope, phases, and tickets, all created in Linear | Starting a new project from scratch |
-| `/milestone-create` | Creates a single Linear milestone (with optional tickets + Order) | Adding one phase without the full /campaign-plan flow |
-| `/milestone-sync` | Authors `## Order` sections on existing Linear milestones missing them | When /tld-setup fails because Order is missing or malformed |
-| `/tld-ticket` | Creates standardized Linear tickets (feature, bug, QA, polish) | When work needs to be tracked |
+| `/campaign-plan` | Full planning — scope, phases, and tickets, all created in the tracker | Starting a new project from scratch |
+| `/milestone-create` | Creates a single milestone (with optional tickets + Order) | Adding one phase without the full /campaign-plan flow |
+| `/milestone-sync` | Authors `## Order` sections on existing Linear milestones missing them (Linear only; a no-op on Jira) | When /tld-setup fails because Order is missing or malformed |
+| `/tld-ticket` | Creates standardized tracker tickets (feature, bug, QA, polish) | When work needs to be tracked |
 
 ### Boundaries + Side Channel
 
@@ -78,10 +78,10 @@ Print the reference card below, then determine the user's current position in th
 | Skill | What it does | When to use |
 |-------|-------------|-------------|
 | `/campaign-init` | Scaffolds `.tld/campaign.md` with the four required sections | Setting up TLD in a new repo |
-| `/campaign-show` | Displays the campaign's four sections plus an optional Linear snapshot | When you need to see the current project config |
+| `/campaign-show` | Displays the campaign's four sections plus an optional tracker snapshot | When you need to see the current project config |
 | `/campaign-edit` | Edits a single field in `.tld/campaign.md` | Updating a test command, stack path, or commit pattern |
-| `/campaign-validate` | Schema-only check (no Linear calls) | Offline, or right after `/campaign-edit` to confirm the file parses |
-| `/campaign-test` | Pre-flight connection check for the campaign (schema + Linear reachability) | Before `/tld-setup`; after `/campaign-init` |
+| `/campaign-validate` | Schema-only check (no tracker calls) | Offline, or right after `/campaign-edit` to confirm the file parses |
+| `/campaign-test` | Pre-flight connection check for the campaign (schema + tracker reachability) | Before `/tld-setup`; after `/campaign-init` |
 | `/campaign-remove` | Deletes `.tld/campaign.md` (and the `.tld/` dir if empty) | Tearing down TLD config in this repo |
 | `/campaign-portless` | Wires portless so this repo or worktree gets a stable `<name>.localhost:1355` URL (installs portless / trusts certs on first run, then per-project: picks a name + free port, writes `.claude/launch.json`, symlinks worktree `.env.local`, registers the alias) | First time on a machine, or first time in a new repo / worktree that needs its own dev URL |
 

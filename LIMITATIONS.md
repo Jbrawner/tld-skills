@@ -2,18 +2,18 @@
 
 Adventure Skills v0.1.0 is alpha software. It was built by dogfooding the framework on a single private project ("mAIn Character") and then extracted for open-source release. Many assumptions that were invisible during dogfooding are surfaced here so you can decide whether the framework fits your project before you adopt it.
 
-## Issue tracker: Linear and Jira supported; others on your own
+## Issue tracker: Jira and Linear supported; others on your own
 
 The skills support two trackers, selected by the `Issue tracker` field in `.tld/campaign.md`:
 
-- **Linear** — the original tracker, exercised end to end. Contract in [docs/ADAPTERS.md](docs/ADAPTERS.md).
-- **Jira** (Cloud, via the Atlassian MCP connector) — supported alongside Linear. Mapping in [docs/JIRA.md](docs/JIRA.md). The state-touching skills branch on the tracker field and follow the Jira path when it is `Jira`.
+- **Jira** (Cloud, via the Atlassian MCP connector) — the default tracker. Mapping in [docs/JIRA.md](docs/JIRA.md). The state-touching skills branch on the tracker field and follow the Jira path when it is `Jira`.
+- **Linear** — the framework's original tracker, still supported and exercised end to end. Contract in [docs/ADAPTERS.md](docs/ADAPTERS.md).
 
 `/campaign-init` and `/campaign-edit` also accept **GitHub Issues** and **Other**, but those remain unimplemented — the schema accepting a tracker name is not the same thing as the framework supporting it. If you pick one of those, `/campaign-init` writes the file and prints an advisory, but the pipeline has no path for them until an adapter lands. See [docs/ADAPTERS.md](docs/ADAPTERS.md) for the full interface contract every adapter must satisfy.
 
 Jira carries its own caveats that Linear does not — order comes from Jira's native rank rather than a `## Order` text list, labels are free-text with no create step or typo protection, and the five Linear status classes collapse into three Jira status categories. These are detailed in [docs/JIRA.md](docs/JIRA.md). Two instance-specific behaviors (rank ordering through the connector, and how a Story parents its Task/Bug tickets) must be confirmed per Jira project; see the Phase 1 spike notes in that file.
 
-## Linear MCP: milestone order is UI-only
+## Linear MCP: milestone order is UI-only (Linear only)
 
 Even on the "supported" Linear tracker, the MCP surface the skills call does not expose every Linear field. `save_milestone` accepts `name`, `description`, and `targetDate` — but not `sortOrder`. Linear's GraphQL has a `projectMilestoneReorder` mutation, but the Linear MCP connector does not surface it.
 
@@ -23,13 +23,13 @@ Workaround: after any skill that creates or splits milestones, open Project → 
 
 Fixing this upstream means wiring `projectMilestoneReorder` into the Linear MCP connector. Deferred until the connector exposes it.
 
-## Linear API unreachable
+## Tracker API unreachable
 
-There is no offline mode. Every skill that calls Linear (`/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-align`, `/tld-audit`, `/tld-commit`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-gate`, `/tld-partial-auto`, `/tld-side-quest`, `/tld-save-point`, `/tld-dashboard`, `/tld-ticket`, `/campaign-plan`, `/milestone-create`, `/milestone-sync`, `/campaign-test`) aborts on the first network error, auth failure, rate limit, or 5xx — there is no retry, no exponential backoff, no fallback to cached state. Read-only skills like `/tld-write-tests` and `/tld-audit` still abort on Linear errors because they embed the canonical "Require current ticket (strict)" block, which queries Linear at step 1.
+There is no offline mode. Every skill that calls the tracker (`/tld-setup`, `/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-align`, `/tld-audit`, `/tld-commit`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-gate`, `/tld-partial-auto`, `/tld-side-quest`, `/tld-save-point`, `/tld-dashboard`, `/tld-ticket`, `/campaign-plan`, `/milestone-create`, `/milestone-sync`, `/campaign-test`) aborts on the first network error, auth failure, rate limit, or 5xx — there is no retry, no exponential backoff, no fallback to cached state. Read-only skills like `/tld-write-tests` and `/tld-audit` still abort on tracker errors because they embed the canonical "Require current ticket (strict)" block, which queries the tracker at step 1.
 
 This is intentional. The campaign file has no ticket-order or status cache by design, so there is nothing to fall back to. Running half a pipeline against stale local data and reporting "partial success" would mask drift that the user cannot see; failing fast keeps the agent honest.
 
-The practical workaround when Linear is genuinely down: note the operation you tried, finish whatever local work you can (write tests, edit code, run the test command), and retry the Linear write manually in the Linear UI once connectivity returns. For a state transition the skill never made (e.g., flipping In Progress → Done), set the status by hand in Linear, then re-enter the pipeline at the next skill.
+The practical workaround when the tracker is genuinely down: note the operation you tried, finish whatever local work you can (write tests, edit code, run the test command), and retry the write manually in the tracker's UI once connectivity returns. For a state transition the skill never made (e.g., flipping In Progress → Done), set the status by hand in the tracker, then re-enter the pipeline at the next skill.
 
 A "stash and retry" pattern — queue the failed write locally and replay it on the next successful call — is not on the roadmap. It re-introduces the cache the framework deliberately avoids.
 

@@ -31,12 +31,12 @@ The tracker, team, prefix, and project name from this block are the only ones th
 
 **Tracker resolution:**
 
-This skill's ticket and milestone operations are written using Linear MCP tool names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
+This skill's ticket and milestone operations are written using neutral adapter names (`get_issue`, `save_issue`, `list_milestones`, and so on). Resolve every such operation against the tracker named in `.tld/campaign.md` → Project → Issue tracker:
 
-- **Linear** — call the Linear MCP tools directly, as written in this skill. Contract: docs/ADAPTERS.md.
-- **Jira** — perform the equivalent operation per docs/JIRA.md instead (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Jira** (default) — perform each operation per docs/JIRA.md (milestone = Story, ticket = Sub-task, order = rank, status by category, status changes via workflow transitions). docs/JIRA.md § Tool-name map is the 1:1 lookup.
+- **Linear** — call the Linear MCP tools directly; they match the adapter names used in this skill. Contract: docs/ADAPTERS.md.
 - **Any other tracker** — stop and output:
-    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Linear, Jira. See LIMITATIONS.md."
+    "Issue tracker '{tracker}' is not supported by the TLD skills. Supported: Jira, Linear. See LIMITATIONS.md."
   Do not invent an adapter.
 
 ### 2. Determine the target ticket
@@ -64,7 +64,7 @@ Skip to step 4.
 
 > **Jira path:** there is no `## Order` text to parse. Walk the milestone **Stories** by rank; for each, list its child **Sub-tasks** ordered by rank (`parent = "<storyKey>" ORDER BY Rank ASC`) and return the first sub-task that is not Done/Canceled, not already In Progress for someone other than you (a sub-task claimed by another assignee is skipped — the multi-person rule), and whose blockers are all Done/Canceled (its `is blocked by` links all resolved). A still-blocked sub-task is skipped: take the next ready sub-task by rank, and if every remaining unfinished sub-task is blocked, report the outstanding blockers instead of returning one. Resolve "me" via `atlassianUserInfo`. See docs/JIRA.md § Milestone and ordering. The Linear `## Order` walk below does not apply.
 
-1. Call `list_milestones` for the configured Linear project, sorted by `sortOrder` ascending.
+1. Call `list_milestones` for the configured project, sorted by `sortOrder` ascending.
 2. If the result is empty, stop and output:
      "No milestones in project '{project name}' — run /campaign-plan or /milestone-create to create one."
 3. Walk the milestones in order. For each milestone:
@@ -163,7 +163,7 @@ Present the full ticket context directly in the conversation. Structure your out
 **Labels:** {comma-separated backticked labels, e.g. `effort:low`, `model:sonnet` — or `_none_` if the ticket has no labels}
 
 ### Description
-{full ticket description from Linear}
+{full ticket description from the tracker}
 
 ### Acceptance Criteria
 {extracted AC items as a checklist}

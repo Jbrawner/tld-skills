@@ -43,7 +43,7 @@ BLOCKS: list[tuple[str, str]] = [
     ),
     (
         "Tracker resolution",
-        "is not supported by the TLD skills. Supported: Linear, Jira.",
+        "Do not invent an adapter.",
     ),
     (
         "Resolve next ticket (discovery)",
