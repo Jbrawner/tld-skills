@@ -196,25 +196,32 @@ Run exactly one lens, `<lens>`. Do not run the others; each has its own schedule
 Everything below is a summary so the run fails safe, not a replacement for reading SKILL.md.
 
 ## Guardrails
-<baseline-missing rule, preflight rule, read-only rule, local-database rule, repo-scope rule>
+<baseline-missing rule, preflight rule, read-only rule, local-database rule, repo-scope rule,
+ never-repair-git rule, notify-on-skip rule>
 
 ## Tickets
-<file automatically, de-dup on own label AND sibling labels, never cap, nothing dated in a lookup>
+<file automatically, de-dup on own label AND sibling labels, never cap, nothing dated in a lookup,
+ and give every filed ticket an explicit landing status>
 
 ## Report
 <counts table, name the project, then state what did not make it>
 ```
 
-The four guardrails every wrapper carries, worded to fail safe:
+The guardrails every wrapper carries, worded to fail safe:
 
 - **A missing baseline is a SKIPPED RUN, not a first run.** Running without it reports every already
   tracked finding as new and duplicates every open ticket the project has.
 - **An unavailable dependency is a SKIPPED RUN, not a clean pass.** Report what was unreachable and
   stop. Never report a green result from a check that did not execute. A missed week costs nothing; a
   false all-clear costs everything the check is for.
-- **Read-only.** No code edits, no migrations, no database writes, no commits, no pushes, no pull
-  requests, nothing moved to Done. The only writes are the tickets, the dated run record, and the
-  baseline's own bookkeeping.
+- **Read-only on the project.** No code edits, no migrations, no database writes, no pull requests,
+  nothing moved to Done. The only writes are the tickets, the dated run record, and this run's own
+  findings file, plus the one commit and push that carries those two files out of the throwaway
+  worktree.
+- **Never repair git.** If a git command reports a state it does not like, stop and report what it
+  printed. Do not stash, reset, checkout, merge, rebase or clean.
+- **A run that stops early pushes a notification.** Every stopping condition above ends in a message
+  to a human, not only in the transcript.
 - **Local database only**, where the audit reads one. Pin the expected instance identity from the
   repo's own config and refuse any host that is not loopback.
 
@@ -224,42 +231,61 @@ constant does not raise an error, it quietly stops matching, and here that inver
 de-dup finds nothing, everything looks new, and the run duplicates every open ticket every week. A
 dated label on ticket output is fine, because it is built at run time. A date inside a lookup is not.
 
-**Point every wrapper's baseline at a persistent bookkeeping worktree, never at the main checkout and
-never at the run's own throwaway worktree.** Both of those alternatives fail, in opposite directions:
+**Every wrapper reads the baseline from the run's own worktree, and never writes to it.** The baseline
+is curated by a human on `main`, and a run's own worktree is already a fresh checkout of `main`, so a
+run always reads the current curated config for free. There is no sync step to forget and no second
+copy to drift.
 
-| Where the baseline lives | How it fails |
+Two designs look reasonable here and both fail. Say why in the wrapper, or a later reader will
+reintroduce one of them:
+
+| Design | How it fails |
 | --- | --- |
-| The run's throwaway worktree | Bookkeeping is deleted with the worktree, so the de-dup forgets every ticket it filed and the next run duplicates all of them |
-| The user's main checkout | The sweep leaves uncommitted edits in a tree somebody works in. A `git stash`, a `git checkout -- .`, or a branch switch silently discards them, and the loss is invisible until the duplicate tickets arrive |
+| Runs write bookkeeping into the throwaway worktree | Deleted with the worktree, so the de-dup forgets every ticket it filed and the next run duplicates all of them |
+| Runs share one mutable baseline in a persistent worktree | Every run merges and edits the same file. One half-finished merge wedges the tree, and every later run correctly refuses to touch it. This is not hypothetical: it silenced nineteen routines for two consecutive weekends before the design was changed |
 
-So create one persistent worktree per project, outside the repository, pinned to a branch nobody
-works in by hand:
+The shared-file design fails for a reason no amount of care fixes: concurrent writers, one file, and a
+merge step on the critical path of an unattended job. Remove the shared file instead.
 
-```bash
-git -C <repo-root> branch chore/sweep-bookkeeping main
-git -C <repo-root> worktree add ~/.claude/sweep-bookkeeping/<repo-basename> chore/sweep-bookkeeping
+**So each run writes one new file that no other run can be writing.** Beside the baseline:
+
+    <baseline dir>/sweep-findings/<lens>/<date>.json
+
+One lens, one date, one path. Two runs never target the same file, so they cannot conflict and cannot
+block each other. The file records what the run would previously have added to the baseline: the rows
+it filed, and anything it reviewed and accepted with the reason.
+
+```json
+{
+  "lens": "<lens>", "date": "<date>", "completed": true,
+  "known_open": [{ "object": "<lens>::<file>::<symbol>", "ticket": "<KEY-123>", "summary": "one line" }],
+  "accepted": [{ "object": "<lens>::<file>::<symbol>", "reason": "why this is deliberately not a finding" }]
+}
 ```
 
-Put the baselines there and have every wrapper read and write that copy, leaving its edits
-uncommitted exactly as before. Nothing stashes or resets that tree, so the bookkeeping is durable,
-and a human merges the branch when they want to review what accumulated. Keep it outside the
-repository: a worktree parked under a gitignored directory inside the repo tends to get treated as
-disposable and swept up with the ephemeral ones.
+`/quality-sweep`'s engine unions that directory into the baseline at load time and de-dups on `object`
+identity, so the next run sees every earlier run's findings without any file having been edited. Audits
+whose baseline format cannot union itself leave the fold to the collector below.
 
-**Then give each wrapper a sync step**, or the sweeps drift from the curated config:
+**Each run then commits its own two files and pushes a branch**, `sweep/<lens>-<date>`, before its
+worktree is thrown away. Staging is restricted to the findings file and the dated run record. This is
+the one write to git a run performs, and it is an append of new paths, never an edit of a shared one.
 
-```bash
-git -C ~/.claude/sweep-bookkeeping/<repo-basename> fetch origin main
-git -C ~/.claude/sweep-bookkeeping/<repo-basename> merge --no-edit origin/main
-```
+**Generate one more wrapper: a collector.** Without it the branches pile up and nothing reaches `main`.
+It runs once after the last sweep of the cycle, merges the `sweep/*` branches into one integration
+branch, folds any non-unioning audit's rows into that audit's baseline, opens a single pull request and
+reports **which scheduled lenses produced no branch at all**. That last part is the only detector of a
+run that died before it could report anything, so it is not optional.
 
-A baseline has two halves with two different authors. The curated half (config, lenses, focus areas,
-benign patterns, accepted exceptions) is edited by a human on `main`. The bookkeeping half
-(`known_open`, `last_completed`) is written by the sweeps on the branch. Without the sync, a lens
-runs against focus areas the human already corrected and looks in the wrong place. The two halves
-occupy different regions of the file, so a clean merge is the normal case, and **a conflict is a
-SKIPPED RUN** rather than something for the run to resolve by guessing. Say all of this in the
-wrapper, with the reason, or a later reader will "fix" it back to the main checkout.
+**A run never repairs git.** No `stash`, `reset`, `checkout --`, `merge`, `rebase`, `cherry-pick` or
+`clean`, ever. If git complains, the run stops and reports. The outage above began with one run trying
+to be helpful and left a wedged index that stopped the next fifteen; simply stopping would have cost
+one run.
+
+**A run that stops early must wake somebody up.** Push a notification on every stopping condition:
+missing baseline, unreachable dependency, refused git state. Successful runs stay silent, and only the
+collector reports on success. A run that writes a perfect explanation into a transcript nobody opens
+has not reported anything, which is how two weekends were lost without anyone noticing.
 
 ## Step 8: Propose a schedule, then ask
 
@@ -271,11 +297,16 @@ Build the proposal, print it as a table, and **do not register anything until th
   lower-ranked ones lose.
 - Keep the whole family inside a window the user is not working in, and keep any review or reporting
   routine on a different day from the sweeps it reads, so it reads a finished weekend.
+- **The collector goes after the last sweep of the cycle and before any routine that reads the
+  result.** It is the step that moves the weekend's findings into `main`, so a routine scheduled ahead
+  of it reads a cycle that has not landed yet.
 - Cron is evaluated in local time.
 
-On approval, register each wrapper. Then list the scheduled tasks back and confirm every one appears
-with a sane next run. A wrapper written to disk but never registered is the failure this skill exists
-partly to prevent, and it is invisible from the file listing.
+On approval, register each wrapper, **including the collector**. Then list the scheduled tasks back and
+confirm every one appears with a sane next run. Compare that list against the wrappers on disk by name
+and report any wrapper that is missing from it. A wrapper written to disk but never registered is the
+failure this skill exists partly to prevent, it is invisible from the file listing, and the collector is
+the easiest one to leave out because it is generated last.
 
 ## Step 9: Report
 
