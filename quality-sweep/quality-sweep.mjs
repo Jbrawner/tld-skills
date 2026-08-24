@@ -22,8 +22,8 @@
  * ticket prefix, a team convention, or a threshold. All of that is the baseline's job.
  */
 
-import { readFileSync, existsSync, statSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { join, resolve, sep, dirname } from "node:path";
 
 const EXIT_COMPLETE = 0;
 const EXIT_PARTIAL = 1;
@@ -31,6 +31,9 @@ const EXIT_NOT_RUN = 2;
 
 const BASELINE_NAME = "quality-sweep-baseline.json";
 const BASELINE_DIRS = [".tld", ".claude", ""];
+// Per-run findings live one file per lens per run, beside the baseline. Two runs never write
+// the same path, so they cannot conflict and cannot block each other. See RUN_PROTOCOL.md.
+const FINDINGS_DIR = "sweep-findings";
 const SEP = "::";
 
 // ---------------------------------------------------------------------------
@@ -112,13 +115,87 @@ function loadBaseline(root, named) {
           `  Omit --baseline entirely if this project genuinely has no baseline yet.`,
       );
     }
-    return { baseline: parseBaseline(named), path: named, degraded: false };
+    const b = parseBaseline(named);
+    const f = mergeFindings(b, dirname(resolve(named)));
+    return { baseline: b, path: named, degraded: false, findings: f };
   }
   for (const dir of BASELINE_DIRS) {
     const p = dir ? join(root, dir, BASELINE_NAME) : join(root, BASELINE_NAME);
-    if (existsSync(p)) return { baseline: parseBaseline(p), path: p, degraded: false };
+    if (existsSync(p)) {
+      const b = parseBaseline(p);
+      const f = mergeFindings(b, dirname(resolve(p)));
+      return { baseline: b, path: p, degraded: false, findings: f };
+    }
   }
   return { baseline: structuredClone(EMPTY_BASELINE), path: null, degraded: true };
+}
+
+// Union every per-run findings file beside the baseline into the in-memory baseline.
+//
+// Each run writes exactly one new file, <baselineDir>/sweep-findings/<lens>/<YYYY-MM-DD>.json, and
+// never edits an existing one. That is the whole reason this function exists: the single shared
+// mutable baseline it replaces could be jammed by one bad merge, which silenced every routine for
+// two weekends in Aug 2026. Reading is a union of immutable files, so there is nothing to conflict.
+//
+// A malformed findings file is fatal, exactly like a malformed baseline: skipping it would silently
+// report already-ticketed findings as new and duplicate every ticket it holds.
+function mergeFindings(baseline, baselineDir) {
+  const root = join(baselineDir, FINDINGS_DIR);
+  if (!existsSync(root)) return { files: 0, known_open: 0, accepted: 0 };
+
+  const seenOpen = new Set(baseline.known_open.map((r) => r.object));
+  const seenAccepted = new Set(baseline.accepted.map((r) => r.object));
+  const stat = { files: 0, known_open: 0, accepted: 0 };
+
+  const lensDirs = readdirSync(root, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .sort();
+
+  for (const lensDir of lensDirs) {
+    const dir = join(root, lensDir);
+    const files = readdirSync(dir).filter((f) => f.endsWith(".json")).sort();
+    for (const f of files) {
+      const p = join(dir, f);
+      let doc;
+      try {
+        doc = JSON.parse(readFileSync(p, "utf8"));
+      } catch (e) {
+        die(
+          `findings file is not valid JSON: ${p} (${e.message})\n` +
+            `  Refusing to continue. A malformed findings file must never be read as an empty one, ` +
+            `or every finding it records re-files as a new ticket.`,
+        );
+      }
+      if (doc === null || typeof doc !== "object" || Array.isArray(doc)) {
+        die(`findings file must be a JSON object: ${p}`);
+      }
+      stat.files += 1;
+
+      for (const [key, seen] of [["known_open", seenOpen], ["accepted", seenAccepted]]) {
+        const rows = doc[key];
+        if (rows === undefined) continue;
+        if (!Array.isArray(rows)) die(`findings file key "${key}" must be an array: ${p}`);
+        for (const row of rows) {
+          if (!row || typeof row.object !== "string") {
+            die(`findings row is missing a string "object" identity: ${p}`);
+          }
+          if (seen.has(row.object)) continue;
+          seen.add(row.object);
+          baseline[key].push(row);
+          stat[key] += 1;
+        }
+      }
+
+      // A completed run stamps its lens. Latest date wins, so replaying old files is harmless.
+      const lens = typeof doc.lens === "string" ? doc.lens : lensDir;
+      if (doc.completed === true && typeof doc.date === "string" && baseline.lenses[lens]) {
+        const prev = baseline.lenses[lens].last_completed;
+        if (!prev || doc.date > prev) baseline.lenses[lens].last_completed = doc.date;
+      }
+    }
+  }
+  return stat;
 }
 
 function parseBaseline(p) {
@@ -277,7 +354,7 @@ function daysBetween(thenISO, nowMs) {
 }
 
 function buildManifest(ctx) {
-  const { baseline, lens, root, baselinePath, degraded } = ctx;
+  const { baseline, lens, root, baselinePath, degraded, findings } = ctx;
   const nowMs = Date.now();
   const cfg = baseline.config || {};
   const maxMinutes = Number(lens.max_run_minutes ?? cfg.max_run_minutes ?? 0) || null;
@@ -307,6 +384,7 @@ function buildManifest(ctx) {
     undeclared: !!lens.undeclared,
     root,
     baselinePath,
+    findings: findings || { files: 0, known_open: 0, accepted: 0 },
     degraded,
     reviewFolder: lens.review_folder || null,
     labels: {
@@ -347,6 +425,10 @@ function printManifest(m) {
   L.push(`LENS: ${m.lens}${m.rank != null ? `  (rank ${m.rank})` : ""}`);
   L.push(`ROOT: ${m.root}`);
   L.push(`BASELINE: ${m.baselinePath ?? "none found"}`);
+  L.push(
+    `FINDINGS: ${m.findings.files} per-run file(s) merged in ` +
+      `(+${m.findings.known_open} known_open, +${m.findings.accepted} accepted)`,
+  );
   L.push("");
 
   if (m.degraded) {
@@ -913,7 +995,7 @@ function main() {
   }
 
   const namedBaseline = typeof args.baseline === "string" ? args.baseline : null;
-  const { baseline, path: baselinePath, degraded } = loadBaseline(root, namedBaseline);
+  const { baseline, path: baselinePath, degraded, findings } = loadBaseline(root, namedBaseline);
 
   if (args.listLenses) {
     const entries = Object.entries(baseline.lenses || {})
@@ -936,7 +1018,7 @@ function main() {
 
   if (!args.lens || args.lens === true) die("--lens is required. Use --list-lenses to see them.");
   const lens = resolveLens(baseline, String(args.lens));
-  const ctx = { baseline, lens, root, baselinePath, degraded };
+  const ctx = { baseline, lens, root, baselinePath, degraded, findings };
 
   if (args.classify && args.classify !== true) {
     const input = loadFindings(String(args.classify));
