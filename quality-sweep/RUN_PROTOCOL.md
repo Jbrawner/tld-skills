@@ -18,6 +18,7 @@ It already contains everything you need:
 | What previous runs already found and ticketed | `.claude/sweep-findings/<lens>/*.json` |
 | Your run record goes here | `docs/auto_reviews/<review_folder>/<date>.md` |
 | Your findings go here | `.claude/sweep-findings/<lens>/<date>.json` |
+| Your run record's index row goes here | `docs/auto_reviews/<review_folder>/README.md` |
 
 The engine reads the baseline and unions every findings file under `.claude/sweep-findings/`
 automatically. Point it at your worktree and it resolves both:
@@ -95,12 +96,29 @@ run today. Report that and stop rather than overwriting it.
 Your worktree is thrown away after the run. Anything you have not pushed is lost, which is how
 almost every run record written before September 2026 was destroyed.
 
+Add your run to your lens's own index first, so the report can be found. Open
+`docs/auto_reviews/<review_folder>/README.md` and add one row to its `## Runs` table, newest first,
+in the format the table already uses. If the table still says "No runs yet", replace that line with
+your row. Then:
+
     git checkout -b sweep/<lens>-<date>
-    git add .claude/sweep-findings/<lens>/<date>.json docs/auto_reviews/<review_folder>/<date>.md
+    git add .claude/sweep-findings/<lens>/<date>.json \
+            docs/auto_reviews/<review_folder>/<date>.md \
+            docs/auto_reviews/<review_folder>/README.md
     git commit -m "Quality sweep: <lens> <date>"
     git push -u origin sweep/<lens>-<date>
 
-Stage only those two paths. Never `git add -A` or `git add .`.
+Stage only those three paths. Never `git add -A` or `git add .`.
+
+**The third path is your lens's own README, never the shared one.** `docs/auto_reviews/README.md`,
+at the top level, is written by every lens and is the one file here that two runs can genuinely
+collide on. Leave it alone. `docs/auto_reviews/<review_folder>/README.md` is yours alone, which is
+what makes it safe to stage.
+
+This third path was missing until August 2026, and the cost was invisible: on the weekend of
+2026-08-24, twelve of seventeen lenses wrote a run record that their own index never listed, so the
+index said "No runs yet" while the report sat in the same directory. Five lenses updated it anyway
+and were the only ones findable. A report nobody can find is not a report.
 
 Do not open a pull request and do not merge. The Monday collector routine gathers the weekend's
 `sweep/*` branches into a single pull request. Do not add the `ci:run` label to anything; these
