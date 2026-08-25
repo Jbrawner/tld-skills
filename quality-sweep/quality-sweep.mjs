@@ -23,6 +23,7 @@
  */
 
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { join, resolve, sep, dirname } from "node:path";
 
 const EXIT_COMPLETE = 0;
@@ -128,6 +129,104 @@ function loadBaseline(root, named) {
     }
   }
   return { baseline: structuredClone(EMPTY_BASELINE), path: null, degraded: true };
+}
+
+// ---------------------------------------------------------------------------
+// suppression is a live fact, not a stored one
+// ---------------------------------------------------------------------------
+//
+// A `known_open` row means "already ticketed, stay quiet about it". That is only true while the
+// ticket is open. Nothing about the row changes when the ticket closes, so a row written a year ago
+// keeps suppressing a finding whose ticket is long since Done -- and a defect that comes back is met
+// with silence by the one check that exists to notice it.
+//
+// This is not a housekeeping problem, it is a modelling one. The row stores a STATUS captured at
+// write time and the engine consumes it as if it were still true at read time. The tracker owns that
+// status and keeps changing it afterwards, so any stored copy rots. Pruning by hand treats the
+// symptom; it also cannot work at all for the per-run findings files, which are immutable by design
+// and therefore have no one to prune them.
+//
+// So the row stores only the ticket key, which is permanent, and the status is resolved here on
+// every run. Rot stops being something to remember and becomes impossible.
+//
+// On 2026-08-25 this was measured before the check existed: 982 of 1,248 rows, 78%, were muting
+// tickets that had already closed.
+//
+// A row whose ticket has closed is not simply dropped. It moves to `regression_watch`: if this run
+// detects that object again, that is a REGRESSION of closed work, which is the most valuable thing
+// a recurring check produces and which routes to human review rather than the ready-for-dev queue.
+//
+// PROJECT RULE (see the file header): the command and the key pattern are configuration, never
+// constants. This engine must not know what a ticket key looks like in any particular tracker.
+function verifySuppressions(baseline) {
+  const cfg = baseline.config || {};
+  const cmdTemplate = cfg.ticket_status_command;
+  const keyPattern = cfg.ticket_key_pattern;
+
+  const rows = baseline.known_open || [];
+
+  if (typeof cmdTemplate !== "string" || typeof keyPattern !== "string") {
+    return {
+      verified: false,
+      reason:
+        'config.ticket_status_command and config.ticket_key_pattern are not both set, so no row ' +
+        'could be checked against the tracker',
+      checked: 0,
+      closed: 0,
+      watch: [],
+    };
+  }
+
+  let re;
+  try {
+    re = new RegExp(keyPattern, "g");
+  } catch (e) {
+    die(
+      `config.ticket_key_pattern is not a valid regular expression: ${e.message}\n` +
+        `  Refusing to continue. An unusable pattern finds no ticket keys, every suppression then ` +
+        `looks unverifiable, and the run reports work as new that is already tracked.`,
+    );
+  }
+
+  const keysOf = (row) => String(row.ticket || "").match(re) || [];
+  const allKeys = [...new Set(rows.flatMap(keysOf))].sort();
+  if (!allKeys.length) return { verified: true, reason: null, checked: 0, closed: 0, watch: [] };
+
+  // Batched: a tracker query naming every key at once is the one that silently truncates.
+  const CHUNK = 100;
+  const closed = new Set();
+  for (let i = 0; i < allKeys.length; i += CHUNK) {
+    const batch = allKeys.slice(i, i + CHUNK);
+    const cmd = cmdTemplate.split("{keys}").join(batch.join(","));
+    let out;
+    try {
+      out = execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 120_000 });
+    } catch (e) {
+      die(
+        `could not read ticket status from the tracker. THIS IS A SKIPPED RUN.\n` +
+          `  command: ${cmd}\n` +
+          `  error:   ${(e && e.message) || e}\n` +
+          `  Refusing to continue. Every suppression in this baseline is an unverified claim that a ` +
+          `ticket is still open. Trusting them blind is how a closed ticket's defect gets muted ` +
+          `forever; ignoring them blind re-files every tracked finding as new. Neither is a run.`,
+      );
+    }
+    // The command prints the keys that are CLOSED. Anything else on the line is ignored, so a CSV
+    // header or a table border costs nothing.
+    for (const k of out.match(re) || []) closed.add(k);
+  }
+
+  const watch = [];
+  const stillOpen = [];
+  for (const row of rows) {
+    const ks = keysOf(row);
+    if (ks.length && ks.every((k) => closed.has(k))) watch.push(row);
+    else stillOpen.push(row);
+  }
+  baseline.known_open = stillOpen;
+  baseline.regression_watch = watch;
+
+  return { verified: true, reason: null, checked: allKeys.length, closed: closed.size, watch };
 }
 
 // Union every per-run findings file beside the baseline into the in-memory baseline.
@@ -354,7 +453,7 @@ function daysBetween(thenISO, nowMs) {
 }
 
 function buildManifest(ctx) {
-  const { baseline, lens, root, baselinePath, degraded, findings } = ctx;
+  const { baseline, lens, root, baselinePath, degraded, findings, suppression } = ctx;
   const nowMs = Date.now();
   const cfg = baseline.config || {};
   const maxMinutes = Number(lens.max_run_minutes ?? cfg.max_run_minutes ?? 0) || null;
@@ -385,6 +484,10 @@ function buildManifest(ctx) {
     root,
     baselinePath,
     findings: findings || { files: 0, known_open: 0, accepted: 0 },
+    suppression: suppression || { verified: false, reason: "not checked", checked: 0, closed: 0, watch: [] },
+    regressionWatch: indexEntries(baseline.regression_watch || [], lens.slug, root).filter(
+      (k) => k.lens === "*" || k.lens === lens.slug,
+    ),
     degraded,
     reviewFolder: lens.review_folder || null,
     labels: {
@@ -429,6 +532,27 @@ function printManifest(m) {
     `FINDINGS: ${m.findings.files} per-run file(s) merged in ` +
       `(+${m.findings.known_open} known_open, +${m.findings.accepted} accepted)`,
   );
+  const sup = m.suppression || {};
+  if (sup.verified) {
+    L.push(
+      `SUPPRESSIONS: ${sup.checked} ticket(s) checked against the tracker, ` +
+        `${sup.closed} closed`,
+    );
+    if ((m.regressionWatch || []).length) {
+      L.push(
+        `   ${m.regressionWatch.length} object(s) on this lens are REGRESSION WATCH: their ticket ` +
+          `closed, so`,
+      );
+      L.push("   they are no longer suppressed. If you detect one again it is a regression of");
+      L.push("   closed work. File it, and land it in human review rather than ready-for-dev.");
+    }
+  } else {
+    L.push("!! SUPPRESSIONS ARE UNVERIFIED.");
+    L.push(`   ${sup.reason || "the tracker was not consulted"}.`);
+    L.push("   Every 'already ticketed, stay quiet' row below is a claim with no expiry check on");
+    L.push("   it. A row whose ticket has since closed will mute that finding forever, which is");
+    L.push("   the exact failure this sweep exists to catch. Report this line in the run record.");
+  }
   L.push("");
 
   if (m.degraded) {
@@ -996,6 +1120,9 @@ function main() {
 
   const namedBaseline = typeof args.baseline === "string" ? args.baseline : null;
   const { baseline, path: baselinePath, degraded, findings } = loadBaseline(root, namedBaseline);
+  // Resolve every suppression against the tracker before anything reads one. See
+  // verifySuppressions: a stored "still open" is a claim with an expiry date on it.
+  const suppression = verifySuppressions(baseline);
 
   if (args.listLenses) {
     const entries = Object.entries(baseline.lenses || {})
@@ -1018,7 +1145,7 @@ function main() {
 
   if (!args.lens || args.lens === true) die("--lens is required. Use --list-lenses to see them.");
   const lens = resolveLens(baseline, String(args.lens));
-  const ctx = { baseline, lens, root, baselinePath, degraded, findings };
+  const ctx = { baseline, lens, root, baselinePath, degraded, findings, suppression };
 
   if (args.classify && args.classify !== true) {
     const input = loadFindings(String(args.classify));
