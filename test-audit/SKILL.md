@@ -217,9 +217,9 @@ step.
   and the specific break it would not catch. Then say which it needs: the missing assertion, or
   deletion with the covering test named. Prefer repair where the test name describes something
   real. Then a **regression guard**: say that the check now watches this object from the next run
-  onward, and that the ticket's `known_open` rows must be pruned from the baseline when it closes.
-  A closed key left in that file suppresses the finding forever, which is the one way this check
-  goes quiet while the defect is still in the tree.
+  onward. Do not ask anybody to prune the row when the ticket closes: the engine resolves every
+  `known_open` ticket's status against the tracker on each run, and a row whose ticket has closed
+  reports `REGRESSION KEY` instead of `KNOWN-OPEN KEY` on its own.
 
 ### 4d — Record it in the baseline
 
@@ -227,6 +227,14 @@ Add each filed object to `known_open` with its new ticket key, so the next run r
 instead of re-triaging it from scratch. Add any pattern you accepted in Step 3 to `accepted` with
 its reason at the same time. Leave the edit uncommitted and say so. The tracker search in 4b is the
 real de-dup guard, so a dirty file is never a reason to skip filing.
+
+### Regression rows
+
+`REGRESSION KEY` means the check still fires on an object whose ticket is **closed**. Signed-off
+work broke again, so it is more urgent than a `NEW` finding, not less, and it is not fresh work:
+route it for human review rather than filing it as a new bug. Report the two header lines verbatim,
+`rows ...` and `suppressions ...`, so a reader can see how many tickets were checked and how many
+had closed.
 
 ## Step 5 — Report
 
@@ -265,8 +273,17 @@ failure this skill exists to find in the tests themselves.
 
 ## Baseline maintenance
 
-- `known_open` pairs an object with the ticket that will fix it. Prune the row when the ticket
-  closes; Step 3 re-checks the status of every key precisely because that pruning gets forgotten.
+- `known_open` pairs an object with the ticket that will fix it. **Leave the row in place when the
+  ticket closes.** It is not stale, it is the regression guard: the fix landed, so the check stops
+  firing and the row costs nothing, and the day the check fires again the row is what makes the run
+  say `REGRESSION` rather than `NEW`.
+- Ticket status is never stored in this file. `config.ticket_status_command` and
+  `config.ticket_key_pattern` let the engine ask the tracker at run time, once per run, batched.
+  Both are required for that check; with either missing the header prints `suppressions !!
+  UNVERIFIED` and every `KNOWN-OPEN` row below it is an unchecked claim. If the command cannot run
+  at all, the run **stops** and exits 2. That is a skipped run, not a clean one: trusting the rows
+  blind mutes a closed ticket's defect forever, and ignoring them blind re-files every tracked
+  finding as new.
 - `accepted` holds reviewed exceptions. Grow it only via Step 3, always with the reason.
 - `config.runners` is the audit's precision, and the only entry that can make the sweep lie in both
   directions. A runner you forget to declare turns its whole suite into false `suite-not-collected`
