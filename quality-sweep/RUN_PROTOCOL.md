@@ -24,11 +24,11 @@ It already contains everything you need:
 The engine reads the baseline and unions every findings file under `.claude/sweep-findings/`
 automatically. Point it at your worktree and it resolves both:
 
-    node /Users/johnbrawner/.claude/skills/quality-sweep/quality-sweep.mjs --lens <lens>
+    node ~/.claude/skills/quality-sweep/quality-sweep.mjs --lens <lens>
 
 **There is no shared bookkeeping worktree any more, and you must not look for one.** Until August
 2026 every routine merged and edited a single shared baseline file. One half-finished merge in that
-file silenced all nineteen routines for two consecutive weekends. Nothing you write is shared with
+file silenced every routine for two consecutive weekends. Nothing you write is shared with
 another run, so nothing you write can block one.
 
 If `.claude/quality-sweep-baseline.json` is not in your worktree, **this is a SKIPPED RUN**, not a
@@ -37,7 +37,7 @@ first run. Report exactly:
     Could not run. The quality-sweep baseline was not found in this run's worktree.
 
 Then stop. Do not reconstruct it, do not fetch it from anywhere else, and do not continue without
-it. A run without the baseline reports all ~1,250 tracked findings as new and duplicates every open
+it. A run without the baseline reports every tracked finding as new and duplicates every open
 ticket the project has. A skipped week costs a week. A run without memory costs a duplicate of every
 ticket, every week, forever.
 
@@ -107,7 +107,7 @@ Write your findings to `.claude/sweep-findings/<lens>/<date>.json`:
   "date": "<date>",
   "completed": true,
   "known_open": [
-    { "object": "<lens>::<file>::<symbol>", "ticket": "LAB-1234", "summary": "one line" }
+    { "object": "<lens>::<file>::<symbol>", "ticket": "<ticket key>", "summary": "one line" }
   ],
   "accepted": [
     { "object": "<lens>::<file>::<symbol>", "reason": "why this is deliberately not a finding" }
@@ -208,11 +208,12 @@ report that and stop, which is the same outcome as before and no worse.
 - **If the thing this lens inspects is unavailable, that is a SKIPPED RUN, not a clean pass.**
   Never report a green result from a check that did not execute. A missed week costs nothing; a
   false all-clear costs everything the check is for.
-- **Local database only**, if this lens touches one. Labsistant's local Supabase stack is project
-  ref `pooeyppuyzvwgcbqctzm` on 127.0.0.1:54322. Confirm with
-  `grep project_id /Users/johnbrawner/Code/lab-inventory/backend/supabase/config.toml`. A second
-  local stack, `tyvqtjqhwkobfmkzyope`, belongs to a different product: never touch it. Refuse any
-  non-loopback host.
+- **Local database only**, if this lens touches one. The baseline's `config.local_database` names
+  the project ref this repo's stack uses, the host it listens on, and the command that confirms it.
+  Run that command and match the ref before you read anything. **Refuse any non-loopback host.** If
+  the machine is running more than one local stack, a ref that does not match the baseline belongs
+  to a different product: never touch it. If the baseline declares no `local_database` and a lens
+  needs one, that is a SKIPPED RUN.
 - **No dates inside a lookup.** A dated label on ticket output is fine, because it is built from
   the real date at run time. A date inside a search or a check is a check that stops matching
   without ever reporting that it stopped.
@@ -284,9 +285,18 @@ it is safe to pick up. **Every ticket you file gets an explicit landing status.*
 the test between them is not how severe the finding is. It is how confident you are that a developer
 can act on it without asking anyone a question.
 
-### Selected for Development
+The two landing statuses, their transition ids, the review label and the maintainer's name are
+**not** written here. Read them from `config.ticket_routing` in the project's quality-sweep
+baseline, `.claude/quality-sweep-baseline.json`.
 
-Transition id `21`. Use it only when **all** of these are true:
+That one file is the home for routing and for the approval list below, **including for the sibling
+audits** whose own findings baselines are TOML or SQL and cannot carry it. Whichever engine you
+ran, routing is read from there. A project that routes its work differently edits that block and
+nothing else.
+
+### Ready for development
+
+`config.ticket_routing.ready`. Use it only when **all** of these are true:
 
 - You **confirmed** the defect. You can point at the file and line, or a reproduction, not a
   suspicion or a pattern that looks wrong.
@@ -295,48 +305,41 @@ Transition id `21`. Use it only when **all** of these are true:
 - It changes only behaviour that is **already wrong**. Nobody is relying on the current output.
 - It touches **nothing on the approval list** below.
 
-Set the built-in **Priority** field on these. The ready-for-dev queue is ordered by that field, so a
-ticket that lands there without one is invisible in the ordering. Never use a `p-*` label; that
-scheme was deleted project-wide and must not come back.
+Apply whatever `config.ticket_routing.ready.priority` says. A queue that is ordered by a field is
+blind to a ticket that lands in it without one.
 
-### Human Review
+### Human review
 
-Transition id `4`. Also add the label `needs-john`. Use it when **any** of these is true:
+`config.ticket_routing.review`. Also add its `label`. Use it when **any** of these is true:
 
 - You could not confirm it. You suspect it, or the evidence is circumstantial.
 - **More than one reasonable fix exists**, and choosing between them is a product decision rather
   than an engineering one.
 - The fix would change something a user can currently see and may rely on.
-- It is a **regression of a closed ticket**. John wants to see those himself, every time.
-- The fix is large, spans more than one tree (`frontend/`, `backend/`, `mobile/`, `landing/`), or
-  needs a migration.
+- It is a **regression of a closed ticket**. The maintainer sees those personally, every time.
+- The fix is large, spans more than one of the trees named in `config.trees`, or needs a
+  migration.
 - Acting on it would require you to guess at an intention that is not written down.
 - It touches anything on the approval list.
 
 ### The approval list
 
-Anything in this list goes to Human Review no matter how confident you are, because these are
-decisions John has already made deliberately and a "fix" to one of them is a proposal, not a bug fix:
+**Read `config.approval_list` in the baseline.** Anything matching an entry there goes to human
+review no matter how confident you are, because these are decisions the maintainer already made
+deliberately, and a "fix" to one of them is a proposal rather than a bug fix. Each entry carries the
+area and the reason it is on the list; quote that reason in the ticket so the reader knows why it
+was routed rather than filed.
 
-| Area | Why |
-|---|---|
-| A `<title>`, URL path, `_redirects` rule or `sitemap.xml` entry under `landing/` | Nine pages carry months of accumulated search ranking tied to their exact title and URL. One edit restarts Google's evaluation and blinds the data for weeks. This has already gone wrong once as an unrequested style cleanup |
-| Any migration that changes an existing SQL function, or any schema or data migration | `CREATE OR REPLACE` replaces the whole body, so a line not carried forward is silently deleted |
-| Deleting data, or changing what is retained | Irreversible |
-| Location defaults, or removing a location prompt from any create or import flow | Every creation asks where the item is stored, with a real picker and no default. This is settled and is not a usability tradeoff |
-| Regulated fields: lot, CAS, expiry, hazard, catalog number | A fabricated value is worse than a blank one |
-| Currency handling, cost aggregation, or anything that mixes units or currencies | There is no FX rate in this system. Convert before aggregation, never after |
-| Brand: colours, typography, logo | Approving a layout never approves a palette |
-| Auth, row-level security, or tier gating | |
-| Lifecycle email copy, or any copy taken verbatim from the copy document | |
-| Anything that contradicts a decision written down in `CLAUDE.md` or under `docs/` | If it is written down, changing it is a proposal |
+The list is project law and belongs to the project, not to this document. A repo with no
+`approval_list` has simply not written its decisions down yet, which is worth saying in your report:
+it means every judgement call in this section rests on your reading alone.
 
 ### Say which, and why
 
 In the ticket body, one line under the provenance block:
 
-    Landing: Human Review — regression of LAB-1683, and the fix spans frontend and mobile.
-    Landing: Selected for Development — confirmed at inventoryList.ts:212, single-line guard.
+    Landing: <review status> — regression of <key>, and the fix spans two trees.
+    Landing: <ready status> — confirmed at <file>:<line>, single-line guard.
 
 And in your final report, give the split: how many went to each, and name every Human Review ticket
 with its one-line reason. That list is the most useful thing the run produces for a human, because
@@ -344,4 +347,4 @@ it is exactly the set of things that need a person and nothing else does.
 
 **When you cannot decide, it is Human Review.** The cost of a ready-for-dev ticket that turns out to
 need a decision is a developer who starts work, hits the question, and stops. The cost of a human
-review ticket that turned out to be obvious is ten seconds of John's morning.
+review ticket that turned out to be obvious is ten seconds of the maintainer's morning.
