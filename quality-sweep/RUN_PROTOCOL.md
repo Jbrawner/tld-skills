@@ -84,6 +84,28 @@ Write your findings to `.claude/sweep-findings/<lens>/<date>.json`:
   no file at all.
 - `object` is the de-dup identity `<lens>::<file>::<symbol>`. Match on it, never on ticket title.
 
+### Regression watch
+
+A `known_open` row means "already ticketed, stay quiet about it", and that is only true while the
+ticket is open. The engine now checks every one of them against the tracker on each run, so it no
+longer takes your word for it. Two lines in the manifest tell you what it found:
+
+    SUPPRESSIONS: 307 ticket(s) checked against the tracker, 3 closed
+
+Any object whose ticket has closed is listed as **REGRESSION WATCH** and is no longer suppressed. If
+you detect one of those again, it is a regression of work that was already fixed and signed off.
+File it, say which ticket it regressed, and land it in **Human Review** per section 8. Never in the
+ready-for-dev queue: a defect that came back after a fix is a question about the fix, not a repeat of
+the original ticket.
+
+If instead you see `!! SUPPRESSIONS ARE UNVERIFIED`, the tracker was not consulted. Say so in your
+run record. Every suppression that run applied is an unchecked claim.
+
+This check exists because the rows rot silently. On 2026-08-25, 982 of 1,248 rows, 78 percent, were
+muting tickets that had already closed. Every one of those defects could have come back and the
+sweep would have said nothing, which is the precise opposite of its job. Status belongs to the
+tracker, so it is asked at run time instead of copied into a file nobody updates.
+
 **Do not edit `.claude/quality-sweep-baseline.json`.** It is curated by a human on `main` and is
 read-only to you. **Do not edit a findings file from an earlier run**, including your own lens's.
 Every run writes exactly one new path, which is what makes conflicts between runs impossible.
