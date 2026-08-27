@@ -59,6 +59,44 @@ run that simply stopped would have cost one.
 
 A stopped run is a good outcome. Repairing git is never your job.
 
+### Record what you inspected, and how current it is
+
+Before you inspect anything, capture three facts and carry them into your findings file and into
+the header of your run record:
+
+    base_commit:    git rev-parse HEAD
+    behind_main:    git fetch origin main && git rev-list --count HEAD..origin/main
+    engine_commit:  git -C ~/.claude/skills rev-parse HEAD
+
+`git fetch` is a read. It is not on this section's banned list and it repairs nothing.
+
+**None of these three stop the run.** Record them and carry on, even when `behind_main` is large.
+A run that inspects slightly stale code still finds real defects. A run that refuses to start finds
+nothing, and this system has already lost two consecutive weekends to runs that stopped. The
+numbers exist so the Monday collector and the Wednesday review can watch drift build, not so that a
+run can die of it.
+
+Why writing them down matters at all: until 27 August 2026 no run recorded the commit it read.
+Every finding named a file and a line, and nobody could tell which version of that file was meant,
+or whether the defect had already been fixed on `main` hours earlier.
+
+### The engine is shared, and it is not read-only
+
+The engine you are about to run lives outside your worktree, in a checkout that other sessions
+write to. Before you run it, confirm its own files are committed:
+
+    git -C ~/.claude/skills status --porcelain -- quality-sweep test-audit docs-drift-audit rls-audit
+
+If that prints nothing, proceed. **If it prints anything, this is a SKIPPED RUN.** Name the
+modified files in your skip record and stop. Uncommitted edits to an engine mean you would be
+running a version nobody reviewed and no commit describes, and every finding it produced would be
+unreproducible.
+
+The check is deliberately narrow: it looks at the four engine directories and nothing else.
+Uncommitted work elsewhere in that checkout belongs to another session and must not stop you. On
+27 August 2026 that shared checkout was found holding another session's unpushed commit, which is
+the ordinary state of a folder several sessions edit at once.
+
 ## 3. Write one new file. Never edit an existing one
 
 Write your findings to `.claude/sweep-findings/<lens>/<date>.json`:
