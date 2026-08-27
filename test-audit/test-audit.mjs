@@ -19,10 +19,19 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 
 // ---------------------------------------------------------------- defaults
 
 const DEFAULTS = {
+  // How to resolve a known_open row's ticket status at run time. Both null here on purpose:
+  // the engine may not name a tracker, a project or a ticket prefix, so a baseline that wants
+  // its suppressions verified supplies both. See verifySuppressions.
+  //   ticket_key_pattern:   regex matching one ticket key, e.g. '[A-Z]+-\\d+'
+  //   ticket_status_command: shell command printing the CLOSED keys among '{keys}' (comma-joined)
+  ticket_key_pattern: null,
+  ticket_status_command: null,
+
   // Which files are tests. Repo-relative POSIX paths are tested against this.
   // The infix form only: a bare `tests/setup.ts` is a support file, not a test,
   // and counting it inflates the file total and invents collection findings.
@@ -492,6 +501,74 @@ function checkCiJobs(root, cfg, add, skip) {
 
 // ---------------------------------------------------------------- main
 
+// A known_open row records what a ticket's status WAS on the day somebody wrote the row down.
+// The tracker owns that status and keeps changing it, so a stored copy rots: the ticket closes,
+// the row stays, and the finding keeps reporting as "somebody is on it" forever. Nobody prunes
+// these by hand, because nothing tells them to.
+//
+// So resolve it live, on every run, and never store the answer. A row whose ticket has closed is
+// not dropped: the check still fires, which means signed-off work broke again. That is a
+// REGRESSION, and it is more urgent than a NEW finding, not less.
+//
+// An unreachable tracker is a SKIPPED RUN, never a silent pass. Trusting the rows blind is how a
+// closed ticket's defect gets muted forever; ignoring them blind re-files every tracked finding
+// as new. Neither one is a run.
+function verifySuppressions(knownOpen, cfg) {
+  const cmdTemplate = cfg.ticket_status_command;
+  const keyPattern = cfg.ticket_key_pattern;
+  const none = { verified: true, reason: null, checked: 0, closed: 0, closedTickets: new Set() };
+
+  if (typeof cmdTemplate !== 'string' || typeof keyPattern !== 'string') {
+    return {
+      ...none,
+      verified: false,
+      reason: 'config.ticket_status_command and config.ticket_key_pattern are not both set, '
+        + 'so no row could be checked against the tracker',
+    };
+  }
+
+  let re;
+  try { re = new RegExp(keyPattern, 'g'); }
+  catch (e) {
+    die(`config.ticket_key_pattern is not a valid regular expression: ${e.message}. `
+      + 'Refusing to continue: an unusable pattern finds no ticket keys, so every suppression '
+      + 'looks unverifiable and the run reports tracked work as new.');
+  }
+
+  const keysOf = (t) => String(t || '').match(re) || [];
+  const tickets = [...new Set(knownOpen.map((k) => k.ticket).filter(Boolean))];
+  const allKeys = [...new Set(tickets.flatMap(keysOf))].sort();
+  if (!allKeys.length) return none;
+
+  // Batched: the tracker query that names every key at once is the one that silently truncates.
+  const CHUNK = 100;
+  const closedKeys = new Set();
+  for (let i = 0; i < allKeys.length; i += CHUNK) {
+    const batch = allKeys.slice(i, i + CHUNK);
+    const cmd = cmdTemplate.split('{keys}').join(batch.join(','));
+    let out;
+    try {
+      out = execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 120_000 });
+    } catch (e) {
+      die('could not read ticket status from the tracker. THIS IS A SKIPPED RUN.\n'
+        + `  command: ${cmd}\n`
+        + `  error:   ${(e && e.message) || e}\n`
+        + '  Every suppression in this baseline is an unverified claim that a ticket is still open, '
+        + 'and this run has no way to tell which ones are still true.');
+    }
+    // The command prints the keys that are CLOSED. Anything else on the line is ignored, so a CSV
+    // header or a table border costs nothing.
+    for (const k of out.match(re) || []) closedKeys.add(k);
+  }
+
+  const closedTickets = new Set();
+  for (const t of tickets) {
+    const ks = keysOf(t);
+    if (ks.length && ks.every((k) => closedKeys.has(k))) closedTickets.add(t);
+  }
+  return { verified: true, reason: null, checked: allKeys.length, closed: closedKeys.size, closedTickets };
+}
+
 function main() {
   const args = parseArgs(process.argv);
   if (args.help) {
@@ -521,6 +598,7 @@ function main() {
   for (const a of accepted) acceptKey.set(`${a.check || '*'}${SEP}${a.object}`, a.reason || '');
   const openKey = new Map();
   for (const k of knownOpen) openKey.set(k.object, k.ticket);
+  const suppression = verifySuppressions(knownOpen, cfg);
 
   let testRe;
   try { testRe = new RegExp(cfg.test_file_regex); }
@@ -551,7 +629,9 @@ function main() {
     const acc = acceptKey.get(`${check}${SEP}${object}`) ?? acceptKey.get(`*${SEP}${object}`);
     if (acc !== undefined) { acceptedHits.push({ check, object, reason: acc }); return; }
     const ticket = openKey.get(object) ?? openKey.get(`${check}${SEP}${object}`);
-    rows.push({ severity, check, object, status: ticket ? `KNOWN-OPEN ${ticket}` : 'NEW', detail });
+    let status = 'NEW';
+    if (ticket) status = suppression.closedTickets.has(ticket) ? `REGRESSION ${ticket}` : `KNOWN-OPEN ${ticket}`;
+    rows.push({ severity, check, object, status, detail });
   };
   const skip = (check, why) => skipped.push({ check, why });
 
@@ -578,7 +658,14 @@ function main() {
     rows: rows.length,
     new: rows.filter((r) => r.status === 'NEW').length,
     known_open: rows.filter((r) => r.status.startsWith('KNOWN-OPEN')).length,
+    regression: rows.filter((r) => r.status.startsWith('REGRESSION')).length,
     accepted_suppressed: acceptedHits.length,
+    suppressions: {
+      verified: suppression.verified,
+      reason: suppression.reason,
+      tickets_checked: suppression.checked,
+      tickets_closed: suppression.closedTickets.size,
+    },
     skipped_checks: skipped,
   };
 
@@ -597,8 +684,20 @@ function main() {
   out.push(`baseline        ${summary.baseline || '(none)'}`);
   out.push(`test files      ${summary.test_files}`);
   if (unreadable) out.push(`unreadable      ${unreadable}  <- NOT inspected`);
-  out.push(`rows            ${summary.rows}   (NEW ${summary.new}, KNOWN-OPEN ${summary.known_open}, suppressed by baseline ${summary.accepted_suppressed})`);
+  out.push(`rows            ${summary.rows}   (NEW ${summary.new}, KNOWN-OPEN ${summary.known_open}, REGRESSION ${summary.regression}, suppressed by baseline ${summary.accepted_suppressed})`);
+  if (summary.suppressions.verified) {
+    out.push(`suppressions    ${summary.suppressions.tickets_checked} ticket(s) checked against the tracker, ${summary.suppressions.tickets_closed} closed`);
+  } else {
+    out.push(`suppressions    !! UNVERIFIED -- ${summary.suppressions.reason}.`);
+    out.push('                Every KNOWN-OPEN row below is an unchecked claim that its ticket is still open.');
+  }
   out.push('');
+  if (summary.regression) {
+    out.push(`REGRESSION rows name a ticket that is CLOSED. The check still fires, so signed-off work`);
+    out.push(`broke again. Treat these ahead of NEW findings, and route them for human review rather`);
+    out.push(`than filing them as fresh work.`);
+    out.push('');
+  }
   if (skipped.length) {
     out.push('SKIPPED CHECKS — these did not execute. This is not a pass for them:');
     for (const s of skipped) out.push(`  ${s.check}: ${s.why}`);
