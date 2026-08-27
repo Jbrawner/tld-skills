@@ -19,6 +19,7 @@ It already contains everything you need:
 | Your run record goes here | `docs/auto_reviews/<review_folder>/<date>.md` |
 | Your findings go here | `.claude/sweep-findings/<lens>/<date>.json` |
 | Your run record's index row goes here | `docs/auto_reviews/<review_folder>/README.md` |
+| **If you stop early**, your skip record goes here | `.claude/sweep-skips/<lens>-<date>.txt` |
 
 The engine reads the baseline and unions every findings file under `.claude/sweep-findings/`
 automatically. Point it at your worktree and it resolves both:
@@ -149,6 +150,18 @@ branches carry only documentation and data, and CI has nothing to check.
 If the push fails, say so in your report and print the branch name. The commit still exists in the
 worktree and a human can recover it. Do not try to fix the push.
 
+**A run that stopped early pushes too.** It has no findings file and no run record, so it stages one
+path instead of three:
+
+    git checkout -b sweep/<lens>-<date>
+    git add .claude/sweep-skips/<lens>-<date>.txt
+    git commit -m "Quality sweep: <lens> <date> SKIPPED"
+    git push -u origin sweep/<lens>-<date>
+
+This is the one thing a stopped run must still do. Pushing a file is not repairing git, so it does
+not conflict with section 2. If the stop reason is itself a broken git, this push will fail too:
+report that and stop, which is the same outcome as before and no worse.
+
 ## 5. Guardrails that apply to every lens
 
 - **Read-only against the product.** No application code edits, no migrations, no database writes,
@@ -175,27 +188,56 @@ it lives in a worktree that is about to be deleted and a relative path helps nob
 
 If the run was skipped, the reason is the whole report. Say it in one sentence and stop.
 
-## 7. A skipped run must wake somebody up
+## 7. A skipped run must leave something behind
 
-**Any time you stop early for any reason, send a push notification before you finish.** Use the
-`PushNotification` tool, one line, under 200 characters, naming the lens and the reason:
+**Any time you stop early, for any reason, write a skip record before you finish.** One file, in
+your own worktree, at `.claude/sweep-skips/<lens>-<date>.txt`:
+
+    lens:       <lens>
+    date:       <date>
+    outcome:    SKIPPED
+    stopped-at: <the section of this document that stopped you>
+    reason:     <one line, under 120 characters>
+
+    <Then, in full: what you tried, and exactly what git, the engine or the tracker printed.
+    Verbatim. This is the only place that text will survive.>
+
+Then commit and push it on your branch, per section 4. **That is what makes it real.** A file you
+did not push dies with this worktree.
+
+Keep the five header lines exactly as spelled above, one per line. The Monday collector reads them,
+so a reworded header is a skip nobody counts. Everything below the blank line is free text.
+
+### Why this exists, and why it is a file rather than an alert
+
+Between 22 and 24 August 2026, seventeen consecutive runs skipped. Every one wrote a clear, correct
+explanation of why it could not run. Every one of those explanations went into a transcript file
+that nobody opened. Two entire weekends of inspection were lost, and it was noticed only because a
+human happened to wonder out loud.
+
+This document's previous answer was to require a `PushNotification` on every stop, and called it
+"not optional". On 27 August 2026 every transcript from that weekend was re-read: across roughly 185
+of them, including all seventeen stopped runs, **`PushNotification` was never once invoked.** The
+rule was written and the channel was never proven to work.
+
+So the durable record comes first, because a file in git cannot silently fail to exist. If the
+`PushNotification` tool is available to you, send one as well, at the end, one per run and not one
+per failed step:
 
     PushNotification(status: "proactive",
       message: "Sweep SKIPPED: <lens> — <one-line reason>")
 
-This is not optional and it is not a nicety. Between 22 and 24 August 2026, seventeen consecutive
-runs skipped. Every one of them wrote a clear, correct explanation of why. Every one of those
-explanations went into a transcript file that nobody opened. Two entire weekends of inspection were
-lost, and the only reason it was ever noticed is that a human happened to wonder out loud.
+If that tool is not available, **say so in your report in those words** and rely on the skip record.
+Do not treat its absence as a reason to skip writing the file, and do not spend the run looking for
+another way to send a message.
 
-A report nobody reads is not a report. If you stop, push.
+Write a skip record for every stopping condition in this document: a missing baseline, an unclean
+worktree, a failed git command, an unavailable target, a findings file that already exists, a failed
+push, an unreachable tracker.
 
-Send it for every stopping condition in this document: a missing baseline, an unclean worktree, a
-failed git command, an unavailable target, a findings file that already exists, a failed push. Send
-exactly one, at the end, not one per failed step.
-
-Do **not** send a notification for a normal completed run. A run that worked is not news, and a
-notification for every routine every night is how the ones that matter stop being read.
+Do **not** write one for a normal completed run, and do not send a notification for one either. A
+run that worked is not news, and an alert for every routine every night is how the ones that matter
+stop being read.
 
 ## 8. Where a ticket lands: ready for dev, or human review
 
