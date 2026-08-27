@@ -114,6 +114,26 @@ If `Test Commands.Full` is empty, stop and output:
 
 Capture full output.
 
+### 5a. Browser suite (announced, never run here)
+
+Read `Browser` from campaign `Test Commands`.
+
+Do NOT run it. The browser suite is deliberately local-only and is not part of the
+`Full` regression: running it inside every gate is slow and needs a booted stack. The
+gate's job here is to HAND THE STEP OFF, not to perform it.
+
+Record one of three states for the report:
+- **Not run this cycle** — the default. The gate did not run it and has no evidence that
+  anyone else did.
+- **Run this cycle** — only if the operator states in this session that they ran it, and
+  gives the result. Never infer this.
+- **No Browser entry** — campaign `Test Commands` has no `Browser` field, or it is empty.
+  Say so plainly rather than omitting the section.
+
+Print whatever the `Browser` field holds. Never hardcode a suite name, runner, or command
+into this skill: campaigns differ, and a value baked in here is wrong for every project
+that does not share it.
+
 ### 6. Cross-ticket consistency check (scoped to the milestone's Order tickets)
 
 Walk the tickets in the milestone's Order and look across their combined changes for consistency:
@@ -179,6 +199,20 @@ This skill does NOT write to `.tld/campaign.md`; runtime state lives in the trac
 
 Use `getTransitionsForJiraIssue` → `transitionJiraIssue` (status changes are workflow transitions, not field writes). Only ascend — never transition sibling Stories or the Sub-tasks under another Story. On a **FAIL** verdict, transition nothing. Full procedure and guard rails: docs/JIRA.md § Hierarchy rollup.
 
+**Release boundary — the browser suite is not optional there.** A gate whose PASS would
+leave NO next milestone is a release boundary: every milestone in the project is resolved
+and the next thing that happens is a launch. Step 9 already computes that distinction to
+choose its closing block, so reuse it rather than adding anything a campaign has to
+configure.
+
+- If a release-boundary gate would otherwise PASS and the browser suite is recorded (step
+  5a) as **Not run this cycle**, the verdict is **FAIL**. The fix action is: run the
+  `Browser` command and re-gate.
+- If the campaign has **no Browser entry**, the boundary rule cannot apply. PASS, and say
+  in the verdict that no browser suite is configured.
+- An ordinary milestone boundary (a next milestone exists) may PASS with the suite unrun.
+  It still prints the Browser suite section.
+
 ### Numbered shortcut recognition
 
 When you present the "What's next?" options at the end of your output, the user may respond with just a number (e.g., "1" or "2"). If the user's next message is a bare number matching one of the options you presented, treat it as if they typed the corresponding slash command and invoke that skill immediately.
@@ -199,6 +233,12 @@ Local database confirmed — Stack.Database: [value from campaign]
 ## Test Results
 [summary — X tests, all pass / N failures]
 [if failures, list them with details]
+
+## Browser suite
+[one of:
+ "Not run this cycle. Run locally: `[Test Commands.Browser]`"
+ "Run this cycle — [result the operator reported]"
+ "No Browser entry in this campaign's Test Commands."]
 
 ## Consistency
 [findings from cross-ticket checks, or "No issues found"]
@@ -222,7 +262,11 @@ Print this summary line immediately above the options block, using the gated mil
 
 ```
 Milestone [gated] complete. Next milestone [next]. First ticket [TICKET-ID]. Run /tld-setup [TICKET-ID].
+Browser suite not run this cycle. Run it locally: [Test Commands.Browser]
 ```
+
+Omit that second line when the operator reported running the suite this cycle, or when the
+campaign has no `Browser` entry.
 
 Then:
 
