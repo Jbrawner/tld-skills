@@ -151,6 +151,12 @@ last month is the same defect another finds this week.
 | `KNOWN-FILE <ticket>` | An open ticket names something in this file, but not which thing | Read that ticket. Same defect: report KNOWN-OPEN, do not file. Different defect in the same file: file it |
 | `SUPPRESSED <reason>` | A human reviewed this and signed it off | Counted and reported, never silently dropped |
 
+The header also prints a **REGRESSION WATCH** count: `known_open` rows whose ticket the tracker says
+has closed. They no longer suppress anything. If a run detects one of those objects again, that is a
+regression of closed work, so it is filed and landed in human review rather than the ready-for-dev
+queue. The engine works this out from the tracker on every run and never edits the baseline, so the
+rows stay in `known_open` on disk and nobody has to remember to move them.
+
 `KNOWN-FILE` exists because a seeded baseline usually knows the file a ticket is about and not the
 symbol. Letting a file-scoped entry suppress outright would swallow a second, different defect in
 the same file in complete silence, which is the exact failure this skill is built to prevent.
@@ -301,9 +307,11 @@ at all. Those belong in the baseline's `known_open` instead, which is why they n
   identity, so a ticket read six months later says which sweep produced it. Then the file and line,
   what happens now, what should happen, and the trace that establishes it. Then whether it was
   confirmed or is unconfirmed and what would settle it. Then a **regression guard**: say that this
-  lens now watches this object from the next run onward, and that the ticket's `known_open` rows must
-  be pruned from the baseline when it closes. A closed key left in that file suppresses the finding
-  forever, which is the one way this check goes quiet while the defect is still in the tree.
+  lens now watches this object from the next run onward, and that the ticket's `known_open` rows stay
+  in the baseline after it closes. Do not ask anybody to prune them. The engine resolves every
+  `known_open` ticket's status against the tracker on each run and reclassifies a closed one as
+  REGRESSION WATCH on its own, so the row is what lets a returning defect report as a regression of
+  closed work rather than as something new. Deleting it is what makes this check go quiet.
 
 ### 4d — Record it in the baseline
 
@@ -420,8 +428,11 @@ every week.
 
 ## Baseline maintenance
 
-- `known_open` pairs an object with the ticket that will fix it. Prune the row when the ticket
-  closes; Step 3 re-checks the status of every key precisely because that pruning gets forgotten.
+- `known_open` pairs an object with the ticket that will fix it. **Never delete a row because its
+  ticket closed.** Step 3 asks the tracker for the status of every key on every run and moves a
+  closed one onto `regression_watch`, so the row stops suppressing and starts guarding without
+  anybody editing the file. That move is recomputed from the tracker on each run and never written
+  back to disk, which is exactly why the row has to stay where it is.
 - `accepted` holds reviewed exceptions, each with a written reason. Grow it only via Step 3.
 - `benign_patterns` is the noise control, and it is what makes triage a lookup instead of a fresh
   investigation every week. Every entry needs the reason it is benign, written for someone who was
