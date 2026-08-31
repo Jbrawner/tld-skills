@@ -208,9 +208,15 @@ step.
 
 - Type: bug for a test that cannot fail or a job that does not run; task for a coverage question or
   a product decision about what the test should assert.
-- Labels: `test-audit`, `testing`, and a dated grouping label built from **today's date at the
-  moment of the run** in the form `test-audit-YYYY-MM`. Read the current date; never copy a month
-  out of this file, a previous run, or a schedule's prompt.
+- Labels: **exactly the list in the baseline's `ticket_labels`, and nothing else.** That key is the
+  project's decision about its own taxonomy and it overrides any example in this file. Never add a
+  label because this engine is called the test audit, because a previous run used one, or because a
+  label seems descriptive: a project whose tracker already carries that fact in a field will have
+  deleted it, and re-creating it is a regression. If the project's task wrapper names additional
+  labels, those apply too, and the wrapper wins over this file.
+- **No dated grouping label** unless `ticket_labels` itself contains one. The provenance block in
+  the body already records which run filed the ticket, so a date in a label duplicates it and
+  silently stops matching every search written against it once the month turns.
 - Fold findings sharing one root cause into one ticket; separate causes get separate tickets. One
   guard idiom copied across twelve tests is one ticket naming all twelve, not twelve tickets.
 - Body: the file and line, the test title, what the test claims to cover, what it actually asserts,

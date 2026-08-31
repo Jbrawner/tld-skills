@@ -154,8 +154,16 @@ run today. Report that and stop rather than overwriting it.
 
 ## 4. Commit and push before you finish
 
-Your worktree is thrown away after the run. Anything you have not pushed is lost, which is how
-almost every run record written before September 2026 was destroyed.
+Treat your worktree as gone the moment you finish. Anything you have not pushed is lost, which is
+how almost every run record written before September 2026 was destroyed.
+
+Be precise about who throws it away, because a wrong belief here cost 13 GB: **nothing deletes your
+worktree at the end of your run.** It survives until the Monday collector removes it, and the
+collector removes it only once your branch is on `origin` and your working tree is clean. A run that
+finishes without pushing leaves its worktree sitting on disk indefinitely, holding the only copy of
+its own work, which the collector will then correctly refuse to touch. Pushing is what makes your
+output real *and* what lets the disk be reclaimed. Do not delete your own worktree to compensate;
+you would be deleting the directory you are running inside.
 
 Add your run to your lens's own index first, so the report can be found. Open
 `docs/auto_reviews/<review_folder>/README.md` and add one row to its `## Runs` table, newest first,
