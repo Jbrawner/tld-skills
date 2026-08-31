@@ -154,8 +154,16 @@ run today. Report that and stop rather than overwriting it.
 
 ## 4. Commit and push before you finish
 
-Your worktree is thrown away after the run. Anything you have not pushed is lost, which is how
-almost every run record written before September 2026 was destroyed.
+Treat your worktree as gone the moment you finish. Anything you have not pushed is lost, which is
+how almost every run record written before September 2026 was destroyed.
+
+Be precise about who throws it away, because a wrong belief here cost 13 GB: **nothing deletes your
+worktree at the end of your run.** It survives until the Monday collector removes it, and the
+collector removes it only once your branch is on `origin` and your working tree is clean. A run that
+finishes without pushing leaves its worktree sitting on disk indefinitely, holding the only copy of
+its own work, which the collector will then correctly refuse to touch. Pushing is what makes your
+output real *and* what lets the disk be reclaimed. Do not delete your own worktree to compensate;
+you would be deleting the directory you are running inside.
 
 Add your run to your lens's own index first, so the report can be found. Open
 `docs/auto_reviews/<review_folder>/README.md` and add one row to its `## Runs` table, newest first,
@@ -214,9 +222,12 @@ report that and stop, which is the same outcome as before and no worse.
   the machine is running more than one local stack, a ref that does not match the baseline belongs
   to a different product: never touch it. If the baseline declares no `local_database` and a lens
   needs one, that is a SKIPPED RUN.
-- **No dates inside a lookup.** A dated label on ticket output is fine, because it is built from
-  the real date at run time. A date inside a search or a check is a check that stops matching
-  without ever reporting that it stopped.
+- **No dates in a label, and no dates inside a lookup.** No label carries a date at any
+  granularity: a weekly check cannot be identified by a month, and a day makes a new unsearchable
+  label every week. A date inside a search or a check is worse, because it is a check that stops
+  matching without ever reporting that it stopped. The run document is the opposite case and
+  carries the full `YYYY-MM-DD` in its filename and its heading, because that is the artefact
+  somebody goes back and reads by the day it happened.
 - **Run exactly one lens**, the one your task names. Each of the others has its own slot.
 
 ## 6. Report

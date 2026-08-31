@@ -254,9 +254,18 @@ all. Those belong in the baseline's `known_open` instead, which is why they neve
 ### 4c — Create the ticket
 
 - Type: bug for a doc that states something untrue; task for a verify item or a product decision.
-- Labels: `docs-drift`, `documentation`, and a dated grouping label built from **today's date at the
-  moment of the run** in the form `docs-drift-YYYY-MM`. Read the current date; never copy a month out
-  of this file, a previous run, or a schedule's prompt.
+- Labels: **exactly the list in the baseline's `ticket_labels`, and nothing else.** That key is the
+  project's decision about its own taxonomy and it overrides any example in this file. Never add a
+  label because this engine is called the docs-drift audit, because a previous run used one, or
+  because a label seems descriptive: a project whose tracker already carries that fact in a field
+  will have deleted it, and re-creating it is a regression. If the project's task wrapper names
+  additional labels, those apply too, and the wrapper wins over this file.
+- **No label carries a date**, not even if `ticket_labels` names one: that is a stale baseline, and
+  the right move is to report it, not obey it. Not a year, not a month, not a week, in any position
+  or format. This check runs weekly, so a month in a label is stamped by four or five different runs
+  and identifies none of them, while a day makes a fresh unsearchable label every week. The
+  provenance block in the ticket body already records which run filed it, and any run document the
+  project's wrapper asks for carries the full date in its filename, which is where a date belongs.
 - Fold findings sharing one root cause into one ticket; separate causes get separate tickets. One
   rename that broke six documents is one ticket naming all six, not six tickets.
 - Body: the document and the exact passage, what it claims, what the code actually does with the

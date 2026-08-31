@@ -267,7 +267,8 @@ this file names, because which other checks a project runs is a property of that
 **Search the stable `quality-sweep` label only. Never put a dated label in the de-dup query.** A
 query naming a specific month goes stale the moment the month turns, and it fails silently: the
 search returns nothing, every finding looks new, and the sweep files a duplicate of every open
-ticket. Dated labels exist to group a run's output for reading, never to find it again.
+ticket. No label carries a date in the first place, for the reason Step 4c gives, so there is no
+dated label here to reach for.
 
 Findings tracked by an older ticket that predates this skill will not carry the `quality-sweep` label
 at all. Those belong in the baseline's `known_open` instead, which is why they never reach this step.
@@ -282,11 +283,18 @@ at all. Those belong in the baseline's `known_open` instead, which is why they n
 
 - Type: bug for wrong behaviour, lost data, or a guard that does not hold; task for a question, a
   product decision, or work with no single wrong line.
-- Labels: the stable family label `quality-sweep`, the lens label `quality-sweep-<lens>`, the
-  project's own topic labels for this lens, and a dated grouping label built from **today's date at
-  the moment of the run** in the form `quality-sweep-YYYY-MM`. Read the current date; never copy a
-  month out of this file, a previous run, or a schedule's prompt. Only the family and lens labels are
-  ever searched.
+- Labels: **exactly what the engine printed under `LABELS for anything filed`, and nothing else.**
+  That block is built from the project's own baseline, which is the project's decision about its own
+  taxonomy and overrides any example in this file. Never add a label because it seems descriptive,
+  because a previous run used one, or because this engine is called the quality sweep: a project
+  whose tracker already carries that fact in a field will have deleted the label that duplicated it,
+  and re-creating it is a regression. If the project's task wrapper names additional labels, those
+  apply too, and the wrapper wins over this file.
+- **No label carries a date.** Not a year, not a month, not a week, in any position or format. This
+  check runs weekly, so a month in a label is stamped by four or five different runs and identifies
+  none of them, and a day in a label is a fresh unsearchable string every week: coarse and it cannot
+  name the run, fine and it cannot be searched for. **The date lives in the run document and in the
+  ticket's provenance block instead**, which is what Step 5 writes and costs no label.
 - Fold findings sharing one root cause into one ticket; separate causes get separate tickets. One
   bad idiom copied across twelve files is one ticket naming all twelve, not twelve tickets.
 - Body, in this order: a provenance line naming the lens, the run record's path and the object
@@ -343,6 +351,13 @@ months later say which sweep produced it, and a run record say what it cost.
 
 The date comes from the real clock at the moment of the run, never from this file and never from the
 schedule's prompt. A run that fires after midnight correctly writes the following day's date.
+
+**This is the one place a date belongs, and it belongs here in full.** The document is named for the
+day it ran, `YYYY-MM-DD`, and repeats that date in its heading, so any past run can be found and
+re-read months later by the day it happened. That is the opposite of the rule on labels in Step 4c,
+and the two are not in tension: a document is a thing you go and read, so it needs a date on it, and
+a label is a thing you search across many runs, so a date makes it useless. `--date` is required and
+the engine refuses to render without it; never drop it, and never shorten the date to a month.
 
 Three writes, not one:
 

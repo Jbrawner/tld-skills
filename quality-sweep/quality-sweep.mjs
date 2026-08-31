@@ -494,7 +494,9 @@ function buildManifest(ctx) {
       family: cfg.family_label || null,
       lens: cfg.family_label ? `${cfg.family_label}-${lens.slug}` : null,
       topics: lens.topic_labels || [],
-      datedFormat: cfg.dated_label_format || null,
+      // There is deliberately no dated label here. See the label rules in SKILL.md step 4c:
+      // a check that runs weekly cannot be identified by a month, and a day-granular label
+      // is a new unsearchable string every week. The run document carries the date instead.
       // Other recurring checks that read the same tree and file into the same tracker.
       // Without these the de-dup is blind to a sibling audit's ticket and duplicates it.
       siblings: cfg.sibling_labels || [],
@@ -611,12 +613,11 @@ function printManifest(m) {
 
   if (m.labels.family) {
     L.push("LABELS for anything filed:");
-    L.push(`  searched  ${m.labels.family}          the de-dup lookup, never dated`);
-    L.push(`  searched  ${m.labels.lens}   which sweep found it, never dated`);
+    L.push(`  searched  ${m.labels.family}          the de-dup lookup`);
+    L.push(`  searched  ${m.labels.lens}   which sweep found it`);
     for (const t of m.labels.topics) L.push(`  topic     ${t}`);
-    if (m.labels.datedFormat) {
-      L.push(`  output    ${m.labels.datedFormat}  built from TODAY's real date, never searched`);
-    }
+    L.push("  That list is the whole list. Add nothing to it, and put NO date in any label:");
+    L.push("  the run document and the ticket's provenance block carry the date.");
     L.push("");
     if (m.labels.siblings.length) {
       L.push("SEARCH THESE LABELS TOO, before filing anything:");

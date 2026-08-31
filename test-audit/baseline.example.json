@@ -46,8 +46,11 @@
     "_comment_tracker": [
       "Only needed when the repo has no .tld/campaign.md. That file always wins.",
       "ticket_labels are the STABLE labels every filed ticket carries and the de-dup",
-      "search looks for. Never put a dated label here. The skill adds a dated grouping",
-      "label at filing time, built from the real date of the run."
+      "search looks for. This list is the whole list: the skill adds nothing to it.",
+      "No label here carries a date, at any granularity. This check runs weekly, so a",
+      "month cannot identify the run that filed a ticket, and a day mints a new",
+      "unsearchable label every week. The date goes in the ticket's provenance block",
+      "and in the run document's filename, never in a label."
     ],
     "tracker": "jira",
     "tracker_cloud_id": "",

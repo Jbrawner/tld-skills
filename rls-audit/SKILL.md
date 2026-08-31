@@ -189,9 +189,18 @@ Those belong in the baseline's `rls_audit_known_open` instead, which is why they
 ### 4c — Create the ticket
 
 - Type: bug, or task for a verify/product-decision item.
-- Labels: `rls-audit`, `security`, and a dated grouping label built from **today's date at the moment of
-  the run** in the form `rls-audit-YYYY-MM`. Read the current date; never copy a month out of this file,
-  a previous run, or a schedule's prompt.
+- Labels: **exactly the list in the baseline's `ticket_labels`, and nothing else.** That key is the
+  project's decision about its own taxonomy and it overrides any example in this file. Never add a
+  label because this engine is called the RLS audit, because a previous run used one, or because a
+  label seems descriptive: a project whose tracker already carries that fact in a field will have
+  deleted it, and re-creating it is a regression. If the project's task wrapper names additional
+  labels, those apply too, and the wrapper wins over this file.
+- **No label carries a date**, not even if `ticket_labels` names one: that is a stale baseline, and
+  the right move is to report it, not obey it. Not a year, not a month, not a week, in any position
+  or format. This check runs weekly, so a month in a label is stamped by four or five different runs
+  and identifies none of them, while a day makes a fresh unsearchable label every week. The
+  provenance block in the ticket body already records which run filed it, and any run document the
+  project's wrapper asks for carries the full date in its filename, which is where a date belongs.
 - Fold findings sharing one root cause into one ticket; separate causes get separate tickets.
 - Body: the affected object, the exact hole, how to reproduce it (the direct call that reaches it), the
   fix, and a **regression guard** — a test asserting the grant or policy stays closed. This class of bug
