@@ -222,9 +222,12 @@ report that and stop, which is the same outcome as before and no worse.
   the machine is running more than one local stack, a ref that does not match the baseline belongs
   to a different product: never touch it. If the baseline declares no `local_database` and a lens
   needs one, that is a SKIPPED RUN.
-- **No dates inside a lookup.** A dated label on ticket output is fine, because it is built from
-  the real date at run time. A date inside a search or a check is a check that stops matching
-  without ever reporting that it stopped.
+- **No dates in a label, and no dates inside a lookup.** No label carries a date at any
+  granularity: a weekly check cannot be identified by a month, and a day makes a new unsearchable
+  label every week. A date inside a search or a check is worse, because it is a check that stops
+  matching without ever reporting that it stopped. The run document is the opposite case and
+  carries the full `YYYY-MM-DD` in its filename and its heading, because that is the artefact
+  somebody goes back and reads by the day it happened.
 - **Run exactly one lens**, the one your task names. Each of the others has its own slot.
 
 ## 6. Report

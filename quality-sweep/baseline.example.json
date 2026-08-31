@@ -18,12 +18,17 @@
   "config": {
     "_comment_labels": [
       "family_label is the STABLE label every filed ticket carries and the de-dup search",
-      "looks for. Never put a date in it. The lens label is derived as",
-      "<family_label>-<lens>. dated_label_format is a grouping label built at filing time",
-      "from the real date of the run, for reading a month's output. It is never searched."
+      "looks for. The lens label is derived from it as <family_label>-<lens>.",
+      "",
+      "NO LABEL CARRIES A DATE. Not a year, not a month, not a week, in any position or",
+      "format, here or in ticket_labels or in a lens's topic_labels. A sweep runs weekly,",
+      "so a month in a label is stamped by four or five different runs and identifies none",
+      "of them, and a day in a label is a fresh unsearchable string every week: coarse and",
+      "it cannot name the run, fine and it cannot be searched for. The date goes in the",
+      "ticket's provenance block and in the run document's filename, which is exactly what",
+      "makes a past run findable months later. Documents are dated; labels are not."
     ],
     "family_label": "quality-sweep",
-    "dated_label_format": "quality-sweep-YYYY-MM",
     "_comment_tracker": [
       "Only needed when the repo has no .tld/campaign.md. That file always wins.",
       "Leave these empty and the skill reports findings in full, says no tracker is",
@@ -35,12 +40,51 @@
     "ticket_labels": [
       "quality-sweep"
     ],
+    "_comment_vocabulary": [
+      "The next three maps are this project's whole label vocabulary. Declaring them is",
+      "what lets a backlog check tell policy from rot: a label on a ticket that is not a",
+      "sweep label and appears in none of these maps is UNDECLARED, and the right move is",
+      "to report it and say which ticket carries it, never to guess which it is and act.",
+      "",
+      "All three are OPTIONAL and start empty. A project with no taxonomy of its own",
+      "leaves them empty and only the sweep labels above are ever applied. Filling one in",
+      "is a decision somebody made, so each entry carries its reason as the value.",
+      "",
+      "The governing rule is ONE FACT, ONE HOME: never carry in a label what a field on",
+      "the ticket already holds. A label and a field meaning the same thing drift apart",
+      "silently, because the ticket keeps looking correct in whichever one you read."
+    ],
+    "_comment_forbidden_labels": [
+      "Label families this project deleted, and the reason each one went. Report any open",
+      "ticket carrying one; never recreate them. Most entries here will be labels that",
+      "duplicated a field: a 'bug' label beside an issue-type field, a priority label",
+      "beside a priority field, a whose-queue label beside a status field."
+    ],
+    "forbidden_labels": {},
+    "_comment_area_labels": [
+      "What part of the product a ticket touches, one label per area. This is the one",
+      "legitimate exception to 'one fact, one home', and only where the tracker has no",
+      "field that holds it: Jira components are the native home, and a project with no",
+      "components defined, and no tooling able to create one, has nowhere else to put it.",
+      "An exception, not a precedent. Fixed vocabulary: pick from the list, never invent",
+      "one mid-run, and raise the gap if nothing fits. An area nobody filters by is noise."
+    ],
+    "area_labels": {},
+    "_comment_theme_labels": [
+      "Named work clusters. An area label says what part of the product a ticket touches;",
+      "a theme label says which push it belongs to, which is a different question and",
+      "often spans areas. Optional per ticket. Includes quality dimensions that cut across",
+      "areas, such as accessibility or security, which a human filing by hand has no other",
+      "way to name. The sweeps themselves must not apply these: a sweep's ticket is already",
+      "labelled with the lens that found it."
+    ],
+    "theme_labels": {},
     "_comment_sibling_labels": [
       "The stable labels of the OTHER recurring checks that read this same repository and",
       "file into this same tracker. Step 4b searches these in addition to the family label.",
       "Without them the de-dup is blind to a sibling audit ticket and files a duplicate of it.",
       "Leave the list empty if this is the only recurring check the project runs.",
-      "Never dated, for the same reason the family label is never dated."
+      "Never dated, for the same reason no other label is dated."
     ],
     "sibling_labels": [
       "some-other-audit"
@@ -83,6 +127,14 @@
     "directions. An area you forget to declare is never looked at; an area declared too",
     "broadly spends the budget everywhere and finds nothing anywhere.",
     "",
+    "topic_labels is EMPTY here on purpose, and most projects should leave it empty. The",
+    "engine prints it to the run as part of 'LABELS for anything filed', so whatever sits",
+    "here is what the run puts on a ticket regardless of what the task wrapper says. That",
+    "is worth knowing before you fill it in: a wrapper corrected without correcting this",
+    "file changes nothing, and a name listed here that the project also forbids makes the",
+    "baseline order a label the same baseline reports as a violation. The lens is already",
+    "named by the <family_label>-<lens> label, and the run by the ticket's provenance block.",
+    "",
     "preflight lists what must be reachable before the sweep starts. A failed preflight is",
     "a SKIPPED RUN, never a clean pass, and never a reason to substitute a shallower check.",
     "",
@@ -96,9 +148,7 @@
       "rank": 1,
       "enabled": true,
       "review_folder": "docs/auto_reviews/bug_hunt",
-      "topic_labels": [
-        "bug"
-      ],
+      "topic_labels": [],
       "focus_areas": [
         "writes that can half-complete and still report success",
         "arithmetic on quantities or money that mixes units or currencies",
@@ -126,9 +176,7 @@
       "rank": 5,
       "enabled": true,
       "review_folder": "docs/auto_reviews/performance",
-      "topic_labels": [
-        "performance"
-      ],
+      "topic_labels": [],
       "focus_areas": [
         "queries that fetch every row to compute a small aggregate",
         "requests issued once per item in a list",
