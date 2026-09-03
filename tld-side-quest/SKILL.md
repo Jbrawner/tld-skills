@@ -220,7 +220,9 @@ Only after explicit user approval. Run these steps in order; do not skip or reor
 
 **Step 6.5 — Clean up the worktree.** Run `git worktree remove <worktree-path>`. Optionally delete the worktree branch with `git branch -D {worktree-branch}` if you do not want it kept around for reference.
 
-**Step 6.6 — Mark the ticket Done.** Call `save_issue` to set the ticket's state to "Done" in Linear.
+**Step 6.6 — Close the ticket out.** Call `save_issue` to set the ticket's state to the project's **pre-merge status**, resolved per [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) § The pre-merge status. Never hardcode a status name; if the tracker has no pre-merge status, leave the ticket In Progress and say so in step 7.
+
+**Do not mark it Done.** The squash-merge in step 6.4 lands the side quest on the *working branch*, not on the default branch — that branch still has to be pushed, reviewed and merged like any other. A side quest is exactly the kind of small change that gets marked Done and then quietly never ships.
 
 **Why squash-merge?** Squash collapses every commit on the side-quest branch into a single revertable commit on the working branch. The mandatory `side-quest(<ticket-id>):` prefix makes side quests grep-able later. Hard-stopping on conflicts prevents the agent from silently mis-resolving a merge — the user sees the conflict and decides.
 
@@ -242,8 +244,8 @@ When you present the "What's next?" options at the end of your output, the user 
 ## Side Quest Complete: [TICKET-ID]
 
 - Committed: [commit hash]  
-- Branch merged and worktree cleaned up
-- Ticket marked Done in Linear
+- Branch merged into the working branch and worktree cleaned up
+- Ticket moved to [pre-merge status] (not Done — the working branch still has to merge)
 
 Your main context is untouched.
 ```

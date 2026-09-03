@@ -172,7 +172,7 @@ checklist is absent — the comment is still posted.
 
 ### 5. Output — and hand off to tld-next
 
-`tld-writeup` **advances nothing**: it does not commit, push, open a PR, mark the ticket Done, or run
+`tld-writeup` **advances nothing**: it does not commit, push, open a PR, change the ticket's status, or run
 `/tld-next`. Report what it recorded, then point at the next step:
 
 ```
@@ -182,7 +182,7 @@ checklist is absent — the comment is still posted.
 - Handoff: handoff_state={state} written to the shared checklist {or "comment only — no checklist seeded"}
 - Gaps recorded: {list of fields that had missing data, or "none"}
 
-Next: /tld-next  (marks the ticket Done and surfaces the next ticket)
+Next: /tld-next  (closes the ticket out to the pre-merge status and surfaces the next ticket)
 ```
 
 Then present:
@@ -191,7 +191,7 @@ Then present:
 
 **What's next?**
 
-> **1.** /tld-next — mark this ticket Done and move to the next
+> **1.** /tld-next — close this ticket out and move to the next
 >    Best for: the write-up is posted and the ticket is finished
 
 > **2.** Re-run /tld-writeup — I filled a gap or a prior step now has data

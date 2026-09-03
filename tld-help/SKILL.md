@@ -23,7 +23,7 @@ Print the reference card below, then determine the user's current position in th
 | 3 | `/tld-build` | Implements code to make tests pass | After tests are written (green phase) |
 | 4 | `/tld-audit` | Security + architecture review | After build, before verify (optional) |
 | 5 | `/tld-run-test` | Runs tests, drift check, manual QA, commits on approval | After build or audit |
-| 6 | `/tld-next` | Marks ticket Done, determines next step · may mutate next-ticket labels via override loop | After successful commit |
+| 6 | `/tld-next` | Moves ticket to the pre-merge status (never Done — Done means merged), determines next step · may mutate next-ticket labels via override loop | After successful commit |
 
 ### Automation
 
@@ -31,7 +31,7 @@ Print the reference card below, then determine the user's current position in th
 
 | Skill | What it does | When to use |
 |-------|-------------|-------------|
-| `/tld-partial-auto` | Chains the full pipeline with 2 human gates (test-spec review + QA), commits on approval, marks Done | Code tickets you want automated but with review checkpoints |
+| `/tld-partial-auto` | Chains the full pipeline with 2 human gates (test-spec review + QA), commits on approval, moves the ticket to the pre-merge status | Code tickets you want automated but with review checkpoints |
 | `/tld-full-auto` | Runs the pipeline hands-off to a verified checkpoint, then STOPS before commit and preps your manual check; only flags real problems | Code tickets you want driven to ready-to-land unattended, keeping the commit/PR in your hands |
 | `/tld-full-auto` on a `no-tests` ticket | Same skill, label-gated path: skips the red phase on purpose and verifies as a regression gate. Checkpoint reads "regression clean, NOT spec-verified" | Real work with no automatable harness (untestable bug, config tweak, skill/doc edit) in a repo that still has a test suite. Label the ticket `no-tests` or `build-only` |
 | `/tld-pr` | Lands a verified ticket: commit → push → open PR, then stops before merge | After `/tld-full-auto`'s checkpoint (or any committed ticket) when you're ready to ship |
@@ -44,7 +44,7 @@ Print the reference card below, then determine the user's current position in th
 | Skill | What it does | When to use |
 |-------|-------------|-------------|
 | `/tld-align` | Fixes implementation after test failures | After `/tld-run-test` fails |
-| `/tld-commit` | Commits the current ticket; asks **commit only** (stay In Progress) vs **commit and progress** (mark Done + next). No push/PR. | Per-ticket landing in a multi-ticket story; or finishing a commit after a detour |
+| `/tld-commit` | Commits the current ticket; asks **commit only** (stay In Progress) vs **commit and progress** (pre-merge status + next). No push/PR, never Done. | Per-ticket landing in a multi-ticket story; or finishing a commit after a detour |
 | `/tld-pr` | Lands a verified ticket: commit → push → open PR, stops before merge | Story end — one PR for all the story's tickets |
 | `/tld-skip` | Reverts to Todo (or Skipped state if the tracker has one) | When a ticket is practically blocked or out of order for today |
 | `/tld-cancel` | Marks the current ticket Canceled and removes it from the milestone Order | When a ticket is no longer needed and should not be picked up again |
@@ -104,7 +104,7 @@ Print the reference card below, then determine the user's current position in th
      └─→ /tld-autoland (label-gated, no stops) ─→ full-auto ─→ commit ─→ PR ─→ CI green ─→ MERGED ─→ next ticket
 ```
 
-Two ways to automate a code ticket. `/tld-partial-auto` chains write-tests → build → audit → run-test → next inside one skill with two hard stops (RED review, QA gate) and commits on approval. `/tld-full-auto` runs the same pipeline hands-off, stops only on real problems, and ends at a verified, uncommitted checkpoint — you do your manual check, then land it: in a multi-ticket story, `/tld-commit` each ticket (choose "commit and progress" to mark it Done and advance) and run `/tld-pr` once at the end to open a single PR for the branch; or use `/tld-pr` directly to commit + push + PR a standalone ticket (it stops before merge). The standalone `/tld-audit` step on the manual path is optional but recommended after backend / migration / auth changes.
+Two ways to automate a code ticket. `/tld-partial-auto` chains write-tests → build → audit → run-test → next inside one skill with two hard stops (RED review, QA gate) and commits on approval. `/tld-full-auto` runs the same pipeline hands-off, stops only on real problems, and ends at a verified, uncommitted checkpoint — you do your manual check, then land it: in a multi-ticket story, `/tld-commit` each ticket (choose "commit and progress" to move it to the pre-merge status and advance) and run `/tld-pr` once at the end to open a single PR for the branch; or use `/tld-pr` directly to commit + push + PR a standalone ticket (it stops before merge). The standalone `/tld-audit` step on the manual path is optional but recommended after backend / migration / auth changes.
 
 `/tld-autoland` is the third way, and the only one that ends at *merged* instead of at a gate. It wraps `/tld-full-auto` with the landing steps and takes a batch: `/tld-autoland AS-31 AS-32 AS-33`, or a Story key to expand its children. Because there is no merge gate, the gate moves to the door — a ticket needs the `auto-land` label to get in, protected surfaces (migrations, auth, RLS, secrets, seed, billing, CI config) are refused on both the ticket text and the real diff, and nothing merges unless CI is positively green. Anything that goes sideways parks that one ticket with its work committed and pushed, then the run moves on. Reserve it for bug fixes you would approve without reading; everything else belongs on the `/tld-full-auto` → `/tld-pr` path.
 

@@ -18,14 +18,14 @@ When you present the "What's next?" options at the end of your output, the user 
 
 ### Milestone completion check
 
-**When to use:** End-of-ticket skills (`/tld-run-test`) that need to decide whether the next option block should include a "run the milestone gate" choice. (`/tld-commit` and `/tld-pr` determine "what's next" with their own inline milestone walk rather than embedding this block, because they may mark the ticket Done themselves.)
+**When to use:** End-of-ticket skills (`/tld-run-test`) that need to decide whether the next option block should include a "run the milestone gate" choice. (`/tld-commit` and `/tld-pr` determine "what's next" with their own inline milestone walk rather than embedding this block, because they write the ticket's status themselves.)
 
 Before presenting options, check if this was the last ticket in its milestone:
 1. Read the current ticket and note its milestone (the tracker's current-ticket + milestone lookup — see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira)
 2. Read that milestone's ordered ticket list (Jira: the milestone Story's child tickets by rank; Linear: the `## Order` section of the milestone description)
 3. Look up each ticket's status
-4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
-5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
+4. Treat the ticket just committed as work-complete (it's about to be moved to the pre-merge status by /tld-next — see docs/DONE_MEANS_MERGED.md; a commit is not a merge, so it is not about to be marked Done)
+5. If every ticket in the milestone is work-complete (Done, Canceled, or the pre-merge status), append the 4th option below. Otherwise present only the first 3.
 
 ### Recommendation hint
 
@@ -149,7 +149,7 @@ Resolve "me" via the tracker's current-user call, then query the configured proj
    - Linear: read the description and parse the `## Order` section with the unanchored regex (find `^## Order\s*$`, capture lines until the next `## ` header, take the first `({prefix}-\d+)` match per line). If the `## Order` section is missing or yields zero ticket IDs, stop and output:
         "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it."
    - Jira: list the milestone Story's child tickets ordered by rank (see docs/JIRA.md).
-   Then, for each ticket in the ordered list, look up its status. Return the first ticket whose status is neither Done nor Canceled AND that is not already In Progress for someone other than me (a ticket claimed by another assignee is skipped).
+   Then, for each ticket in the ordered list, look up its status. Return the first ticket that is not work-complete — skip Done, Canceled, and the project's pre-merge status alike (see docs/DONE_MEANS_MERGED.md) — AND that is not already In Progress for someone other than me (a ticket claimed by another assignee is skipped).
 4. If every ticket in every milestone is resolved or claimed by others, stop and output:
      "All tickets in all milestones are resolved. Nothing to do."
 
