@@ -1,12 +1,14 @@
 ---
 name: tld-next
 description: |
-  Transition to the next TLD ticket after a successful commit. Use this skill whenever the user says "tld-next", "tld next", "next ticket", or wants to mark the current ticket done and prepare for the next one. Marks the ticket Done in Linear, determines what's next (another ticket or a milestone gate), and outputs the /compact prompt for context reset. Always use after /tld-run-test commits successfully.
+  Transition to the next TLD ticket after a successful commit. Use this skill whenever the user says "tld-next", "tld next", "next ticket", or wants to close out the current ticket and prepare for the next one. Moves the ticket to the project's pre-merge status (never Done — Done means merged, and a commit is not a merge), determines what's next (another ticket or a milestone gate), and outputs the /compact prompt for context reset. Always use after /tld-run-test commits successfully.
 ---
 
 # TLD Next
 
 You are transitioning from a completed ticket to the next one. Your job is to close out the current ticket, figure out what's next in its milestone Order, and give the user the exact command to run after a context reset.
+
+**"Closed out" here does not mean Done.** This skill runs on a commit, and a commit is not a merge. It moves the ticket to the project's **pre-merge status** — work complete, awaiting merge — and Done is set later, only once the code is confirmed on the default branch. The rule and the reason: [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md).
 
 ## Process
 
@@ -37,12 +39,12 @@ Query Linear for issues in the configured project with status = "In Progress".
 
 **Case A — exactly one In-Progress ticket:** That's the current ticket. Load via `get_issue` for `projectMilestone` and full context.
 
-**Case B — zero In-Progress tickets:** Suggest a candidate but **always confirm with the user before proceeding** — fall-back inference can pick the wrong ticket and `/tld-next` writes Done to Linear.
+**Case B — zero In-Progress tickets:** Suggest a candidate but **always confirm with the user before proceeding** — fall-back inference can pick the wrong ticket and `/tld-next` writes a status change to the tracker.
 1. Check the most recent conversation history for a `/tld-setup` output or ticket reference. Capture the candidate ticket ID.
 2. If conversation has no candidate, check the most recent git commit message for a ticket ID (format: `feat({prefix}-XXX): ...`). Capture that as the candidate.
-3. **Confirm via `AskUserQuestion`** — present the candidate ID + title (loaded via `get_issue`) as the default option, plus an "It's a different ticket" escape and a "Cancel — let me run /tld-setup first" escape. Default = the inferred candidate but require an explicit selection. Do NOT auto-proceed on silence. Question text: "No In-Progress ticket found. I think you just committed `{candidate ID}` — `{title}`. Confirm before I mark it Done?"
+3. **Confirm via `AskUserQuestion`** — present the candidate ID + title (loaded via `get_issue`) as the default option, plus an "It's a different ticket" escape and a "Cancel — let me run /tld-setup first" escape. Default = the inferred candidate but require an explicit selection. Do NOT auto-proceed on silence. Question text: "No In-Progress ticket found. I think you just committed `{candidate ID}` — `{title}`. Confirm before I close it out?"
 4. If the user picks the escape ("different ticket"), call `AskUserQuestion` again with the most recent five Done-or-Todo tickets in this project as options + free-text fallback.
-5. If the user picks "Cancel", stop and output: "No ticket marked Done. Run `/tld-setup` to pick one up first."
+5. If the user picks "Cancel", stop and output: "No ticket closed out. Run `/tld-setup` to pick one up first."
 
 **Case C — two or more In-Progress tickets:** Stop and call `AskUserQuestion`. One option per In-Progress ticket; each option's label is the ticket ID + title. Question text: "Multiple tickets are In Progress — pick the one you just completed."
 
@@ -55,12 +57,17 @@ Check that the most recent git commit references the current ticket ID (e.g., `g
 
 If no commit found for this ticket, stop and tell the user: "No commit found for {ticket ID}. Run `/tld-run-test` first."
 
-### 4. Mark ticket Done in Linear
+### 4. Move the ticket to the pre-merge status
 
-Use `save_issue` to set the ticket's state to "Done".
+Use `save_issue` to set the ticket's state to the project's **pre-merge status**, resolved per [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) § The pre-merge status. Never hardcode a status name. If the tracker exposes no pre-merge status, leave the ticket In Progress and say so in step 6.
+
+**Never set a done-category status here.** This skill fires on a commit; nothing has been pushed, PR'd, or merged. Done is written only after a confirmed merge — by `/tld-gate`'s reconciliation on the human-landed path, or by `/tld-autoland` after it confirms its own squash-merge.
+
+**One exception:** a ticket that produced **no code at all** — a manual-QA walkthrough whose realized diff is empty — has nothing to merge, so set its state to `"Done"` and say in step 6 that it was marked Done directly because there were no code changes. Judge this from the diff, never from the ticket's label; a "manual-QA" ticket that touched a file is a code ticket.
+
 Never write to `.tld/campaign.md`.
 
-> **Jira path:** status changes go through a workflow transition, not a field write — call `getTransitionsForJiraIssue` for the sub-task and `transitionJiraIssue` to the Done-category status (see docs/JIRA.md § Statuses). For step 5, "what's next" is the next-ranked unfinished **Sub-task** under the same milestone Story (`parent = "<storyKey>" ORDER BY Rank ASC`, skip Done/Canceled, sub-tasks In Progress for someone else, and sub-tasks whose blockers are not all resolved; i.e. take the next-ranked sub-task whose `is blocked by` links all point at Done/Canceled issues), not an `## Order` walk; read its labels via `getJiraIssue` and apply label overrides (step 7) via `editJiraIssue`. Run the milestone gate (below) only when every sub-task of the Story is Done/Canceled. If the Story's only remaining sub-tasks are blocked (none ready, none done), do not gate: emit `/tld-setup` with no id, which walks the remaining Stories by rank for the next ready sub-task and returns the blocked one once its blocker clears.
+> **Jira path:** status changes go through a workflow transition, not a field write — call `getTransitionsForJiraIssue` for the sub-task and `transitionJiraIssue` to the pre-merge status — the transition whose target is an `indeterminate`-category status matching the pre-merge name list, never a `done`-category one (see docs/JIRA.md § Statuses). For step 5, "what's next" is the next-ranked unfinished **Sub-task** under the same milestone Story (`parent = "<storyKey>" ORDER BY Rank ASC`, skip work-complete sub-tasks — Done, Canceled, or the pre-merge status — sub-tasks In Progress for someone else, and sub-tasks whose blockers are not all resolved; i.e. take the next-ranked sub-task whose `is blocked by` links all point at work-complete issues), not an `## Order` walk; read its labels via `getJiraIssue` and apply label overrides (step 7) via `editJiraIssue`. Run the milestone gate (below) only when every sub-task of the Story is work-complete (docs/DONE_MEANS_MERGED.md § Two questions, two tests — a Sub-task sitting in the pre-merge status is finished work awaiting a merge, and must not hold the gate open). If the Story's only remaining sub-tasks are blocked (none ready, none done), do not gate: emit `/tld-setup` with no id, which walks the remaining Stories by rank for the next ready sub-task and returns the blocked one once its blocker clears.
 
 ### 5. Determine what's next
 
@@ -70,7 +77,7 @@ Never write to `.tld/campaign.md`.
    - Capture following lines until the next `^## ` header or end-of-description.
    - For each line, take the first regex match of `({prefix}-\d+)` — that's the ticket ID for that position. Do NOT anchor on `^\d+\.\s+` (Linear's auto-link rewrite breaks that).
 3. Locate the current ticket's position in the parsed Order.
-4. Walk forward from there. For each remaining ticket ID, look up its status. Return the first one whose status is **Todo** or **Backlog** — skip Done, Canceled, AND In Progress (another agent may have claimed it).
+4. Walk forward from there. For each remaining ticket ID, look up its status. Return the first one whose status is **Todo** or **Backlog** — skip every work-complete status (Done, Canceled, and the pre-merge status) AND In Progress (another agent may have claimed it). Skipping the pre-merge status matters: it is where this skill leaves every ticket it closes out, so a walk that only skips Done would hand the ticket you just finished straight back to `/tld-setup`.
 
 **If a next ticket is found:** set `next_action` = `/tld-setup {next-ticket-ID}`. Then call `get_issue` on the next ticket to read its `labels` array. Parse:
 - **Recommended model:** the value after `model:` in any `model:*` label. If no `model:*` label is present, default to `sonnet` and mark the source as "default" (not a label).
@@ -81,7 +88,7 @@ These values drive the recommendation line and the override cycles in step 7.
 **If no Todo ticket remains in this milestone's Order:** set `next_action` = `/tld-gate {milestoneId}` — substitute the just-completed ticket's `projectMilestone.id` so `/tld-gate` runs against the correct milestone (its no-arg fallback can pick the wrong one in Linear histories with re-opened tickets or parallel work). **Never emit the literal text `{milestoneId}` to the user** — substitute the actual id BEFORE rendering. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly. Note the milestone name — it just completed. No label read is needed in this case.
 
 **Edge — malformed Order:** If the Order section is missing or yields zero tickets, stop and output:
-  "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it. Ticket {ID} was marked Done successfully."
+  "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it. Ticket {ID} was moved to {pre-merge status} successfully."
 
 ### Per-option number handling
 
@@ -101,7 +108,7 @@ When the user responds to a "What's next?" block with a bare number, map it base
 ### 6. Output
 
 Report:
-- Ticket {ID} marked Done in Linear
+- Ticket {ID} moved to {pre-merge status} (not Done — Done is set after the merge; if the tracker has no pre-merge status, say the ticket stayed In Progress and why)
 - Milestone progress (e.g., "3 of 5 tickets resolved in M3: Core TLD Wiring")
 - What's next (next ticket ID or milestone gate)
 - If next action is another ticket, a recommendation line in the form `Recommended: model:{X} | effort:{Y}`, using the values parsed in step 5. When a label source is "default" (no `model:*` or `effort:*` label on the next ticket), render that side as `{value} (default)` — e.g., `Recommended: model: sonnet (default) | effort: medium (default)`.

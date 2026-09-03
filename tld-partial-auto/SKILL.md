@@ -1,7 +1,7 @@
 ---
 name: tld-partial-auto
 description: |
-  Automated TLD pipeline with two review gates. Use this skill whenever the user says "tld-partial-auto", "tld auto", "auto run", "run the full cycle", or wants to execute the full test-led development pipeline (write tests, review gate, build, verify, commit, QA gate, mark done) with minimal interaction. Requires /tld-setup to have been run first. Chains all TLD phases automatically but STOPS after the RED phase for user review and again before marking Done for manual QA. Handles migration/schema tickets instead of mislabeling them manual-QA: it recognizes a migration ticket, runs the code path, and verifies the migration by applying it to the LOCAL database and showing the confirmation-check result at the QA gate before you approve the commit.
+  Automated TLD pipeline with two review gates. Use this skill whenever the user says "tld-partial-auto", "tld auto", "auto run", "run the full cycle", or wants to execute the full test-led development pipeline (write tests, review gate, build, verify, commit, QA gate, mark done) with minimal interaction. Requires /tld-setup to have been run first. Chains all TLD phases automatically but STOPS after the RED phase for user review and again before closing the ticket out for manual QA. It never marks a code ticket Done — Done means merged, and this skill neither pushes nor merges; code tickets land in the project's pre-merge status, and only a no-code manual-QA ticket is marked Done. Handles migration/schema tickets instead of mislabeling them manual-QA: it recognizes a migration ticket, runs the code path, and verifies the migration by applying it to the LOCAL database and showing the confirmation-check result at the QA gate before you approve the commit.
 ---
 
 # TLD Auto
@@ -10,7 +10,9 @@ You are running the full TLD pipeline for the active ticket. This chains the RED
 
 ## Why this exists
 
-The individual TLD skills (`/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-next`) are designed as discrete steps with hard stops between them. This skill chains them together for speed, but keeps the gates that matter: reviewing the test specification before implementation, and manual QA before marking Done.
+The individual TLD skills (`/tld-write-tests`, `/tld-build`, `/tld-run-test`, `/tld-next`) are designed as discrete steps with hard stops between them. This skill chains them together for speed, but keeps the gates that matter: reviewing the test specification before implementation, and manual QA before closing the ticket out.
+
+**A code ticket is never marked Done here.** This skill commits and pushes; it does not open a PR and it does not merge. Under [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) that means the furthest it may move a code ticket is the project's **pre-merge status**. A manual-QA ticket that produced no code at all is the documented exception and *is* marked Done — there is nothing to merge.
 
 ## Process
 
@@ -123,7 +125,7 @@ Classify the active ticket. This determines which phases to run.
 
 **If the classification is MANUAL-QA but the re-check says migration ticket** → treat it as a **code ticket on the migration path**: do NOT jump to Phase 4. Proceed to 1.5 and run RED → GREEN → audit → verify as normal, with the migration carve-outs in Phase 1 (§1.7), Phase 3 (§3.1), and Phase 4 (§4.0). Remember this classification — those steps check for it.
 
-**If the classification is MANUAL-QA and it is NOT a migration ticket** (a genuine walkthrough) → skip the rest of Phase 1 (RED), Phase 2 (GREEN), Phase 2.5 (audit), and Phase 3 (drift + commit). Jump directly to Phase 4 (Manual QA Gate). There are no new tests to write, no code to build, no drift to check, and no changes to commit. The entire purpose is the manual walkthrough + mark Done.
+**If the classification is MANUAL-QA and it is NOT a migration ticket** (a genuine walkthrough) → skip the rest of Phase 1 (RED), Phase 2 (GREEN), Phase 2.5 (audit), and Phase 3 (drift + commit). Jump directly to Phase 4 (Manual QA Gate). There are no new tests to write, no code to build, no drift to check, and no changes to commit. The entire purpose is the manual walkthrough + close-out.
 
 **If CODE ticket**, proceed to 1.5 and continue through all phases as normal.
 
@@ -346,7 +348,7 @@ Re-classify the active ticket now that build is done. This catches the case wher
 
 **Migration ticket exemption:** if §1.4's re-check classified this as a migration ticket, do NOT flip it to manual-QA here — the `.sql` migration file is the change, and it was verified by local apply in Phase 3. Stay on the code/migration path and proceed to 4.1.
 
-If the verify-time classification flips the ticket to manual-QA (most commonly because the build was a no-op), follow the same skip path as §1.4: jump to the manual walkthrough + Done flow at the end of Phase 4 and do not run the commit step. If the classification stays "code", proceed to 4.1 normally.
+If the verify-time classification flips the ticket to manual-QA (most commonly because the build was a no-op), follow the same skip path as §1.4: jump to the manual walkthrough + close-out flow at the end of Phase 4 and do not run the commit step. Note that a flip caused by a no-op build still means an empty diff, so the no-code exception applies and §4.4 marks it Done. If the classification stays "code", proceed to 4.1 normally.
 
 #### 4.1 Generate manual test plan
 
@@ -394,7 +396,7 @@ End the test plan with the instruction **"Run the manual tests above."** then pr
 
 **What's next?**
 
-> **1.** Approve — commit and mark Done (Recommended)
+> **1.** Approve — commit and close the ticket out (Recommended)
 >    Best for: manual QA passed, ready to close out
 
 > **2.** /tld-side-quest — handle a quick fix first
@@ -415,7 +417,7 @@ Type **1**, **2**, or **3** to proceed.
 
 **If no manual tests needed:**
 
-Say "All AC items are covered by automated tests. No manual QA needed. Committing and marking Done." and proceed directly to 4.3.
+Say "All AC items are covered by automated tests. No manual QA needed. Committing and closing the ticket out." and proceed directly to 4.3.
 
 #### 4.3 Commit (code tickets only)
 
@@ -427,11 +429,14 @@ Say "All AC items are covered by automated tests. No manual QA needed. Committin
 
 **Push the branch after committing** (current feature branch only — never the default branch, never force-push) so the work is durable. Do NOT open a PR — that stays `/tld-pr`'s job or the user's. Note: each push may trigger CI / GitHub Actions. **Exception:** if a PR is already open for this branch, do NOT push automatically — stop, tell the user a PR is open, and let them decide (check with `gh pr view` if unsure).
 
-**For manual-QA tickets**, skip this step entirely. There are no code changes to commit. Proceed directly to 4.4 (Mark ticket Done).
+**For manual-QA tickets**, skip this step entirely. There are no code changes to commit. Proceed directly to 4.4 (Close the ticket out).
 
-#### 4.4 Mark ticket Done
+#### 4.4 Close the ticket out
 
-Use `save_issue` to set the ticket's state to "Done" in Linear.
+Which status this writes depends on whether the ticket produced code. Decide from the **realized diff**, not from the ticket's classification label — see [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md).
+
+- **Code ticket (anything was committed in 4.3, including a docs- or changelog-only change):** use `save_issue` to set the ticket's state to the project's **pre-merge status**, resolved per that document § The pre-merge status. Never hardcode a status name; if the tracker has no pre-merge status, leave the ticket In Progress and say so in the report. **Never write a done-category status here** — this skill commits and pushes, it does not open a PR and it does not merge.
+- **Manual-QA ticket with a genuinely empty diff:** use `save_issue` to set the state to `"Done"`. This is the no-code exception — there is nothing to merge — and the report must say so in those words.
 
 #### 4.5 Determine what's next
 
@@ -444,10 +449,10 @@ Runtime state lives in Linear. From the current ticket's `projectMilestone` (cap
    - Within that block, scan line-by-line and take the first regex match of `({prefix}-\d+)` (unanchored, where `{prefix}` is the ticket prefix from campaign Project).
 3. The resulting list in line order is the milestone's ticket sequence.
 
-Walk the Order from the current ticket's position forward. For each subsequent entry, look up its status via Linear. **Pick the first ticket whose status is `Todo`.** Skip `Done`, `Canceled`, and `In Progress` — those are not next-up candidates.
+Walk the Order from the current ticket's position forward. For each subsequent entry, look up its status via Linear. **Pick the first ticket whose status is `Todo`.** Skip every work-complete status — `Done`, `Canceled`, and the pre-merge status — plus `In Progress`; none are next-up candidates.
 
 - **Next Todo ticket found** → next action is `/tld-setup {next-id}`.
-- **No next Todo in this milestone's Order** (every subsequent entry is Done, Canceled, or In Progress) → next action is `/tld-gate {milestoneId}` — substitute the captured `projectMilestone.id` from §1.2 so `/tld-gate` runs against the correct milestone (its no-arg fallback can pick the wrong one in Linear histories with re-opened tickets or parallel work). Never emit the literal text `{milestoneId}`. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly.
+- **No next Todo in this milestone's Order** (every subsequent entry is work-complete — Done, Canceled, or the pre-merge status — or In Progress) → next action is `/tld-gate {milestoneId}` — substitute the captured `projectMilestone.id` from §1.2 so `/tld-gate` runs against the correct milestone (its no-arg fallback can pick the wrong one in Linear histories with re-opened tickets or parallel work). Never emit the literal text `{milestoneId}`. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly.
 - **Order section malformed or missing** → stop and output the same error `/tld-setup` uses: "Milestone's Order section is missing or malformed. Run /milestone-sync to regenerate." Do not attempt to guess.
 
 ### Numbered shortcut recognition
@@ -466,7 +471,7 @@ Report the full run summary:
 - **GREEN:** [N] files created/modified
 - **Verify:** All tests pass, no drift
 - **Commit:** [hash]
-- **Linear:** Marked Done
+- **Tracker:** [pre-merge status] (code ticket — Done is set after the merge), or "marked Done (no code changes — nothing to merge)" for a manual-QA ticket
 - **Milestone progress:** [X] of [Y] tickets done in milestone [name]
 
 ### Next
@@ -522,7 +527,7 @@ At any point if something goes critically wrong, STOP and report everything that
   > **1.** /tld-align — fix drift issues
   > **2.** Fix manually, then run /tld-run-test
 
-- **Linear API fails:** Note it, continue with the rest. The user can mark Done manually.
+- **Linear API fails:** Note it, continue with the rest. The user can set the status manually.
 - **Git commit fails:** STOP. Report the error. Do not retry destructive git operations.
 
   **What's next?**

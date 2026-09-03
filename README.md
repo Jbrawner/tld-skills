@@ -164,7 +164,7 @@ Authors `## Order` sections on existing milestones using their existing ticket l
 /tld-setup
 ```
 
-Walks the project's milestones in `sortOrder`, finds the first ticket whose status isn't Done or Canceled, marks it In Progress, loads its full description and acceptance criteria, and tells you what to run next. From here you're in the standard ticket loop: `/tld-write-tests` → `/tld-build` → `/tld-run-test` → `/tld-next`. Every transition is a hard stop you have to approve.
+Walks the project's milestones in `sortOrder`, finds the first ticket that is not work-complete (not Done, not Canceled, and not in the project's pre-merge status), marks it In Progress, loads its full description and acceptance criteria, and tells you what to run next. From here you're in the standard ticket loop: `/tld-write-tests` → `/tld-build` → `/tld-run-test` → `/tld-next`. Every transition is a hard stop you have to approve.
 
 ### Worked example: `.tld/campaign.md`
 
@@ -236,7 +236,7 @@ A few hard assumptions are baked in. Plan around them.
 | **Python** | 3.11 or newer, on `PATH` as `python3` | Only `/docs-drift-audit` needs it. Its engine reads the per-repo baseline with `tomllib`, which entered the standard library in 3.11; nothing else is imported from outside the standard library, so there is no install step. Every other skill is unaffected. |
 | **Node** | 18 or newer, on `PATH` as `node` | `/test-audit` and `/quality-sweep` ship an engine as a single `.mjs` file each. Both import only `node:fs` and `node:path`, so there is no install step and no dependency to keep current. Every other skill is unaffected. |
 
-For the full list, see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker adapter interface contract (every tracker call the TLD skills make, with parameters, response fields, and edge cases), see [docs/JIRA.md](docs/JIRA.md) for Jira and [docs/ADAPTERS.md](docs/ADAPTERS.md) for Linear.
+For the full list, see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker adapter interface contract (every tracker call the TLD skills make, with parameters, response fields, and edge cases), see [docs/JIRA.md](docs/JIRA.md) for Jira and [docs/ADAPTERS.md](docs/ADAPTERS.md) for Linear. For what a ticket's status is allowed to claim — and why `Done` is written only after a merge is confirmed — see [docs/DONE_MEANS_MERGED.md](docs/DONE_MEANS_MERGED.md).
 
 ---
 
@@ -250,6 +250,8 @@ For the full list, see [LIMITATIONS.md](LIMITATIONS.md). For the issue tracker a
 | [CHANGELOG.md](CHANGELOG.md) | Release history — what's added, changed, and removed |
 | [RELEASING.md](RELEASING.md) | How to cut a new release — the 4-step procedure, what the workflow automates, recovery if it fails, and PAT rotation |
 | [docs/ADAPTERS.md](docs/ADAPTERS.md) | Issue tracker adapter interface — every MCP call the TLD skills make, parameters and response fields, and edge cases (auto-linking, rate limits) for future Jira / GitHub Issues adapter authors |
+| [docs/DONE_MEANS_MERGED.md](docs/DONE_MEANS_MERGED.md) | Why no skill marks a ticket Done before its code is on the default branch — the pre-merge status, how to confirm a merge without grepping commit messages, and the reconciliation check that finds tickets whose Done is a lie |
+| [CONTRIBUTING.md § `scripts/`](CONTRIBUTING.md#scripts--hand-maintained-tooling) | The four hand-maintained scripts, including `tld-loop.sh` — the per-ticket autonomous loop you run from a terminal, which no skill invokes |
 
 ---
 

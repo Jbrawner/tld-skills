@@ -157,7 +157,7 @@ Returns one issue's full record. The primary call for loading a ticket before im
 
 Creates a new issue or updates an existing one.
 
-**Used by:** `/tld-setup` (mark In Progress), `/tld-partial-auto` (mark Done), `/tld-next` (mark Done), `/tld-skip` (revert to Todo/Skipped), `/milestone-create` (create tickets)
+**Used by:** `/tld-setup` (mark In Progress), `/tld-partial-auto` (pre-merge status), `/tld-next` (pre-merge status), `/tld-commit` (pre-merge status), `/tld-pr` (pre-merge status), `/tld-side-quest` (pre-merge status), `/tld-gate` (Done, after confirming a merge), `/tld-autoland` (Done, after confirming its own merge), `/tld-skip` (revert to Todo/Skipped), `/milestone-create` (create tickets)
 
 #### Parameters for creating a ticket
 
@@ -175,7 +175,9 @@ Creates a new issue or updates an existing one.
 | Field | Type | Notes |
 |-------|------|-------|
 | `id` | string | Ticket identifier, e.g. `ABC-207` |
-| `state` | string | Target state name: `"In Progress"`, `"Done"`, `"Todo"`, `"Backlog"`, or a custom "Skipped" state (see `/tld-skip`) |
+| `state` | string | Target state name: `"In Progress"`, the project's pre-merge state (`"In PR"` by default), `"Done"`, `"Todo"`, `"Backlog"`, or a custom "Skipped" state (see `/tld-skip`) |
+
+**`"Done"` is not a state the pipeline may write on request.** A skill may set it only after it has confirmed the ticket's code is on the default branch; everything before that point writes the pre-merge state instead. An adapter does not enforce this — the rule lives in the skills — but an adapter author reading this table should know that a `"Done"` write is meant to be rare and evidence-backed. Rule and rationale: [DONE_MEANS_MERGED.md](DONE_MEANS_MERGED.md).
 
 #### Response fields the skills read
 
@@ -275,6 +277,8 @@ Returns the available workflow states for a team.
 
 `/tld-skip` looks for a state whose `type` is `"unstarted"` or `"backlog"` AND whose `name` (case-insensitive) is `"Skipped"`. If found, it uses that state; otherwise it falls back to `"Todo"`. A minimal adapter can return a single `{ name: "Todo", type: "unstarted" }` entry and the fallback will always apply.
 
+This function is also how the **pre-merge status** is resolved: a state whose `type` is `"started"` and whose `name` matches the pre-merge name list in [DONE_MEANS_MERGED.md](DONE_MEANS_MERGED.md) § The pre-merge status. A `"completed"`-type state never qualifies, whatever it is called. An adapter that returns only `{ name: "Todo", type: "unstarted" }` yields no pre-merge status, and the skills then leave finished tickets In Progress rather than inventing one.
+
 ---
 
 ### `list_teams`
@@ -354,6 +358,6 @@ The retry interval is implicit — the skill retries immediately after the first
 
 ## Scope
 
-The 12 functions above are the complete set of tracker calls the framework makes. Implementing all 12 in a new adapter gives full pipeline coverage.
+The 12 functions above are the complete set of tracker calls the framework makes. Implementing all 12 in a new adapter gives full pipeline coverage. The pre-merge status adds no thirteenth function: it is resolved through `list_issue_statuses` and written through `save_issue`, like any other state.
 
 **Jira** is mapped in [JIRA.md](JIRA.md) and selected via the `Issue tracker` field in `.tld/campaign.md`. **GitHub Issues** and other trackers remain unimplemented — the contract here is what an adapter for them would need to satisfy. See [LIMITATIONS.md](../LIMITATIONS.md) for the current constraint summary.

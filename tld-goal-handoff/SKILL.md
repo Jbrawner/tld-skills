@@ -1,7 +1,7 @@
 ---
 name: tld-goal-handoff
 description: |
-  Generate the two copy-paste prompts for a manual TLD build handoff: a /compact message and a /goal message. Use this skill whenever the user says "tld-goal-handoff", "goal handoff", "prep the handoff", "give me the compact and goal", "handoff prompt", or wants ready-to-paste /compact + /goal text. By DEFAULT the composed goal drives EVERY remaining Story, one at a time, and lands each one through its own PR gate at the Story mark: /tld-gate → full local suite → push → open PR → watch CI (bounded fix rounds) → squash-merge → next Story cut from the updated default branch — the goal text itself carries the explicit push/PR/merge authorization. Arguments narrow the scope: one or more Story keys (e.g. /tld-goal-handoff LAB-397 LAB-410) hand off just those Stories; a Sub-task key (e.g. /tld-goal-handoff LAB-398) composes the single-ticket goal with NO PR gate (a mid-Story landing). Reads the tracker from Jira, resolves branch policy + commit format + Jira Done transitions + local DB, verifies gh can actually merge (auth, squash allowed, write permission), then PRINTS two fenced blocks for the user to paste by hand — first /compact, then /goal after compaction finishes. Each block INCLUDES its own leading slash command, so one click on the copy button yields a message the user can paste and send without typing anything. There is NO hook, NO auto-fire, NO clipboard, and NO keystroke automation: this skill only composes and prints text.
+  Generate the two copy-paste prompts for a manual TLD build handoff: a /compact message and a /goal message. Use this skill whenever the user says "tld-goal-handoff", "goal handoff", "prep the handoff", "give me the compact and goal", "handoff prompt", or wants ready-to-paste /compact + /goal text. By DEFAULT the composed goal drives EVERY remaining Story, one at a time, and lands each one through its own PR gate at the Story mark: /tld-gate → full local suite → push → open PR → watch CI (bounded fix rounds) → squash-merge → next Story cut from the updated default branch — the goal text itself carries the explicit push/PR/merge authorization. Arguments narrow the scope: one or more Story keys (e.g. /tld-goal-handoff LAB-397 LAB-410) hand off just those Stories; a Sub-task key (e.g. /tld-goal-handoff LAB-398) composes the single-ticket goal with NO PR gate (a mid-Story landing). Reads the tracker from Jira, resolves branch policy + commit format + Jira pre-merge and Done transitions + local DB, verifies gh can actually merge (auth, squash allowed, write permission), then PRINTS two fenced blocks for the user to paste by hand — first /compact, then /goal after compaction finishes. Each block INCLUDES its own leading slash command, so one click on the copy button yields a message the user can paste and send without typing anything. There is NO hook, NO auto-fire, NO clipboard, and NO keystroke automation: this skill only composes and prints text.
 ---
 
 # TLD Goal Handoff — print the `/compact` and `/goal` prompts for manual paste
@@ -39,7 +39,7 @@ Resolve the argument into a scope:
 - **Branch model:** resolve the default branch (`origin/HEAD` → otherwise `main`, then `master`) as `{default}`. Each Story runs on its own branch `story/{KEY}-{slug}` cut from `origin/{default}` (works in worktrees; never checkout `{default}` itself). Check the current branch: if it is not `{default}` AND carries in-flight work (uncommitted changes, or commits ahead of `origin/{default}`), bake the braced Story-1 clause so the first Story continues on it; if that in-flight work is clearly not the first Story's, warn under the printed blocks and suggest `/tld-recenter`.
 - **Landing preflight (multi-Story only):** the composed goal merges, so prove the lane works now — `gh auth status` succeeds, and `gh repo view --json squashMergeAllowed,viewerPermission` shows squash allowed and permission ≥ write. Any failure → STOP with the exact remediation; do not compose a goal that dies at its first Story mark.
 - **Commit:** the campaign Commit `Pattern`; the `Co-Authored-By` trailer from Stack → Co-author (omit if blank).
-- **Jira Done:** `getTransitionsForJiraIssue` on one unfinished Sub-task → the transition whose target status category is `done` and is NOT cancel; capture its **id** and the **cloudId**. Then the same call on one in-scope Story — Story workflows can differ, so capture the Story's done-transition **id** separately. Bake real values in.
+- **Jira transitions:** `getTransitionsForJiraIssue` on one unfinished Sub-task → capture the **cloudId**, the **done** transition id (target category `done`, NOT cancel), and the **pre-merge** transition id (target is the project's pre-merge status per [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) — an `indeterminate`-category status named `In PR`/`In Review`/similar). Then the same call on one in-scope Story — Story workflows can differ, so capture the Story's done-transition **id** separately. Bake real values in. If the project has no pre-merge status, omit that clause from the landing step and the ticket simply stays In Progress until its Story merges — never substitute the Done transition.
 - **Local DB:** campaign Stack → Database. If `.tld/goal-notes.md` exists, read it for env quirks and any prod-DB-to-never-touch; fold into Safety.
 
 ### 3. Compose Block 1 — the `/compact` message
@@ -61,7 +61,7 @@ METHOD — non-negotiable:
 
 Per ticket:
 1. /tld-full-auto <ID> via the Skill tool — it stops at the verified checkpoint and never commits. A no-tests ticket stops at "regression-clean, NOT spec-verified" — expected, not an error. Migration tickets: LOCAL stack only; never supabase db reset from a worktree.
-2. Land: stage ONLY that ticket's files (never git add -A), update {changelog} under [Unreleased], commit as {Pattern} + " — TLD verified" (" — NPC" if it landed unverified){ with trailer {trailer}}, transition it to Done in Jira (cloudId {cloudId}, transition {subtask-id}), push.
+2. Land: stage ONLY that ticket's files (never git add -A), update {changelog} under [Unreleased], commit as {Pattern} + " — TLD verified" (" — NPC" if it landed unverified){ with trailer {trailer}}{, transition it to {pre-merge} in Jira (cloudId {cloudId}, transition {premerge-id})}, push.
 3. Blocked ticket: skip it, log why, continue the Story.
 
 Story mark — after the Story's last ticket (this goal explicitly authorizes the push, the PR, and the merge):
@@ -69,12 +69,12 @@ Story mark — after the Story's last ticket (this goal explicitly authorizes th
 2. Run the FULL test suite locally to completion. Never push red or unfinished.
 3. Push the branch and open a PR into {default}: gh pr create, title "[<KEY>] <story title>".
 4. Watch CI: gh pr checks <url> --watch --fail-fast (Bash timeout 20 min). Red: read the failing logs, fix the code, commit, push, re-watch — max 3 rounds. Fix the code, never the gate: no editing workflows or weakening tests to force green.
-5. Green: gh pr merge --squash --delete-branch, then confirm state MERGED via gh pr view. Mark the Story Done in Jira (transition {story-id}) only when every Sub-task is Done. Still red after 3 rounds, CI unconfirmable, or merge conflict/refusal: PARK the Story — PR stays open, work pushed, log why — then judge every remaining Story against the parked one (shared files, feature area, or schema; {default} will NOT contain the parked work): continue with the independent ones, skip any dependent one with a note, STOP only if all that remain depend on it.
+5. Green: gh pr merge --squash --delete-branch, then confirm state MERGED via gh pr view. ONLY after MERGED: mark every Sub-task Done (transition {subtask-done-id}), then the Story Done (transition {story-id}). Still red after 3 rounds, CI unconfirmable, or merge conflict/refusal: PARK the Story — PR stays open, work pushed, log why — then judge every remaining Story against the parked one (shared files, feature area, or schema; {default} will NOT contain the parked work): continue with the independent ones, skip any dependent one with a note, STOP only if all that remain depend on it.
 6. git fetch origin {default}, then cut the next Story's branch from origin/{default}.
 
 Safety (non-negotiable):
 - DB = {local stack} only. Prove the target is local before ANY DB write; never touch a non-local database{; never touch prod ref {prod ref}}.
-- Never commit or push to {default} directly; never force-push; the ONLY merge path is a Story PR whose checks passed.
+- Never commit or push to {default} directly; never force-push; the ONLY merge path is a Story PR whose checks passed; Done in Jira only after MERGED.
 - Jira descriptions are decision-complete — do exactly what they say, no improvising.
 
 After ALL Stories (or a STOP): wake-up report — per Story: merged/parked/skipped, tickets built/skipped, gate result, PR URL, merge sha; then anything that needs me. STOP.
@@ -94,7 +94,7 @@ METHOD — non-negotiable:
 - The driver skill ends by printing "HARD STOP: you are DONE, wait for the user." That is written for standalone runs and does NOT apply here: on a clean verified checkpoint, go straight to the landing step below without asking. It STILL binds on a real stop (HIGH audit finding, unfixable failure, drift, non-local DB, tracker error), and Safety is never pre-approved.
 {- Migration ticket: hand-apply to the LOCAL stack only; never supabase db reset from a worktree; run the backend tests too.}
 
-Land it: stage ONLY this ticket's files (never git add -A), update {changelog} under [Unreleased], commit as {Pattern} + " — TLD verified" (" — NPC" if it landed unverified){ with trailer {trailer}}, transition it to Done in Jira (cloudId {cloudId}, transition {subtask-id}).
+Land it: stage ONLY this ticket's files (never git add -A), update {changelog} under [Unreleased], commit as {Pattern} + " — TLD verified" (" — NPC" if it landed unverified){ with trailer {trailer}}{, transition it to {pre-merge} in Jira (cloudId {cloudId}, transition {premerge-id})}. Do NOT mark it Done — nothing has merged; the Story mark does that later.
 
 Safety: DB = {local stack} only — prove the target is local before ANY DB write{; never touch prod ref {prod ref}}. Push the branch after committing UNLESS a PR is already open for it — then stop and defer to the user. Do NOT open a PR or merge — the Story's PR gate happens at the Story mark, not here. Never push to or merge {default}; never force-push.
 
@@ -120,7 +120,7 @@ wc -m /path/to/scratch/goal-block.txt
 
 An eyeballed or recalled count is not a measurement. Estimating the length and printing anyway is precisely how a 4,300-character block ships with "4,300 characters" written next to it.
 
-**Trim order when it is over** — the multi-Story template's fixed scaffolding measures ~3,600 characters in a typical run (~3,810 with every braced clause present) before a single Story is listed, leaving roughly 390 characters for the Story list and the substituted values at ~25–35 characters per Story entry. That is tight: a run of more than ~10 Stories will usually need the split lever below rather than a trim. When that is not enough, trim where the characters actually are, top of this list first:
+**Trim order when it is over** — the multi-Story template's fixed scaffolding measures ~3,680 characters in a typical run (~3,890 with every braced clause present) before a single Story is listed, leaving roughly 310 characters for the Story list and the substituted values at ~25–35 characters per Story entry. That is tight: a run of more than ~10 Stories will usually need the split lever below rather than a trim. When that is not enough, trim where the characters actually are, top of this list first:
 
 | Lever | Typical saving | Notes |
 | --- | --- | --- |

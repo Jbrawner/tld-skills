@@ -354,7 +354,7 @@ advance past, and **not** a `failed`/`needs_user` problem: the work is fine, but
 call, always (the whole TLD family keeps the human in control of the landing). When a step ends at its own
 approval gate, treat it exactly like `stop_after`: mark the step's checklist item done for the work it
 finished, then **pause and hand the gate to the user** (§6). Never type the approval keyword yourself,
-never reach around the step to `git commit`, and never mark the ticket Done on the step's behalf. The
+never reach around the step to `git commit`, and never write the ticket's status on the step's behalf. The
 pipeline resumes from the next step once the user has approved and the step has landed its work.
 
 > **Why the "runs straight through, no pauses" pipeline still pauses at commit.** The spec's recommended
@@ -453,7 +453,7 @@ channels carry the handoff:
 
 | Channel | What it carries | Who writes it / reads it |
 |---|---|---|
-| **Tracker status** | Which ticket is active | `tld-setup` sets **In Progress** at the front; the middle steps resolve *the single ticket In Progress **and assigned to me***; `tld-next` transitions it to **Done** at the back |
+| **Tracker status** | Which ticket is active | `tld-setup` sets **In Progress** at the front; the middle steps resolve *the single ticket In Progress **and assigned to me***; `tld-next` transitions it to the project's **pre-merge status** at the back (never Done — see docs/DONE_MEANS_MERGED.md) |
 | **Git worktree** | The actual work | Uncommitted changes and commits flow build → run-test → commit; `tld-next` confirms the commit exists |
 | **Shared session** | Loaded ticket context | `tld-audit` uses in-conversation context first, tracker as fallback — both are present because the runner drives every step in one session |
 
@@ -466,7 +466,7 @@ Two preconditions fall out of that contract, and the runner enforces both:
    unassigned.)
 2. **Landing gates stay human (§5–§6).** `tld-commit` and `tld-run-test` end at a mandatory approval gate
    by design. The runner treats those as pauses and hands them to the user — it never auto-approves a
-   commit or marks the ticket Done on a step's behalf.
+   commit or writes the ticket's status on a step's behalf.
 
 Blocker signalling is likewise readable off the step's terminal gate: `tld-setup` prints
 `Blocked — {id} is {status}`; build/commit end at a `/tld-align` remediation gate; audit gates on its

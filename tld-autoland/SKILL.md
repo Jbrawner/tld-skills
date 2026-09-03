@@ -141,8 +141,8 @@ Autoland pushes and merges, so prove the landing path works before doing any wor
 Build the ordered list of candidate tickets from the argument:
 
 - **Ticket IDs given** → that list, in the order given.
-- **A Story / milestone key given** → its child tickets in tracker order (Linear: parse the `## Order` section with the unanchored `({prefix}-\d+)` algorithm; Jira: child sub-tasks by rank ascending). Drop any that are already Done or Canceled.
-- **No argument** → resolve the next Todo ticket exactly as `/tld-setup`'s discovery does (walk milestones in order, first ticket that is neither Done, Canceled, nor In Progress for someone else). The list is that one ticket.
+- **A Story / milestone key given** → its child tickets in tracker order (Linear: parse the `## Order` section with the unanchored `({prefix}-\d+)` algorithm; Jira: child sub-tasks by rank ascending). Drop any that are already work-complete — Done, Canceled, or in the project's pre-merge status (docs/DONE_MEANS_MERGED.md). A pre-merge ticket has been built and is waiting on a merge somebody else owns; autoland must not rebuild it.
+- **No argument** → resolve the next Todo ticket exactly as `/tld-setup`'s discovery does (walk milestones in order, first ticket that is neither work-complete — Done, Canceled, or pre-merge — nor In Progress for someone else). The list is that one ticket.
 
 If the list is empty, stop and output: "Nothing to autoland — no candidate tickets resolved." Then end the turn.
 

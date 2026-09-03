@@ -1,23 +1,28 @@
 ---
 name: tld-pr
 description: |
-  Land the current TLD ticket — commit the verified work, mark the ticket Done, push the branch, and
-  open a pull request, then STOP before merge so you stay in control of the merge. Use this skill
+  Land the current TLD ticket — commit the verified work, move the ticket to the project's pre-merge
+  status, push the branch, and open a pull request, then STOP before merge so you stay in control of
+  the merge. It never marks the ticket Done: Done means merged, and this skill stops before the
+  merge. Use this skill
   whenever the user says "tld-pr", "make a PR", "open a PR", "land it", "land the ticket", "push and
   PR", or wants to ship a ticket that has already passed verification (typically right after
   /tld-full-auto stops at its verified checkpoint, or after /tld-partial-auto / /tld-run-test have
   committed). This is the TLD family's landing step: TLD keeps the human in control of the outward git
   actions, and tld-pr is the one place they happen. It re-runs the tests to confirm nothing broke,
   shows exactly what it will commit/push/PR, HARD STOPS for your approval, then commits (if not
-  already committed), marks the ticket Done, pushes, and opens the PR. It NEVER merges — that stays
-  yours. Refuses to run on the default branch (push to a feature branch only) and never force-pushes.
+  already committed), moves the ticket to the pre-merge status, pushes, and opens the PR. It NEVER
+  merges — that stays yours. Refuses to run on the default branch (push to a feature branch only) and
+  never force-pushes.
 ---
 
 # TLD PR
 
-Land a verified ticket: commit → mark Done → push → open a pull request, and **stop before merge.** This is the TLD family's deliberate "you own the landing" step — `/tld-full-auto` leaves a verified, uncommitted checkpoint, and `tld-pr` is how you ship it once your manual check passes. It also works after `/tld-partial-auto`, `/tld-run-test`, or `/tld-commit` have already committed (it will skip the commit and just push + open the PR).
+Land a verified ticket: commit → move to the pre-merge status → push → open a pull request, and **stop before merge.** This is the TLD family's deliberate "you own the landing" step — `/tld-full-auto` leaves a verified, uncommitted checkpoint, and `tld-pr` is how you ship it once your manual check passes. It also works after `/tld-partial-auto`, `/tld-run-test`, or `/tld-commit` have already committed (it will skip the commit and just push + open the PR).
 
 **Nothing pushes or opens a PR without your explicit approval at the gate. Merging is never automated.**
+
+**This skill does not mark the ticket Done.** An open PR is not a merge, and a ticket that reads Done while its branch sits unmerged is the exact failure [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) was written from. `tld-pr` moves the ticket to the project's **pre-merge status** (`In PR` by default) and tells you what closes it out.
 
 ## When to use this
 
@@ -27,7 +32,7 @@ Land a verified ticket: commit → mark Done → push → open a pull request, a
 
 Trigger phrases: `tld-pr`, "make a PR", "open a PR", "land it", "land the ticket", "push and PR".
 
-**Use `/tld-commit` instead** if you only want a local commit and no push/PR. **Use `/tld-next` instead** if the work is already committed *and* pushed and you just want to mark Done and move on without a PR.
+**Use `/tld-commit` instead** if you only want a local commit and no push/PR. **Use `/tld-next` instead** if the work is already committed *and* pushed and you just want to record the ticket as work-complete and move on without a PR.
 
 ## Process
 
@@ -199,6 +204,10 @@ All [N] tests passing
 - Title: [ticket ID — title]
 - Base: [default branch]  ·  Head: [feature branch]
 - Will NOT merge — stops after opening the PR
+
+### Tracker
+- [TICKET-ID] → [resolved pre-merge status]  (NOT Done — Done is set only after the merge)
+[or, when the tracker has no pre-merge status: "[TICKET-ID] → stays In Progress ([tracker] has no pre-merge status). Done is set only after the merge."]
 ```
 
 Then present:
@@ -243,7 +252,7 @@ Only after explicit user approval, in this order:
    c. **Conflict ONLY in `Changelog path` file(s)** → auto-resolve: keep `{default}`'s released entries AND re-apply this branch's new entry stacked directly above them; set this branch's version header strictly above `{default}`'s current top version (main released 0.18.0 and branch was 0.18.0 → 0.19.0; branch already 0.15.0 vs main 0.14.1 → keep 0.15.0). Bump the matching version file(s) (package.json, etc.) to the same number. `git add` the resolved files, then `git rebase --continue`.
    d. **Any conflict outside the changelog, or a changelog conflict you cannot mechanically resolve** → `git rebase --abort`, STOP, and report the conflicting files for the user to resolve manually. Never force anything.
    e. After a successful rebase, **re-run the test command** (from step 6) to confirm the branch still passes on the new base. If tests fail, STOP and report — do not push.
-4. **Mark the ticket Done** in the tracker via `save_issue` (set state to "Done").
+4. **Move the ticket to the pre-merge status** via `save_issue`. Resolve the status name per [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) § The pre-merge status — never hardcode a name, and never fall back to Done when no pre-merge status exists (leave the ticket In Progress and say so). **Do not set a done-category status here under any circumstance:** this skill stops at an open PR, so no merge has been confirmed.
 5. **Push the feature branch** to its remote (`git push -u origin {branch}`). Never force-push.
 6. **Open the PR** with `gh pr create --base {default} --head {branch}`, title `[TICKET-ID] — [title]`, and a body that summarizes what changed, lists the test results, links the ticket, and notes "TLD verified." Capture the PR URL.
 
@@ -253,10 +262,10 @@ Only after explicit user approval, in this order:
 
 Runtime state lives in the tracker. From the current ticket's milestone:
 1. Read the milestone's ordered ticket list (Linear: the `## Order` section of the milestone description, parsed with the unanchored `({prefix}-\d+)` algorithm; Jira: the milestone Story's child tickets by rank).
-2. Walk the Order from the current ticket forward and look up each subsequent ticket's status. **Pick the first ticket whose status is `Todo`** (skip Done / Canceled / In Progress).
+2. Walk the Order from the current ticket forward and look up each subsequent ticket's status. **Pick the first ticket whose status is `Todo`** (skip every work-complete status — Done, Canceled, and the pre-merge status — plus In Progress).
 
 - **Next Todo ticket found** → next action is `/tld-setup {next-id}`.
-- **No next Todo in this milestone's Order** (every subsequent entry is Done, Canceled, or In Progress) → next action is `/tld-gate {milestoneId}` — substitute the milestone's actual `id`; never emit the literal `{milestoneId}`. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly.
+- **No next Todo in this milestone's Order** (every subsequent entry is work-complete or In Progress) → next action is `/tld-gate {milestoneId}` — substitute the milestone's actual `id`; never emit the literal `{milestoneId}`. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly.
 - **Order section malformed or missing** → note it (the work is already landed): "Landed {ticket} and opened the PR, but could not resolve the next ticket — the milestone Order section is malformed. Run /milestone-sync to repair it." Do not invoke `/milestone-sync` yourself.
 
 ### 11. Output
@@ -267,7 +276,8 @@ Runtime state lives in the tracker. From the current ticket's milestone:
 - **Commit:** [short-sha] [or "already committed"]
 - **Pushed:** [feature branch] → origin
 - **PR:** [PR URL]  (open — not merged)
-- **Tracker:** marked Done
+- **Tracker:** [TICKET-ID] → [pre-merge status]  (not Done — Done is set after the merge)
+- **Closes out:** merge the PR, then run `/tld-dashboard` to see it as ready-to-close, or `/tld-gate [milestoneId]` to mark it Done
 - **Next:** /tld-setup [next-id]   (or /tld-gate [milestoneId] if the milestone just completed)
 
 Review and merge the PR yourself when ready. Run `/clear` then the command above to start the next ticket.
@@ -295,6 +305,7 @@ Type **1**, **2**, or **3** to proceed.
 ## Guardrails
 
 - **Never merge.** This skill always stops at an open PR; merging is the user's call.
+- **Never mark the ticket Done.** Done means merged (docs/DONE_MEANS_MERGED.md). This skill stops before the merge, so the furthest it may move a ticket is the pre-merge status.
 - **Never push to the default branch**, and never force-push. Refuse on the default branch (step 3).
 - **Stage only this ticket's files** (+ the changelog). Never `git add -A`/`.`; never stage a pre-existing dirty path recorded in step 4.
 - **Never `--amend`.** A pre-commit hook failure becomes a new commit, not a bypass.

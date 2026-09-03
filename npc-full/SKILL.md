@@ -6,7 +6,7 @@ description: |
 
 # NPC Full
 
-Run the content-ticket loop end-to-end with no review pauses: implement, commit, mark Done, surface the next ticket. Intentionally skips `/tld-run-test` (no signal on `skip`-commanded content tickets) and the `/npc-partial` diff-review pause. Use this when you trust the build and just want the loop to keep moving.
+Run the content-ticket loop end-to-end with no review pauses: implement, commit, close the ticket out, surface the next ticket. Intentionally skips `/tld-run-test` (no signal on `skip`-commanded content tickets) and the `/npc-partial` diff-review pause. Use this when you trust the build and just want the loop to keep moving.
 
 ## When to use this
 
@@ -73,7 +73,7 @@ Show the user the commit short SHA and subject inline. Proceed directly to step 
 
 ### 4. Invoke /tld-next
 
-Run `/tld-next` immediately after the commit. It marks the ticket Done in the tracker, resolves what's next from the milestone's tracker-defined ticket order (Linear `## Order` or Jira rank — `/tld-next` handles both paths), and surfaces either the next ticket or a milestone-gate command.
+Run `/tld-next` immediately after the commit. It moves the ticket to the project's pre-merge status (not Done — a commit is not a merge; see [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md)), resolves what's next from the milestone's tracker-defined ticket order (Linear `## Order` or Jira rank — `/tld-next` handles both paths), and surfaces either the next ticket or a milestone-gate command.
 
 ### 5. Surface the next setup command
 

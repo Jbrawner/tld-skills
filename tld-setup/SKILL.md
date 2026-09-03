@@ -47,13 +47,13 @@ Validate the ID matches the `{prefix}-\d+` pattern from the campaign. If not, st
 
 Call `get_issue` on the ID with `includeRelations: true`. If In Progress, proceed (the user is resuming). Capture `projectMilestone` for context.
 
-If the ticket is already Done or Canceled, use AskUserQuestion:
+If the ticket is already work-complete — Done, Canceled, or in the project's pre-merge status (see [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md)) — use AskUserQuestion:
 
-> Ticket {TICKET-ID} is already {Done|Canceled}. Proceed with setup anyway?
+> Ticket {TICKET-ID} is already {status}. Proceed with setup anyway?
 
 Options, in this order (default is Cancel):
 
-- **Cancel** — abort cleanly. Do not modify the ticket's Linear state. Report: "Cancelled. {TICKET-ID} is {Done|Canceled} and was left untouched. Run `/tld-setup` with no argument to find the next ticket."
+- **Cancel** — abort cleanly. Do not modify the ticket's Linear state. Report: "Cancelled. {TICKET-ID} is {status} and was left untouched. Run `/tld-setup` with no argument to find the next ticket."
 - **Proceed anyway** — continue with the existing Mode A flow.
 
 If the user's response is ambiguous, default to **Cancel** (default-No pattern). Only proceed when the user explicitly picks "Proceed anyway".
@@ -62,7 +62,7 @@ Skip to step 4.
 
 **Mode B — no ticket ID:**
 
-> **Jira path:** there is no `## Order` text to parse. Walk the milestone **Stories** by rank; for each, list its child **Sub-tasks** ordered by rank (`parent = "<storyKey>" ORDER BY Rank ASC`) and return the first sub-task that is not Done/Canceled, not already In Progress for someone other than you (a sub-task claimed by another assignee is skipped — the multi-person rule), and whose blockers are all Done/Canceled (its `is blocked by` links all resolved). A still-blocked sub-task is skipped: take the next ready sub-task by rank, and if every remaining unfinished sub-task is blocked, report the outstanding blockers instead of returning one. Resolve "me" via `atlassianUserInfo`. See docs/JIRA.md § Milestone and ordering. The Linear `## Order` walk below does not apply.
+> **Jira path:** there is no `## Order` text to parse. Walk the milestone **Stories** by rank; for each, list its child **Sub-tasks** ordered by rank (`parent = "<storyKey>" ORDER BY Rank ASC`) and return the first sub-task that is not work-complete (not Done, not Canceled, and not in the pre-merge status — see [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) § Two questions, two tests), not already In Progress for someone other than you (a sub-task claimed by another assignee is skipped — the multi-person rule), and whose blockers are all work-complete (its `is blocked by` links all resolved — a blocker awaiting a merge has had its work delivered and does not block). A still-blocked sub-task is skipped: take the next ready sub-task by rank, and if every remaining unfinished sub-task is blocked, report the outstanding blockers instead of returning one. Resolve "me" via `atlassianUserInfo`. See docs/JIRA.md § Milestone and ordering. The Linear `## Order` walk below does not apply.
 
 1. Call `list_milestones` for the configured project, sorted by `sortOrder` ascending.
 2. If the result is empty, stop and output:
@@ -73,11 +73,11 @@ Skip to step 4.
    c. If the `## Order` section is missing or yields zero ticket IDs, stop and output:
         "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it."
    d. For each ticket ID in the parsed Order, look up its status (batched `list_issues` or per-ticket `get_issue`).
-   e. Return the first ticket whose status is **neither Done NOR Canceled**. Both statuses count as "already resolved" — skip both.
+   e. Return the first ticket that is **not work-complete** — skip Done, Canceled, and the project's pre-merge status alike. All three mean the ticket's work is finished; see [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) § Two questions, two tests.
 
-   _Note: Mode B intentionally accepts In-Progress tickets — this is how `/tld-setup` recovers an orphaned ticket from a prior session. `/tld-next` does the opposite (walks Order skipping In-Progress) because, in `/tld-next`'s frame, the In-Progress ticket is the one that just got marked Done. The divergence is deliberate._
-4. If every ticket in every milestone is Done or Canceled, stop and output:
-     "All tickets in all milestones are resolved. Nothing to do."
+   _Note: Mode B intentionally accepts In-Progress tickets — this is how `/tld-setup` recovers an orphaned ticket from a prior session. `/tld-next` does the opposite (walks Order skipping In-Progress) because, in `/tld-next`'s frame, the In-Progress ticket is the one it just closed out to the pre-merge status. The divergence is deliberate._
+4. If every ticket in every milestone is work-complete (Done, Canceled, or pre-merge), stop and output:
+     "All tickets in all milestones are resolved. Nothing to do." If any of them are sitting in the pre-merge status, add: "{N} are awaiting a merge — run /tld-dashboard to see which."
 
 ### 3. Parse the `## Order` section
 
@@ -105,7 +105,7 @@ Use `get_issue` with `includeRelations: true` on the target ticket. Extract:
 
 For each blocker in `blockedBy`:
 - Check its status.
-- If any blocker is NOT Done or Canceled, stop and report:
+- If any blocker is NOT work-complete (Done, Canceled, or the pre-merge status — a blocker whose work is delivered and awaiting a merge does not block), stop and report:
     "Blocked — {blocker-id} is {status}. Resolve it first."
 
 ### 6. Mark In Progress
@@ -178,7 +178,7 @@ Present the full ticket context directly in the conversation. Structure your out
 {files loaded as context, with brief note on why each matters}
 
 ### Dependencies
-{list with status — all should be Done or Canceled}
+{list with status — all should be work-complete: Done, Canceled, or pre-merge}
 
 ### Notes
 {any gotchas or special instructions from the ticket description}
