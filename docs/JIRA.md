@@ -35,7 +35,7 @@ Resolve "the next ticket" on Jira:
 1. Identify the active milestone Story.
 2. List that Story's Sub-tasks, ordered by rank ascending:
    `parent = "<storyKey>" AND issuetype = Sub-task ORDER BY Rank ASC`
-3. Pick the first sub-task that is **not** Done/Canceled, **not** already In Progress by someone other than the current user (see [concurrency](#concurrency-multiple-assignees)), **and** whose blockers are all resolved (every `is blocked by` link points at a Done/Canceled issue). A still-blocked sub-task is **skipped**: take the next ready sub-task by rank. If every remaining unfinished sub-task in the Story is blocked, this Story has no ready ticket: surface the outstanding blockers (the blocker likely lives in another milestone Story) and let the caller's Story walk continue to the next Story by rank, rather than returning a blocked ticket.
+3. Pick the first sub-task that is **not** work-complete (not Done, not Canceled, and not in the project's pre-merge status — see [DONE_MEANS_MERGED.md](DONE_MEANS_MERGED.md) § Two questions, two tests), **not** already In Progress by someone other than the current user (see [concurrency](#concurrency-multiple-assignees)), **and** whose blockers are all resolved (every `is blocked by` link points at a work-complete issue). A still-blocked sub-task is **skipped**: take the next ready sub-task by rank. If every remaining unfinished sub-task in the Story is blocked, this Story has no ready ticket: surface the outstanding blockers (the blocker likely lives in another milestone Story) and let the caller's Story walk continue to the next Story by rank, rather than returning a blocked ticket.
 
 "Are all tickets in this milestone resolved?" (milestone completion check) = every Sub-task of the Story is in the Done status category.
 
@@ -71,6 +71,19 @@ Because Jira folds five Linear classes into three categories, "Done" and "Cancel
 
 **Transitions are not direct field writes.** Jira changes status via a workflow transition, not by setting a status field. To move a ticket: call `getTransitionsForJiraIssue` to find the transition whose target status is in the desired category, then `transitionJiraIssue` with that transition id.
 
+### Pre-merge status
+
+The framework has a fourth neutral status between "in progress" and "done": the **pre-merge status**, meaning *work complete, awaiting merge*. It exists because `Done` is reserved for code that is confirmed on the default branch, and almost every TLD skill stops before the merge. The full rule, and the incident it was written from, are in [DONE_MEANS_MERGED.md](DONE_MEANS_MERGED.md).
+
+On Jira it resolves as: `getTransitionsForJiraIssue` on the ticket → the first transition whose target status is in the **`indeterminate`** category and whose name matches, case-insensitively, `In PR`, `In Review`, `In Merge`, `Code Review`, `Review`, `Ready to Merge`, `Awaiting Merge`, or `Pending Merge`.
+
+Two guard rails:
+
+- **Category beats name.** A project that named a `done`-category status "In Review" does not satisfy this lookup. Check `statusCategory.key` before the name, always.
+- **No match means no transition.** If the project's workflow exposes no such status, leave the ticket In Progress and say so. Never fall back to the Done transition — that is the exact substitution the rule exists to prevent.
+
+A ticket in the pre-merge status is **work-complete but not done**. Order walks and "what's next" lookups must skip it (it has nothing left to build); rollups and release claims must not count it (its code is not on the default branch).
+
 ---
 
 ## Hierarchy rollup (closing out parents on gate PASS)
@@ -79,7 +92,7 @@ Jira is hierarchical: **Epic (level 1) → Story (level 0, = milestone) → Sub-
 
 Close out from the gated Story upward:
 
-1. **Close the milestone Story.** Once every Sub-task of the Story is in the `done` category, transition the **Story** itself to a `done`-category status (the real Done status, not the cancel status). `getTransitionsForJiraIssue` on the Story key → pick the transition whose target status category is `done` → `transitionJiraIssue`. If the Story is already `done`, skip.
+1. **Close the milestone Story.** Once every Sub-task of the Story is in the `done` category, transition the **Story** itself to a `done`-category status (the real Done status, not the cancel status). Sub-tasks sitting in the **pre-merge status** do not satisfy this: they are work-complete but unmerged, so the rollup is deferred until they close out (see [DONE_MEANS_MERGED.md](DONE_MEANS_MERGED.md) § Rollup under this rule). `getTransitionsForJiraIssue` on the Story key → pick the transition whose target status category is `done` → `transitionJiraIssue`. If the Story is already `done`, skip.
 2. **Close the parent Epic when its last Story finishes.** Read the gated Story's parent via `getJiraIssue` `fields.parent` (only when the parent is an Epic — `fields.parent.fields.issuetype.name == "Epic"`). List that Epic's child Stories with `searchJiraIssuesUsingJql`: `parent = "<epicKey>" AND issuetype = Story` (tight `fields` list, e.g. `["status","issuetype"]`). If **every** child Story is now in the `done` category, transition the **Epic** to `done` the same way. If any child Story is still unresolved, leave the Epic as-is.
 
 Guard rails:

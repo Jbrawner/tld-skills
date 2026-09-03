@@ -6,7 +6,7 @@ description: |
 
 # NPC Partial
 
-Run the content-ticket loop as a near-one-liner: implement the ticket, pause for a manual diff review on the *uncommitted* changes, then on approval commit and immediately mark the ticket Done. Intentionally skips `/tld-run-test` because test commands on content/doc tickets are `skip` — the gate adds no signal. The single hard stop sits at the moment that matters: between build and commit.
+Run the content-ticket loop as a near-one-liner: implement the ticket, pause for a manual diff review on the *uncommitted* changes, then on approval commit and immediately close the ticket out (to the pre-merge status, never Done — a commit is not a merge). Intentionally skips `/tld-run-test` because test commands on content/doc tickets are `skip` — the gate adds no signal. The single hard stop sits at the moment that matters: between build and commit.
 
 ## When to use this
 
@@ -67,7 +67,7 @@ When `/tld-build` finishes cleanly, the working tree has the new changes uncommi
 
 Pause and tell the user:
 
-> Build complete. The diff is uncommitted — review it now (`git diff`, browser preview, your eyes) before I commit and mark the ticket Done.
+> Build complete. The diff is uncommitted — review it now (`git diff`, browser preview, your eyes) before I commit and close the ticket out.
 >
 > Type `approve`, `commit`, `lgtm`, `looks good`, `ship it`, `go`, `proceed`, or `1` to commit and run /tld-next. Anything else stops here so you can amend the working tree manually.
 
@@ -81,7 +81,7 @@ Show the user the commit short SHA and subject before continuing.
 
 ### 5. Invoke /tld-next
 
-Immediately after the commit, run `/tld-next`. It marks the ticket Done in the tracker, resolves what's next from the milestone's tracker-defined ticket order (Linear `## Order` or Jira rank — `/tld-next` handles both paths), and surfaces either the next ticket or a milestone-gate command.
+Immediately after the commit, run `/tld-next`. It moves the ticket to the project's pre-merge status (not Done — a commit is not a merge; see [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md)), resolves what's next from the milestone's tracker-defined ticket order (Linear `## Order` or Jira rank — `/tld-next` handles both paths), and surfaces either the next ticket or a milestone-gate command.
 
 ### 6. Surface the next setup command
 

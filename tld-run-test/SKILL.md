@@ -218,8 +218,8 @@ Type **1**, **2**, or **3** to proceed.
 
 **What's next?**
 
-> **1.** Approve — mark ticket Done
->    Best for: manual QA passed, ready to close out
+> **1.** Approve — close the ticket out
+>    Best for: manual QA passed, ready to move on (moves the ticket to the pre-merge status, not Done — see docs/DONE_MEANS_MERGED.md)
 
 > **2.** /tld-side-quest — handle a quick fix first
 >    Best for: manual QA revealed polish needed elsewhere
@@ -231,7 +231,7 @@ Type **1**, **2**, or **3** to proceed.
 
 ### >>> MANDATORY APPROVAL GATE — STOP HERE <<<
 
-**HARD STOP.** Do NOT commit or mark Done until the user explicitly approves. Wait for one of:
+**HARD STOP.** Do NOT commit or write any tracker status until the user explicitly approves. Wait for one of:
 - Any canonical approval keyword: "approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" (see STANDARDS.md § Approval keyword set) → proceed to step 5
 - User describes a problem → report which files likely need fixing, suggest `/tld-align` or manual fix, then re-run `/tld-run-test`
 - "2" or "side quest" → invoke `/tld-side-quest`, come back to commit after
@@ -267,8 +267,8 @@ Before presenting options, check if this was the last ticket in its milestone:
 1. Read the current ticket and note its milestone (the tracker's current-ticket + milestone lookup — see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira)
 2. Read that milestone's ordered ticket list (Jira: the milestone Story's child tickets by rank; Linear: the `## Order` section of the milestone description)
 3. Look up each ticket's status
-4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
-5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
+4. Treat the ticket just committed as work-complete (it's about to be moved to the pre-merge status by /tld-next — see docs/DONE_MEANS_MERGED.md; a commit is not a merge, so it is not about to be marked Done)
+5. If every ticket in the milestone is work-complete (Done, Canceled, or the pre-merge status), append the 4th option below. Otherwise present only the first 3.
 6. When appending option 4, substitute the milestone's actual `id` into the `{milestoneId}` placeholder BEFORE rendering — never emit the literal text `{milestoneId}` to the user. If you cannot capture the id (e.g., the `get_milestone` call failed), do NOT render option 4; fall back to the 3-option block.
 
 Then present the options block:
@@ -277,7 +277,7 @@ Then present the options block:
 
 **What's next?**
 
-> **1.** /tld-next — mark ticket done, move to next
+> **1.** /tld-next — close the ticket out, move to next
 >    Best for: ticket is fully complete
 
 > **2.** /tld-side-quest — quick fix first
@@ -288,7 +288,7 @@ Then present the options block:
 
 > **4.** /tld-gate {milestoneId} — run milestone-boundary gate now
 >    Best for: this was the last ticket in the milestone; ready for milestone validation
->    *(only shown when every ticket in the current milestone is Done or Canceled; substitute the milestone's actual `id`)*
+>    *(only shown when every ticket in the current milestone is work-complete — Done, Canceled, or pre-merge; substitute the milestone's actual `id`)*
 
 Type **1**, **2**, **3**, or **4** to proceed.
 
@@ -304,8 +304,8 @@ Before presenting options, check if this was the last ticket in its milestone:
 1. Read the current ticket and note its milestone (the tracker's current-ticket + milestone lookup — see docs/ADAPTERS.md for Linear, docs/JIRA.md for Jira)
 2. Read that milestone's ordered ticket list (Jira: the milestone Story's child tickets by rank; Linear: the `## Order` section of the milestone description)
 3. Look up each ticket's status
-4. Treat the ticket just committed as Done (it's about to be marked Done by /tld-next)
-5. If every ticket in the milestone is Done, append the 4th option below. Otherwise present only the first 3.
+4. Treat the ticket just committed as work-complete (it's about to be moved to the pre-merge status by /tld-next — see docs/DONE_MEANS_MERGED.md; a commit is not a merge, so it is not about to be marked Done)
+5. If every ticket in the milestone is work-complete (Done, Canceled, or the pre-merge status), append the 4th option below. Otherwise present only the first 3.
 6. When appending option 4, substitute the milestone's actual `id` into the `{milestoneId}` placeholder BEFORE rendering — never emit the literal text `{milestoneId}` to the user. If you cannot capture the id (e.g., the `get_milestone` call failed), do NOT render option 4; fall back to the 3-option block.
 
 Then present the options block:
@@ -314,7 +314,7 @@ Then present the options block:
 
 **What's next?**
 
-> **1.** /tld-next — mark ticket done, move to next
+> **1.** /tld-next — close the ticket out, move to next
 >    Best for: manual QA is complete
 
 > **2.** /tld-side-quest — quick fix first
@@ -325,7 +325,7 @@ Then present the options block:
 
 > **4.** /tld-gate {milestoneId} — run milestone-boundary gate now
 >    Best for: this was the last ticket in the milestone; ready for milestone validation
->    *(only shown when every ticket in the current milestone is Done or Canceled; substitute the milestone's actual `id`)*
+>    *(only shown when every ticket in the current milestone is work-complete — Done, Canceled, or pre-merge; substitute the milestone's actual `id`)*
 
 Type **1**, **2**, **3**, or **4** to proceed.
 

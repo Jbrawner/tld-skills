@@ -57,7 +57,7 @@ Resolve "me" via the tracker's current-user call, then query the configured proj
    - Linear: read the description and parse the `## Order` section with the unanchored regex (find `^## Order\s*$`, capture lines until the next `## ` header, take the first `({prefix}-\d+)` match per line). If the `## Order` section is missing or yields zero ticket IDs, stop and output:
         "Milestone '{name}' has a malformed or missing `## Order` section. Run /milestone-sync to repair it."
    - Jira: list the milestone Story's child tickets ordered by rank (see docs/JIRA.md).
-   Then, for each ticket in the ordered list, look up its status. Return the first ticket whose status is neither Done nor Canceled AND that is not already In Progress for someone other than me (a ticket claimed by another assignee is skipped).
+   Then, for each ticket in the ordered list, look up its status. Return the first ticket that is not work-complete — skip Done, Canceled, and the project's pre-merge status alike (see docs/DONE_MEANS_MERGED.md) — AND that is not already In Progress for someone other than me (a ticket claimed by another assignee is skipped).
 4. If every ticket in every milestone is resolved or claimed by others, stop and output:
      "All tickets in all milestones are resolved. Nothing to do."
 
@@ -103,7 +103,7 @@ Cross-reference Linear state + git state:
 - Uncommitted changes AND commit for this ticket exists → detour or side-quest artifacts; suggest `/tld-commit`
 
 **If no ticket is In Progress:**
-- Cross-check first: look up the most recent TLD commit (`git log --oneline -10` filtered for the campaign's commit pattern), resolve that ticket via Linear, and check whether its `projectMilestone` is now fully resolved (every ticket in that milestone's Order is Done or Canceled).
+- Cross-check first: look up the most recent TLD commit (`git log --oneline -10` filtered for the campaign's commit pattern), resolve that ticket via Linear, and check whether its `projectMilestone` is now fully resolved (every ticket in that milestone's Order is work-complete — Done, Canceled, or in the pre-merge status).
   - If yes AND there is still an unresolved milestone after it → **milestone just completed** — the user finished the last ticket and `/clear`'d before `/tld-gate`. Needs `/tld-gate` for the just-finished milestone before picking up the next one. Capture that milestone's `id` for the gate option block below.
   - Otherwise → next up is from the milestone walk (case B above) — needs `/tld-setup`.
 

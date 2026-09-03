@@ -5,11 +5,12 @@ description: |
   "tld-commit", "commit the ticket", "finish the commit", "approve the commit", or needs to resume committing
   changes that passed verification but weren't committed yet (e.g., because they ran a side quest first).
   This is a lightweight re-entry into the commit flow. It re-runs tests to confirm nothing broke, then asks
-  how to land it: **commit and progress** (commit, mark the ticket Done, and surface the next ticket), which is
-  the normal choice for a finished ticket including the verified checkpoint you get out of /tld-full-auto or
-  /tld-run-test; or a plain **commit only** (commit and leave the ticket In Progress), a checkpoint for when
-  more work remains on it. Marking Done per ticket does not open a PR: you still open one PR for the whole story
-  at the end with /tld-pr. It pushes the feature branch after committing, but never opens a PR itself.
+  how to land it: **commit and progress** (commit, move the ticket to the project's pre-merge status, and
+  surface the next ticket), which is the normal choice for a finished ticket including the verified checkpoint
+  you get out of /tld-full-auto or /tld-run-test; or a plain **commit only** (commit and leave the ticket In
+  Progress), a checkpoint for when more work remains on it. It never marks a ticket Done — Done means merged,
+  and a commit is not a merge. You still open one PR for the whole story at the end with /tld-pr. It pushes the
+  feature branch after committing, but never opens a PR itself.
 ---
 
 # TLD Commit
@@ -17,6 +18,8 @@ description: |
 You are picking up a pending commit. The user was at (or past) the tld-run-test approval gate, chose to do something else (side quest, break, new conversation), and now wants to finalize the commit.
 
 **No commit happens without the user's explicit approval. This is a hard rule.**
+
+**This skill never marks a ticket Done.** A commit is not a merge, and a ticket reading Done while its code sits on an unmerged branch is the failure [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) was written from. The furthest "commit and progress" moves a ticket is the project's **pre-merge status** — work complete, awaiting merge.
 
 ## When to use this
 
@@ -168,17 +171,17 @@ All [N] tests passing
 [resolved from .tld/campaign.md Commit format Pattern, with the ticket ID and title substituted in, and ` — TLD verified` appended]
 ```
 
-Then ask **how to land it.** Coming out of /tld-full-auto or /tld-run-test the ticket is already verified, so the usual answer is option 1: commit it and mark it Done in one step.
+Then ask **how to land it.** Coming out of /tld-full-auto or /tld-run-test the ticket is already verified, so the usual answer is option 1: commit it and move it out of the working set in one step.
 
 ---
 
 **What's next?**
 
-> **1.** Commit and progress: commit, mark [TICKET-ID] Done, and surface the next ticket (Recommended)
->    Best for: the ticket is finished and verified, the normal case out of /tld-full-auto or /tld-run-test. This is also the right per-ticket choice inside a multi-ticket story. Marking Done now does not open a PR; you still run /tld-pr once at the story's end for a single PR.
+> **1.** Commit and progress: commit, move [TICKET-ID] to [pre-merge status], and surface the next ticket (Recommended)
+>    Best for: the ticket is finished and verified, the normal case out of /tld-full-auto or /tld-run-test. This is also the right per-ticket choice inside a multi-ticket story. It does not mark the ticket Done — Done is set only after the merge — and it does not open a PR; you still run /tld-pr once at the story's end for a single PR.
 
 > **2.** Commit only: commit and leave [TICKET-ID] In Progress
->    Best for: a checkpoint when more work remains on this ticket. You'll run /tld-commit again and pick "commit and progress" once it's actually done.
+>    Best for: a checkpoint when more work remains on this ticket. You'll run /tld-commit again and pick "commit and progress" once its work is actually finished.
 
 > **3.** /tld-side-quest: handle another quick fix first
 >    Best for: noticed another polish item before committing
@@ -191,13 +194,13 @@ Type **1**, **2**, **3**, or **4** to proceed.
 ### >>> MANDATORY APPROVAL GATE — STOP HERE <<<
 
 **HARD STOP.** Do NOT commit until the user picks a landing mode. Wait for one of:
-- "1", "commit and progress", "progress", "commit and update the ticket", "mark done", "done", "land it" → **Commit and progress**: do step 6, then step 7.
+- "1", "commit and progress", "progress", "commit and update the ticket", "mark done", "done", "land it" → **Commit and progress**: do step 6, then step 7. (A user who says "mark done" is saying "this ticket is finished," which is the mode this option means. It still does not write a done-category status — step 7 says what it writes instead, and step 8 tells the user.)
 - "2", "commit only", "just commit", "checkpoint", or a bare "commit" → **Commit only**: do step 6, then stop (skip step 7; the ticket stays In Progress).
 - Any other generic approval that names no mode ("approve", "lgtm", "looks good", "ship it", "go", "ok", "proceed", "yes"; see STANDARDS.md § Approval keyword set) → take the **Recommended** option 1, **Commit and progress**: do step 6, then step 7.
 - "3" or "side quest" → invoke `/tld-side-quest`, come back later with `/tld-commit`.
 - User describes a problem → suggest `/tld-align` or a manual fix.
 
-Read it the way the user phrased it: **"commit and update the ticket" / "commit and progress" marks the ticket Done (a tracker write) and advances, while a bare "commit" lands just the code and leaves the ticket In Progress.** Do NOT treat silence, partial responses, or questions as approval. Whichever mode lands, step 8 states exactly what happened, and on a commit-only it shows how to also mark it Done, so the user is never left re-running the same command blind.
+Read it the way the user phrased it: **"commit and update the ticket" / "commit and progress" moves the ticket out of the working set (a tracker write) and advances, while a bare "commit" lands just the code and leaves the ticket In Progress.** Do NOT treat silence, partial responses, or questions as approval. Whichever mode lands, step 8 states exactly what happened — including the status it actually wrote — so the user is never left re-running the same command blind.
 
 ### Numbered shortcut recognition
 
@@ -218,13 +221,13 @@ Only after the user picks a landing mode (Commit only or Commit and progress):
 **Skip this entire step if the user chose Commit only** — the commit is done and the ticket stays In Progress.
 
 If the user chose **Commit and progress**:
-1. Mark the ticket Done in the tracker via `save_issue` (set state to "Done").
+1. Move the ticket to the **pre-merge status** via `save_issue`. Resolve the status name per [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) § The pre-merge status — never hardcode a name. If the tracker has no pre-merge status, leave the ticket In Progress and say so in step 8. **Never set a done-category status here:** nothing has been merged, and this skill does not even open a PR.
 2. Determine what's next from the current ticket's milestone:
    - Read the milestone's ordered ticket list (Linear: the `## Order` section parsed with the unanchored `({prefix}-\d+)` algorithm; Jira: the milestone Story's child tickets by rank).
-   - Walk the Order from the current ticket forward and pick the first ticket whose status is `Todo` (skip Done / Canceled / In Progress).
+   - Walk the Order from the current ticket forward and pick the first ticket whose status is `Todo` (skip every work-complete status — Done, Canceled, and the pre-merge status — plus In Progress).
    - **Next Todo found** → next action is `/tld-setup {next-id}`.
-   - **No next Todo** (every later entry is Done / Canceled / In Progress) → next action is `/tld-gate {milestoneId}` — substitute the milestone's actual `id`; never emit the literal `{milestoneId}`. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly.
-   - **Order section malformed or missing** → note it (the commit and Done already landed): "Committed and marked {ticket} Done, but couldn't resolve the next ticket — the milestone Order section is malformed. Run /milestone-sync to repair it." Do not invoke `/milestone-sync` yourself.
+   - **No next Todo** (every later entry is work-complete or In Progress) → next action is `/tld-gate {milestoneId}` — substitute the milestone's actual `id`; never emit the literal `{milestoneId}`. If you cannot capture the id, fall back to a no-arg `/tld-gate` and warn the user explicitly.
+   - **Order section malformed or missing** → note it (the commit and the status change already landed): "Committed {ticket} and moved it to {pre-merge status}, but couldn't resolve the next ticket — the milestone Order section is malformed. Run /milestone-sync to repair it." Do not invoke `/milestone-sync` yourself.
 
 ### 8. Output
 
@@ -236,7 +239,7 @@ If the user chose **Commit and progress**:
 ## Checkpoint committed — [TICKET-ID] — [title]
 - Commit: [short-sha]
 - Files: [list]
-- Ticket: still In Progress, by your choice (commit-only). Nothing else is needed now. When the ticket is actually finished, run /tld-commit again and pick "commit and progress" to mark it Done and move on.
+- Ticket: still In Progress, by your choice (commit-only). Nothing else is needed now. When the ticket is actually finished, run /tld-commit again and pick "commit and progress" to move it out of the working set.
 ```
 
 Then present:
@@ -249,7 +252,7 @@ Then present:
 >    Best for: the usual reason to commit-only, there's more to do here before it's done
 
 > **2.** /tld-commit, then "commit and progress", once the ticket is finished
->    Best for: that checkpoint was actually the last of the work; land it and mark it Done now
+>    Best for: that checkpoint was actually the last of the work; land it and move the ticket out of the working set now
 
 > **3.** /tld-pr: open the PR for the branch
 >    Best for: end of the story, push the branch and open one PR for review
@@ -262,7 +265,7 @@ Type **1**, **2**, or **3** to proceed.
 ## Landed — [TICKET-ID] — [title]
 - Commit: [short-sha]
 - Files: [list]
-- Tracker: marked Done
+- Tracker: [TICKET-ID] → [pre-merge status]  (not Done — Done is set only after this branch merges)
 - Next: /tld-setup [next-id]   (or /tld-gate [milestoneId] if the milestone just completed)
 ```
 

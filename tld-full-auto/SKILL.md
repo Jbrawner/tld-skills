@@ -216,7 +216,7 @@ Output, in this shape:
 {the manual QA table from /tld-run-test, or "All AC covered by automated tests — no manual QA needed."}
 
 **Nothing has been committed, pushed, or marked Done — that is yours to trigger.**
-**To land it:** do the manual check above, then — mid-story — `/tld-commit` (commit this ticket; choose "commit and progress" to mark it Done and advance), or at the end of the story `/tld-pr` (commit → push → open PR, stops before merge).
+**To land it:** do the manual check above, then — mid-story — `/tld-commit` (commit this ticket; choose "commit and progress" to move it to the pre-merge status and advance), or at the end of the story `/tld-pr` (commit → push → open PR, stops before merge). Neither marks the ticket Done: Done means merged, and neither of them merges (see [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md)).
 ```
 
 ## Stop conditions (when full-auto waves)
@@ -228,7 +228,7 @@ Output, in this shape:
 | 3 | Campaign test command is `skip` (NPC territory) | Preflight |
 | 4 | Pre-existing dirty file overlaps the ticket's file scope, or the configured changelog is already dirty at preflight | Preflight / setup |
 | 5 | Ticket classifies as NPC; or as manual-QA AND the §1 migration re-check says it is NOT a migration ticket (a genuine walkthrough); or the ticket is already assigned to someone else (claimed by another person — docs/JIRA.md § Concurrency) | Setup |
-| 6 | `/tld-setup` raises an interactive prompt (Mode-A "ticket already Done/Canceled — proceed anyway?") | Setup |
+| 6 | `/tld-setup` raises an interactive prompt (Mode-A "ticket already work-complete — proceed anyway?") | Setup |
 | 7 | An AC item that cannot be encoded as a test, or a new test passing during RED. **Label exception:** does not fire on the no-tests path — `no-tests`/`build-only` tickets skip the RED phase by design (§1 re-check); unlabeled tickets are unchanged | Write-tests |
 | 8 | Build cannot go green within `/tld-build`'s retry cap (its retry-cap "What's next?" block is a STOP, not a pre-approved gate), or build needs files outside the ticket's scope | Build |
 | 9 | Any **HIGH** audit finding; or any finding (any severity) that would change a seed row, migration, or validator semantics, or expose data/credentials. Other MEDIUM/LOW findings are recorded and the run continues. | Audit |
@@ -280,7 +280,7 @@ After the §6 report, present:
 **What's next?**
 
 > **1.** /tld-commit — commit this ticket (Recommended mid-story)
->    Best for: one of many tickets in the story — commit now (pick "commit and progress" to mark it Done and advance); the PR comes at the story's end
+>    Best for: one of many tickets in the story — commit now (pick "commit and progress" to move it to the pre-merge status and advance); the PR comes at the story's end
 
 > **2.** /tld-pr — land the whole branch: commit → push → open PR
 >    Best for: this was the last ticket of the story — ready to ship for review (stops before merge)

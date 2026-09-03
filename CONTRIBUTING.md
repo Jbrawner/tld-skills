@@ -64,11 +64,32 @@ For the canonical set of approval keywords every gate skill accepts, see [STANDA
 
 ---
 
+## `scripts/` — hand-maintained tooling
+
+Four files, none of them skills and none of them shipped in the built plugin (`build-plugin.sh` packages only directories containing a `SKILL.md`). They are edited by hand, not authored through `/tld-experience`.
+
+| Script | What it does | How it runs |
+|---|---|---|
+| `build-plugin.sh` | Packages the skills into `dist/tld-plugin` | By hand, and by `/tld-release` |
+| `verify-block-alignment.py` | Fails if any embedded canonical block drifts from STANDARDS.md | By hand, before a PR |
+| `verify-build-plugin.py` | Checks `build-plugin.sh` against its mechanically-checkable AC | By hand |
+| `tld-loop.sh` | Ralph-style per-ticket autonomous loop — one fresh `claude -p` per ticket, each driven through `/tld-full-auto`, committed, then moved to the pre-merge status. `--pr` then pushes and opens the PR; `--merge` squash-merges on positively-confirmed green CI and marks the merged tickets Done | By hand, from a project repo's root; the landing flags are per-run permission |
+
+**`tld-loop.sh` is a terminal entry point, not a skill, and nothing in this repo invokes it.** The dependency runs one way: the script shells out to `claude -p`, which invokes `/tld-full-auto` per ticket. `/tld-full-auto` has no knowledge of the script and never calls it, so tracking the file here buys version history, review and a backup — not reachability. Its landing flags do not change that division: `--pr` and `--merge` are deterministic bash in the wrapper, run only because the operator passed the flag, and the inner Claude runs remain hard-denied `git push` and `gh` on every path. `--merge` follows the same discipline as `/tld-autoland` — merge only on a positively-confirmed green CI result, believe the merge only after a `gh pr view` re-read says `MERGED`, treat "cannot tell" as "failed" — and only after that confirmation does it mark the run's tickets Done, which is exactly the write [docs/DONE_MEANS_MERGED.md](docs/DONE_MEANS_MERGED.md) permits. It lived outside any repository until it was moved in, which is why the incident recorded in [docs/DONE_MEANS_MERGED.md](docs/DONE_MEANS_MERGED.md) had no diff anyone could review: the script driving the entire autonomous pipeline had no history at all.
+
+Install it as a symlink so the checked-in copy and the one you run cannot drift:
+
+```bash
+ln -sf ~/.claude/skills/scripts/tld-loop.sh ~/.claude/tld-loop.sh
+```
+
+---
+
 ## Campaign File + Milestone Contract
 
 Skills no longer parse a playbook. Structure and runtime state live in two places and nowhere else:
 
-1. **The tracker** — authoritative for the milestone list, per-milestone metadata (purpose, scope, exit criteria), the ordered ticket sequence within each milestone, and every ticket's status (Todo / In Progress / Done / Canceled). How the order is stored is tracker-specific: on Jira it is the sub-tasks' native rank; on Linear it is the `## Order` section of the milestone description, and milestones sort by `sortOrder`.
+1. **The tracker** — authoritative for the milestone list, per-milestone metadata (purpose, scope, exit criteria), the ordered ticket sequence within each milestone, and every ticket's status (Todo / In Progress / pre-merge / Done / Canceled). One thing it is *not* authoritative for: whether a ticket's code is actually on the default branch. `Done` is a claim, and git is the record — see [docs/DONE_MEANS_MERGED.md](docs/DONE_MEANS_MERGED.md). How the order is stored is tracker-specific: on Jira it is the sub-tasks' native rank; on Linear it is the `## Order` section of the milestone description, and milestones sort by `sortOrder`.
 2. **`.tld/campaign.md`** — a per-repo file holding only static local config: which issue tracker and project to talk to, what test commands to run, where the stack lives, and how commits should be formatted. No milestone list. No Active section. No ticket-order cache.
 
 The rest of this section defines the exact contract both sides must meet.
@@ -167,24 +188,27 @@ Every TLD and campaign skill falls into exactly one category below. This matrix 
 |---|---|---|
 | **Writes `.tld/campaign.md`** | `/campaign-init`, `/campaign-edit` | Local file — creates or edits the four sections |
 | **Writes tracker structure** (milestones, tickets, milestone descriptions) | `/campaign-plan`, `/milestone-create`, `/milestone-sync`, `/tld-ticket`, `/tld-cancel` | The tracker — creates/modifies milestones and tickets; writes `## Order` sections (`/tld-cancel` rewrites the active milestone's `## Order` to remove the canceled ticket) |
-| **Writes tracker ticket status** (state transitions) | `/tld-setup`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-commit`, `/tld-run-test`, `/tld-pr`, `/tld-side-quest` | The tracker — flips ticket status (Todo ↔ In Progress ↔ Done ↔ Canceled, plus side-quest branches). `/tld-cancel` appears here AND in "Writes tracker structure" because it does both. `/tld-pr` marks the ticket Done as part of landing it (see the landing-step note below the table). |
-| **Read-only** | `/tld-write-tests`, `/tld-build`, `/tld-align`, `/tld-audit`, `/tld-save-point`, `/tld-dashboard`, `/tld-help`, `/tld-gate`, `/campaign-show`, `/campaign-test`, `/campaign-validate` | Nothing — queries the tracker and/or the campaign file |
+| **Writes tracker ticket status** (state transitions) | `/tld-setup`, `/tld-next`, `/tld-skip`, `/tld-cancel`, `/tld-commit`, `/tld-run-test`, `/tld-pr`, `/tld-side-quest` | The tracker — flips ticket status (Todo ↔ In Progress ↔ pre-merge ↔ Canceled, plus side-quest branches). **None of them writes Done** — see the Done-means-merged note below the table. `/tld-cancel` appears here AND in "Writes tracker structure" because it does both. |
+| **Writes Done** (after confirming a merge) | `/tld-gate`, `/tld-autoland` | The tracker — the only two skills allowed to set a done-category status, and only once the code is confirmed on the default branch. |
+| **Read-only** | `/tld-write-tests`, `/tld-build`, `/tld-align`, `/tld-audit`, `/tld-save-point`, `/tld-dashboard`, `/tld-help`, `/campaign-show`, `/campaign-test`, `/campaign-validate` | Nothing — queries the tracker and/or the campaign file |
 | **Local-git only** (no tracker, no campaign.md) | `/tld-recenter` | Local git — creates a fresh branch off `main`; refuses if working tree is dirty |
 | **Aggregator** (writes indirectly, via sub-skills) | `/tld-partial-auto`, `/tld-full-auto`, `/npc-partial`, `/npc-full` | Whatever sub-skills write. `/tld-partial-auto` and the NPC variants chain `/tld-build` → commit → `/tld-next`. `/tld-full-auto` runs the pipeline only to a verified checkpoint and stops before commit — it never commits, pushes, opens a PR, or marks Done itself. `/tld-full-auto` is the one aggregator that also writes a tracker resource of its own: a best-effort ticket comment (LOW audit findings on a clean run; the stop reason on any stop). |
-| **Merges the default branch** (the only such skill) | `/tld-autoland` | This repo + the tracker. Wraps `/tld-full-auto` per ticket and then does the landing itself: commits, marks the ticket Done, pushes a per-ticket branch, opens a PR, and squash-merges it once CI reports green. Also writes ticket comments (merge receipts, park reasons) and transitions a parked ticket back to Todo. See the merge note below the table. |
+| **Merges the default branch** (the only such skill) | `/tld-autoland` | This repo + the tracker. Wraps `/tld-full-auto` per ticket and then does the landing itself: commits, pushes a per-ticket branch, opens a PR, squash-merges it once CI reports green — and only then marks the ticket Done. Also writes ticket comments (merge receipts, park reasons) and transitions a parked ticket back to Todo. See the merge note below the table. |
 | **Writes external repo** (PR against the skills repo) | `/tld-experience` | `Jbrawner/tld-skills` — pushes a branch and opens a PR with a new SKILL.md. Does not touch the current repo's tracker or campaign.md. |
 | **Writes release artifacts** (CHANGELOG bump + release branch + GitHub Release) | `/tld-release` | This repo — bumps `CHANGELOG.md`, opens a release-branch PR, and after merge runs `gh release create` to publish a tagged GitHub Release. Then watches the marketplace auto-bump workflow that runs in `Jbrawner/claude-skills`. Does not touch the tracker or `.tld/campaign.md`. |
 | **Deletes only** | `/campaign-remove` | Local file — removes `.tld/campaign.md` |
 
-`/tld-gate` is read-only because ticket statuses are set by `/tld-next` before the gate runs; the gate verifies but does not transition.
+**Done means merged.** A ticket may reach a done-category status only after its code is confirmed on the default branch, so the status-writing skills above stop at the project's **pre-merge status** (`In PR` by default) instead. Only two skills write Done: `/tld-gate`, whose reconciliation pass confirms the merge first, and `/tld-autoland`, which confirms its own squash-merge before transitioning. One exception, claimed by outcome rather than label: a ticket whose realized diff is empty has nothing to merge and may be marked Done directly, saying so. The rule, the incident that produced it, and the merge-confirmation procedure are in [docs/DONE_MEANS_MERGED.md](docs/DONE_MEANS_MERGED.md). Changing a skill so it writes Done earlier is the one edit in this repo that reintroduces a known production failure — do not.
 
-`/tld-pr` is the TLD family's landing step: it commits the verified work (if not already committed), marks the ticket Done, pushes the feature branch, and opens a pull request — then stops before merge. On the human-landed path it is the only ticket-flow skill that pushes a branch or opens a PR in the current repo (the `/tld-experience` and `/tld-release` tooling aside). It refuses to run on the default branch.
+`/tld-gate` both reads and writes: it verifies the milestone, and on a PASS it closes out the tickets whose merges it just confirmed. It never writes Done on an unconfirmed or unverifiable merge.
+
+`/tld-pr` is the TLD family's landing step: it commits the verified work (if not already committed), moves the ticket to the pre-merge status, pushes the feature branch, and opens a pull request — then stops before merge. On the human-landed path it is the only ticket-flow skill that pushes a branch or opens a PR in the current repo (the `/tld-experience` and `/tld-release` tooling aside). It refuses to run on the default branch.
 
 `/tld-autoland` is the single deliberate exception to "merging is never automated," and it is worth understanding why the exception is safe before extending it. Every other skill's safety comes from a **stop** — a human reads something before the flow continues. Autoland has no stops, so its safety comes from **admission** instead: a ticket needs an explicit `auto-land` label to enter, protected surfaces (migrations, schema, auth, RLS, secrets, seed data, billing, CI and branch-protection config) are refused on both the ticket text and the realized diff, and the merge fires only on a positively-confirmed green CI result — red, unfinished, conflicted, and unknown all park instead. Failures preserve work (commit + push to the ticket's own branch) rather than reverting it.
 
 Two rules follow for anyone changing this skill. **Do not add an override** — a flag or approval keyword that admits an unlabeled or protected-surface ticket collapses the entire safety model, because there is no downstream gate to catch it. **Do not widen the merge condition** — "probably passed," "auto-merge will handle it," and "no checks configured, assume fine" are each a way for an unreviewed change to reach the default branch unannounced. The no-checks-configured case is allowed only because it is reported explicitly as merged-on-local-tests-only.
 
-`/tld-run-test` appears under "Writes ticket status" because its QA gate optionally marks the current ticket Done on approval. If the user declines at that gate, the skill writes nothing.
+`/tld-run-test` appears under "Writes ticket status" because its QA gate optionally closes the current ticket out on approval, via `/tld-next`. If the user declines at that gate, the skill writes nothing.
 
 `/tld-cancel` is the only skill that crosses two write categories: it flips a ticket to Canceled (status) AND rewrites the milestone's `## Order` to remove the canceled ID (structure). Both transitions happen atomically in the same run.
 
@@ -196,6 +220,6 @@ There is no offline mode. If a tracker call fails (network error, auth failure, 
 
 ### Rule: no local state cache
 
-Tracker ticket status (Todo / In Progress / Done / Canceled) is the **sole** indicator of runtime position. The campaign file has no `Active.Current`, no `Active.Order`, no per-milestone cache. Resume after `/clear` works by reading the In-Progress ticket from the tracker, not from disk.
+Tracker ticket status (Todo / In Progress / pre-merge / Done / Canceled) is the **sole** indicator of runtime position. The campaign file has no `Active.Current`, no `Active.Order`, no per-milestone cache. Resume after `/clear` works by reading the In-Progress ticket from the tracker, not from disk.
 
 Adding a local state cache re-introduces drift risk — don't. If a skill thinks it needs one, it is solving the wrong problem.

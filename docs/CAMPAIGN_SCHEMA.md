@@ -96,6 +96,12 @@ The working statuses the pipeline is allowed to move a ticket through. A simple 
 means "use the built-in defaults" (`In Progress`, `In PR`, `In Release`, `Done`), so a file without
 this section behaves exactly as today.
 
+`In PR` in that default list is the **pre-merge status** — where a ticket sits once its work is
+finished but its code has not reached the default branch. Every TLD skill that stops before a merge
+writes this status rather than `Done`; see [DONE_MEANS_MERGED.md](DONE_MEANS_MERGED.md). A project
+whose tracker has no such status is supported: its finished tickets stay `In Progress` until a merge
+is confirmed, and no skill substitutes `Done`.
+
 ```markdown
 ## Allowed statuses
 - In Progress
