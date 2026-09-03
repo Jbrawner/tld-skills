@@ -52,6 +52,12 @@ You may not run `git stash`, `git reset`, `git checkout --`, `git merge`, `git r
 `git cherry-pick`, `git clean`, or any other command whose purpose is to get git out of a state it
 is complaining about. Not once, not as a workaround, not "just to try it".
 
+One command is excepted, and it is not a repair: the `git merge --ff-only origin/main` in the next
+section. It runs once, before you have written anything, on a branch that has no commits of its own,
+so there is nothing for it to conflict with. If git refuses it, that refusal is the one failed git
+command that does not make this a skipped run. Nothing is broken and there is no state to get out
+of, so leave it alone, run no other git command, and carry on from the commit you are already on.
+
 This rule has a body count. On 22 August 2026 a run hit a merge that git refused, tried to work
 around it by stashing, merging and unstashing, and left the repository in a state nothing could
 recover from on its own. That single workaround cost fifteen further runs across two nights. The
@@ -61,14 +67,29 @@ A stopped run is a good outcome. Repairing git is never your job.
 
 ### Record what you inspected, and how current it is
 
-Before you inspect anything, capture three facts and carry them into your findings file and into
-the header of your run record:
+Before you inspect anything, bring your worktree up to date with GitHub, then capture three facts and
+carry them into your findings file and into the header of your run record.
+
+First, while `git status --porcelain` is still empty and you have written nothing:
+
+    git fetch origin main
+    git merge --ff-only origin/main
+
+Your worktree was cut from the `main` of a checkout that only moves when a person pulls it, so it is
+usually hours behind GitHub and a defect you are about to report may already be fixed there. Your
+branch has no commits of its own yet, so this cannot conflict: it either moves you onto `origin/main`
+or prints "Already up to date". If git prints anything else, do not retry it and do not run another
+git command to help it. Carry on from the commit you are on, exactly as every run did before
+3 September 2026, and the numbers below will say how far behind that leaves you.
+
+Then capture:
 
     base_commit:    git rev-parse HEAD
-    behind_main:    git fetch origin main && git rev-list --count HEAD..origin/main
+    behind_main:    git rev-list --count HEAD..origin/main
     engine_commit:  git -C ~/.claude/skills rev-parse HEAD
 
-`git fetch` is a read. It is not on this section's banned list and it repairs nothing.
+`git fetch` is a read. It is not on section 2's banned list and it repairs nothing. The fast-forward
+is the one merge section 2 allows: here, once, before anything has been written.
 
 **None of these three stop the run.** Record them and carry on, even when `behind_main` is large.
 A run that inspects slightly stale code still finds real defects. A run that refuses to start finds
