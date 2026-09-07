@@ -89,13 +89,16 @@ node <skill-dir>/quality-sweep.mjs --root <repo-root> --lens <lens> --baseline <
 
 The engine checks every suppressed ticket against the tracker by running the project's
 `config.ticket_status_command`. On a machine that has no tracker CLI, such as a cloud run, do that
-step yourself: ask the tracker through the client you do have (the Atlassian MCP for Jira) which
-of those keys are closed, write the closed keys to a file, one per line, and pass it with
-`--closed-keys <file>`. The engine then reads the answer from the file and never runs the command.
-Do not fake the CLI with a shim: the manifest names where the closed status came from, and a shim
-makes that line lie.
+step yourself. `--list-keys` prints the keys the engine would ask about; ask the tracker through the
+client you do have (the Atlassian MCP for Jira) which of them are closed, write the closed keys to a
+file, one per line, and pass it with `--closed-keys <file>`. The engine then reads the answer from
+the file and never runs the command. Do not fake the CLI with a shim: the manifest names where the
+closed status came from, and a shim makes that line lie.
 
 ```bash
+node <skill-dir>/quality-sweep.mjs --root <repo-root> --lens <lens> --list-keys > keys.txt
+# ask the tracker which of those keys are closed; write them to closed.txt, one per line
+node <skill-dir>/quality-sweep.mjs --root <repo-root> --lens <lens> --closed-keys closed.txt
 ```
 
 The manifest is what this lens sweeps and the bar it holds findings to: focus areas, severity scale,
