@@ -56,15 +56,15 @@ Resolve the repo root first. Interactively that is the current working directory
 the checkout the schedule names. Every path below is relative to it, and the report names the
 project, so a result is never mistaken for a different repo.
 
-Then look for the baseline, in this order, and use the first that exists:
+The baseline is `quality-sweep/baseline.json` at the repo root, and every run's findings sit
+beside it under `quality-sweep/findings/<lens>/`. `--baseline <path>` overrides that, and the
+findings are then read from `findings/` beside whatever file it names.
 
-1. `.tld/quality-sweep-baseline.json`
-2. `.claude/quality-sweep-baseline.json`
-3. `quality-sweep-baseline.json` at the repo root
-
-`.tld/` is the natural home, but many repos gitignore it, and a baseline that is not committed
-forgets everything between runs, which defeats the whole point. Check `git check-ignore` before
-recommending a location, and prefer a path this repo actually tracks.
+Nothing the sweep reads or writes lives under `.claude/`. Claude Code stops for a human before it
+writes anything there, and a scheduled run has nobody to ask, so a findings file under `.claude/`
+is a run that hangs until someone notices. The folder must be committed: an uncommitted baseline
+forgets everything between runs, which defeats the whole point. Check `git check-ignore
+quality-sweep` before recommending a location.
 
 **If there is no baseline, run anyway.** The engine reports every finding as NEW and says so loudly
 at the top of its output. That is the correct first run for a new project, not a failure. Treat it as
@@ -89,13 +89,16 @@ node <skill-dir>/quality-sweep.mjs --root <repo-root> --lens <lens> --baseline <
 
 The engine checks every suppressed ticket against the tracker by running the project's
 `config.ticket_status_command`. On a machine that has no tracker CLI, such as a cloud run, do that
-step yourself: ask the tracker through the client you do have (the Atlassian MCP for Jira) which
-of those keys are closed, write the closed keys to a file, one per line, and pass it with
-`--closed-keys <file>`. The engine then reads the answer from the file and never runs the command.
-Do not fake the CLI with a shim: the manifest names where the closed status came from, and a shim
-makes that line lie.
+step yourself. `--list-keys` prints the keys the engine would ask about; ask the tracker through the
+client you do have (the Atlassian MCP for Jira) which of them are closed, write the closed keys to a
+file, one per line, and pass it with `--closed-keys <file>`. The engine then reads the answer from
+the file and never runs the command. Do not fake the CLI with a shim: the manifest names where the
+closed status came from, and a shim makes that line lie.
 
 ```bash
+node <skill-dir>/quality-sweep.mjs --root <repo-root> --lens <lens> --list-keys > keys.txt
+# ask the tracker which of those keys are closed; write them to closed.txt, one per line
+node <skill-dir>/quality-sweep.mjs --root <repo-root> --lens <lens> --closed-keys closed.txt
 ```
 
 The manifest is what this lens sweeps and the bar it holds findings to: focus areas, severity scale,
