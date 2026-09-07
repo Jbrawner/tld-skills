@@ -26,6 +26,11 @@ automatically. Point it at your worktree and it resolves both:
 
     node ~/.claude/skills/quality-sweep/quality-sweep.mjs --lens <lens>
 
+On a machine where the engine is checked out somewhere else, read that checkout's path wherever
+this file says `~/.claude/skills`. On a machine with no tracker CLI, ask the tracker yourself
+which suppressed tickets are closed and hand the engine the list with `--closed-keys <file>`;
+SKILL.md Step 2a says how.
+
 **There is no shared bookkeeping worktree any more, and you must not look for one.** Until August
 2026 every routine merged and edited a single shared baseline file. One half-finished merge in that
 file silenced every routine for two consecutive weekends. Nothing you write is shared with

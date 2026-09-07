@@ -80,6 +80,9 @@ const HELP = `quality-sweep — noise control for a recurring multi-agent code s
   --render     path to the classified JSON, to emit the review document.
   --date       the run date for --render, in YYYY-MM-DD. Read it from the real clock.
   --deadline   ISO timestamp from the manifest. Past it, the run cannot report COMPLETE.
+  --closed-keys  a file listing the ticket keys that are CLOSED. For a machine with no tracker
+               CLI: ask the tracker yourself, write the closed keys to a file, pass it here, and
+               the engine skips config.ticket_status_command.
   --json       machine-readable output.
 
 Exit codes: 0 the sweep ran and every check executed, 1 it ran but coverage is incomplete,
@@ -158,19 +161,25 @@ function loadBaseline(root, named) {
 //
 // PROJECT RULE (see the file header): the command and the key pattern are configuration, never
 // constants. This engine must not know what a ticket key looks like in any particular tracker.
-function verifySuppressions(baseline) {
+function verifySuppressions(baseline, closedKeysFile) {
   const cfg = baseline.config || {};
   const cmdTemplate = cfg.ticket_status_command;
   const keyPattern = cfg.ticket_key_pattern;
 
   const rows = baseline.known_open || [];
 
-  if (typeof cmdTemplate !== "string" || typeof keyPattern !== "string") {
+  // Two ways to learn which tickets closed. The usual one runs the project's configured tracker
+  // command. The other is a file of CLOSED keys the run hands over with --closed-keys, for a
+  // machine that has no tracker CLI at all: a cloud run asks the tracker through whatever client
+  // it does have, writes the answer down, and passes it here. The first cloud run of this engine
+  // hit exactly that wall, and got past it by faking the CLI, which nobody should have to do twice.
+  if (typeof keyPattern !== "string" || (!closedKeysFile && typeof cmdTemplate !== "string")) {
     return {
       verified: false,
-      reason:
-        'config.ticket_status_command and config.ticket_key_pattern are not both set, so no row ' +
-        'could be checked against the tracker',
+      reason: closedKeysFile
+        ? "config.ticket_key_pattern is not set, so no key could be read from the --closed-keys file"
+        : "config.ticket_status_command and config.ticket_key_pattern are not both set, so no row " +
+          "could be checked against the tracker",
       checked: 0,
       closed: 0,
       watch: [],
@@ -192,10 +201,28 @@ function verifySuppressions(baseline) {
   const allKeys = [...new Set(rows.flatMap(keysOf))].sort();
   if (!allKeys.length) return { verified: true, reason: null, checked: 0, closed: 0, watch: [] };
 
+  const closed = new Set();
+  if (closedKeysFile) {
+    // The file lists the keys that are CLOSED. Anything else on a line is ignored, so a pasted
+    // table or a CSV header costs nothing, the same rule the command's output follows.
+    let text;
+    try {
+      text = readFileSync(closedKeysFile, "utf8");
+    } catch (e) {
+      die(
+        `could not read the --closed-keys file. THIS IS A SKIPPED RUN.\n` +
+          `  file:  ${closedKeysFile}\n` +
+          `  error: ${(e && e.message) || e}\n` +
+          `  Refusing to continue for the same reason a failed tracker command refuses: every ` +
+          `suppression is an unverified claim until the tracker has answered.`,
+      );
+    }
+    for (const k of text.match(re) || []) closed.add(k);
+  }
+
   // Batched: a tracker query naming every key at once is the one that silently truncates.
   const CHUNK = 100;
-  const closed = new Set();
-  for (let i = 0; i < allKeys.length; i += CHUNK) {
+  for (let i = closedKeysFile ? allKeys.length : 0; i < allKeys.length; i += CHUNK) {
     const batch = allKeys.slice(i, i + CHUNK);
     const cmd = cmdTemplate.split("{keys}").join(batch.join(","));
     let out;
@@ -226,7 +253,16 @@ function verifySuppressions(baseline) {
   baseline.known_open = stillOpen;
   baseline.regression_watch = watch;
 
-  return { verified: true, reason: null, checked: allKeys.length, closed: closed.size, watch };
+  return {
+    verified: true,
+    reason: null,
+    checked: allKeys.length,
+    // Count only the keys this baseline asked about. A --closed-keys file may list every closed
+    // ticket in the project, and the extras are not suppressions this run checked.
+    closed: allKeys.filter((k) => closed.has(k)).length,
+    watch,
+    source: closedKeysFile ? `the --closed-keys file ${closedKeysFile}` : "config.ticket_status_command",
+  };
 }
 
 // Union every per-run findings file beside the baseline into the in-memory baseline.
@@ -240,11 +276,11 @@ function verifySuppressions(baseline) {
 // report already-ticketed findings as new and duplicate every ticket it holds.
 function mergeFindings(baseline, baselineDir) {
   const root = join(baselineDir, FINDINGS_DIR);
-  if (!existsSync(root)) return { files: 0, known_open: 0, accepted: 0 };
+  if (!existsSync(root)) return { files: 0, known_open: 0, accepted: 0, disputed: [] };
 
   const seenOpen = new Set(baseline.known_open.map((r) => r.object));
   const seenAccepted = new Set(baseline.accepted.map((r) => r.object));
-  const stat = { files: 0, known_open: 0, accepted: 0 };
+  const stat = { files: 0, known_open: 0, accepted: 0, disputed: [] };
 
   const lensDirs = readdirSync(root, { withFileTypes: true })
     .filter((d) => d.isDirectory())
@@ -287,8 +323,22 @@ function mergeFindings(baseline, baselineDir) {
       }
 
       // A completed run stamps its lens. Latest date wins, so replaying old files is harmless.
+      // A run that called itself PARTIAL or SKIPPED never stamps, whatever its `completed` flag
+      // says. The two disagreeing is a bug in whoever wrote the file, and believing the flag on
+      // its own is how a starved lens hides behind a date it did not earn: contract-conformance
+      // read "last completed 2026-08-24" for two weeks while every run since 2026-08-11 was
+      // PARTIAL. When they disagree, the status wins and the disagreement is reported.
       const lens = typeof doc.lens === "string" ? doc.lens : lensDir;
-      if (doc.completed === true && typeof doc.date === "string" && baseline.lenses[lens]) {
+      const docStatus = String(doc.runStatus ?? doc.run_status ?? "").toUpperCase();
+      const stampsLens =
+        doc.completed === true && docStatus !== "PARTIAL" && docStatus !== "SKIPPED";
+      if (doc.completed === true && !stampsLens) {
+        stat.disputed.push(
+          `${lensDir}/${f}: completed:true on a ${docStatus} run. Ignored, so this lens keeps ` +
+            "the last_completed date it already had.",
+        );
+      }
+      if (stampsLens && typeof doc.date === "string" && baseline.lenses[lens]) {
         const prev = baseline.lenses[lens].last_completed;
         if (!prev || doc.date > prev) baseline.lenses[lens].last_completed = doc.date;
       }
@@ -483,7 +533,7 @@ function buildManifest(ctx) {
     undeclared: !!lens.undeclared,
     root,
     baselinePath,
-    findings: findings || { files: 0, known_open: 0, accepted: 0 },
+    findings: findings || { files: 0, known_open: 0, accepted: 0, disputed: [] },
     suppression: suppression || { verified: false, reason: "not checked", checked: 0, closed: 0, watch: [] },
     regressionWatch: indexEntries(baseline.regression_watch || [], lens.slug, root).filter(
       (k) => k.lens === "*" || k.lens === lens.slug,
@@ -501,6 +551,11 @@ function buildManifest(ctx) {
       // Without these the de-dup is blind to a sibling audit's ticket and duplicates it.
       siblings: cfg.sibling_labels || [],
     },
+    // What this lens is responsible for reading. A lens with no scope owns the whole tree, which
+    // is fine for a small one and a lie for a large one: a lens that can never finish reports
+    // PARTIAL every week, and a status that is always the same carries no information. Splitting
+    // a large lens into two with a scope each is how COMPLETE becomes reachable again.
+    scope: lens.scope || null,
     focusAreas: lens.focus_areas || [],
     severityScale: lens.severity_scale || null,
     evidenceBar: lens.evidence_bar || null,
@@ -534,12 +589,16 @@ function printManifest(m) {
     `FINDINGS: ${m.findings.files} per-run file(s) merged in ` +
       `(+${m.findings.known_open} known_open, +${m.findings.accepted} accepted)`,
   );
+  // A per-run file that called itself PARTIAL and set completed:true anyway. The date it
+  // wanted to stamp was refused; say so here, because a silent refusal looks like agreement.
+  for (const d of m.findings.disputed || []) L.push(`  DISPUTED: ${d}`);
   const sup = m.suppression || {};
   if (sup.verified) {
     L.push(
       `SUPPRESSIONS: ${sup.checked} ticket(s) checked against the tracker, ` +
         `${sup.closed} closed`,
     );
+    if (sup.source) L.push(`   closed status read from ${sup.source}`);
     if ((m.regressionWatch || []).length) {
       L.push(
         `   ${m.regressionWatch.length} object(s) on this lens are REGRESSION WATCH: their ticket ` +
@@ -599,6 +658,13 @@ function printManifest(m) {
   if (m.preflight.length) {
     L.push("PREFLIGHT — each of these must pass or the run is SKIPPED, never a clean pass:");
     for (const p of m.preflight) L.push(`  - ${p}`);
+    L.push("");
+  }
+
+  if (m.scope) {
+    L.push(`SCOPE: ${m.scope}`);
+    L.push("  Outside this, not your run. Another lens owns it, and reading it here costs the");
+    L.push("  time that makes this one COMPLETE.");
     L.push("");
   }
 
@@ -741,6 +807,23 @@ function classify(ctx, input, deadlineISO) {
       "the run passed its deadline, so any area not already swept was not swept at all",
     );
   }
+  // Every finding a run files is meant to have been read by a second agent trying to knock it
+  // down. An empty `refuted` list proves nothing either way: it reads the same whether six
+  // refuters ran and killed nothing, or none ran at all. So the run states how many read the
+  // findings, and a run that files without saying cannot call itself complete. The 2026-09-05
+  // bug hunt filed 32 tickets and reported "every candidate survived verification" after
+  // running six finders and no refuters, which is the shape this catches.
+  const refuters = Number(input.refuters ?? input.refuter_agents ?? NaN);
+  const filedCount = rows.filter((r) => r.status === "NEW" && r.confirmed).length;
+  const unrefuted = filedCount > 0 && !(refuters > 0);
+  if (unrefuted) {
+    notReached.push(
+      `the refutation pass was never declared, and ${filedCount} new findings were filed ` +
+        'without one. Set "refuters" in the findings file to the number of agents that read ' +
+        "them trying to refute them.",
+    );
+  }
+
   const claimed = String(input.runStatus || input.run_status || "COMPLETE").toUpperCase();
   const runStatus = overdue || notReached.length || claimed === "PARTIAL" ? "PARTIAL" : "COMPLETE";
 
@@ -748,6 +831,8 @@ function classify(ctx, input, deadlineISO) {
     lens: lens.slug,
     runStatus,
     overdue: !!overdue,
+    unrefuted,
+    refuters: Number.isFinite(refuters) ? refuters : null,
     notReached,
     coverage: input.coverage || {},
     refuted: input.refuted || [],
@@ -774,6 +859,10 @@ function printClassified(c, degraded) {
     for (const n of c.notReached) L.push(`  did not reach: ${n}`);
   }
   if (c.overdue) L.push("  The deadline passed. COMPLETE is not available to this run.");
+  if (c.unrefuted) {
+    L.push("  No refutation pass was declared. Every finding below is a candidate a second");
+    L.push("  reader never tried to knock down, so COMPLETE is not available to this run.");
+  }
   if (degraded) L.push("  No baseline, so every row below reads NEW whether it is or not.");
   L.push("");
 
@@ -1123,7 +1212,8 @@ function main() {
   const { baseline, path: baselinePath, degraded, findings } = loadBaseline(root, namedBaseline);
   // Resolve every suppression against the tracker before anything reads one. See
   // verifySuppressions: a stored "still open" is a claim with an expiry date on it.
-  const suppression = verifySuppressions(baseline);
+  const closedKeysFile = typeof args.closedKeys === "string" ? args.closedKeys : null;
+  const suppression = verifySuppressions(baseline, closedKeysFile);
 
   if (args.listLenses) {
     const entries = Object.entries(baseline.lenses || {})

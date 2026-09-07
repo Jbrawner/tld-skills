@@ -87,6 +87,17 @@ patterns, so the engine refuses it rather than running unguided.
 node <skill-dir>/quality-sweep.mjs --root <repo-root> --lens <lens> --baseline <baseline-path>
 ```
 
+The engine checks every suppressed ticket against the tracker by running the project's
+`config.ticket_status_command`. On a machine that has no tracker CLI, such as a cloud run, do that
+step yourself: ask the tracker through the client you do have (the Atlassian MCP for Jira) which
+of those keys are closed, write the closed keys to a file, one per line, and pass it with
+`--closed-keys <file>`. The engine then reads the answer from the file and never runs the command.
+Do not fake the CLI with a shim: the manifest names where the closed status came from, and a shim
+makes that line lie.
+
+```bash
+```
+
 The manifest is what this lens sweeps and the bar it holds findings to: focus areas, severity scale,
 evidence bar, ticket granularity, benign patterns, the do-not-raise list, how long it has been since
 this lens last completed, and a DEADLINE timestamp.
@@ -116,6 +127,12 @@ The structure is the same for every lens, and it is adversarial on purpose:
    refuted when uncertain. A candidate that survives is confirmed. A candidate that does not is
    recorded as refuted with the reason, never silently dropped, because the reason is what stops the
    same non-finding coming back next week.
+
+   **Say how many refuters ran.** The findings file carries a `refuters` count, and a run that
+   files findings without one cannot report COMPLETE. An empty `refuted` list is not evidence
+   either way: it looks identical whether six refuters read everything and killed nothing, or
+   nobody read anything. The count is the only thing that tells those two apart, and skipping
+   this pass is the cheapest way to make a sweep look productive while lowering its bar.
 3. **Look for the gap.** A completeness pass asks what was not looked at: a focus area with no
    findings that also had no coverage, a directory nobody opened, a claim nobody checked. What it
    returns is either another round of finding or an entry in the run's "anything left out" list.
@@ -135,8 +152,11 @@ Write the findings to JSON and hand them to the engine:
 node <skill-dir>/quality-sweep.mjs --root <repo-root> --lens <lens> --classify <findings.json> --deadline <manifest-deadline>
 ```
 
-The findings file is `{ "runStatus", "notReached": [], "coverage": {}, "findings": [], "refuted": [] }`,
+The findings file is
+`{ "runStatus", "refuters", "notReached": [], "coverage": {}, "findings": [], "refuted": [] }`,
 each finding carrying `file`, `symbol`, `line`, `severity`, `title`, `detail`, and `confirmed`.
+`refuters` is how many agents read the findings trying to knock them down; omit it and the engine
+adds the missing pass to `notReached` and forces PARTIAL.
 
 The identity a row is matched on is `<lens>::<file>::<symbol>`, never the title: the same defect
 re-found next week is described in different words by a different agent, and a title match will miss
@@ -338,7 +358,9 @@ means you did not file, and not filing is what makes it easy to forget.
 
 Also set this lens's `last_completed` to today's date, read from the clock, and only when the run
 status was COMPLETE. A PARTIAL or skipped run must leave it alone, because that field is what makes a
-starved lens visible.
+starved lens visible. Set the run's `completed` flag to match its status for the same reason: the
+engine reads the two together, refuses the stamp when they disagree, and prints the disagreement as
+`DISPUTED` in the next run's manifest rather than quietly believing the flag.
 
 Slots can overlap, so two lenses may be writing this file at once. Re-read it immediately before
 writing, and merge rather than overwrite. Object keys are lens-prefixed, so two lenses cannot collide
