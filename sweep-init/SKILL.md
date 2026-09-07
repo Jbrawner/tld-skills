@@ -96,20 +96,30 @@ forgets. The audits read the same tree on the same nights and file into the same
 search scoped only to its own label reports a sibling's ticket as new and files a duplicate hours after
 the original. Two audits selected means each names the other. Four means each names the other three.
 
-## Step 4: Choose where the baseline lives
+## Step 4: Choose where the baselines live
 
-`.tld/` is the natural home, but many repos gitignore it, and a baseline that is not committed forgets
-everything between runs, which defeats the whole point. Decide by asking the repo, not by assuming:
+`/quality-sweep` has one fixed home: `quality-sweep/baseline.json` at the repo root, with each run's
+findings beside it under `quality-sweep/findings/` and its skip records under `quality-sweep/skips/`.
+It is not under `.claude/` because Claude Code stops for a human before writing anything there, and a
+scheduled run has nobody to ask. Confirm the folder will be tracked:
+
+```bash
+git -C <repo-root> check-ignore -q quality-sweep && echo "gitignored" || echo "tracked"
+```
+
+The other three audits still look in `.tld/`, then `.claude/`, then the repo root. `.tld/` is the
+natural home, but many repos gitignore it, and a baseline that is not committed forgets everything
+between runs, which defeats the whole point. Decide by asking the repo, not by assuming:
 
 ```bash
 git -C <repo-root> check-ignore -q .tld && echo "gitignored" || echo "tracked"
 ```
 
 Prefer `.tld/` when the repo tracks it, `.claude/` when it does not, and the repo root only when the
-repo ignores both. This is the same resolution order each of the four skills documents in its own Step
-1, and it has to agree with them or the sweep will not find what this skill wrote.
+repo ignores both. This is the resolution order each of those three skills documents in its own Step
+1, and it has to agree with them or the audit will not find what this skill wrote.
 
-State the chosen path and the reason in the report. A baseline in a gitignored directory is the
+State the chosen paths and the reasons in the report. A baseline in a gitignored directory is the
 failure mode that looks like success for about three weeks.
 
 ## Step 5: Write the baselines
@@ -119,7 +129,7 @@ audit looks for:
 
 | Audit | Template | Becomes |
 | --- | --- | --- |
-| `/quality-sweep` | `quality-sweep/baseline.example.json` | `quality-sweep-baseline.json` |
+| `/quality-sweep` | `quality-sweep/baseline.example.json` | `quality-sweep/baseline.json` |
 | `/rls-audit` | `rls-audit/baseline.example.sql` | `rls-audit-baseline.sql` |
 | `/test-audit` | `test-audit/baseline.example.json` | `test-audit-baseline.json` |
 | `/docs-drift-audit` | `docs-drift-audit/baseline.example.toml` | `docs-drift-baseline.toml` |

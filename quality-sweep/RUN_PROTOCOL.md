@@ -14,29 +14,30 @@ It already contains everything you need:
 
 | What | Path, relative to your worktree root |
 |------|--------------------------------------|
-| The rules (config, lenses, focus areas, benign patterns, accepted exceptions) | `.claude/quality-sweep-baseline.json` |
-| What previous runs already found and ticketed | `.claude/sweep-findings/<lens>/*.json` |
+| The rules (config, lenses, focus areas, benign patterns, accepted exceptions) | `quality-sweep/baseline.json` |
+| What previous runs already found and ticketed | `quality-sweep/findings/<lens>/*.json` |
 | Your run record goes here | `docs/auto_reviews/<review_folder>/<date>.md` |
-| Your findings go here | `.claude/sweep-findings/<lens>/<date>.json` |
+| Your findings go here | `quality-sweep/findings/<lens>/<date>.json` |
 | Your run record's index row goes here | `docs/auto_reviews/<review_folder>/README.md` |
-| **If you stop early**, your skip record goes here | `.claude/sweep-skips/<lens>-<date>.txt` |
+| **If you stop early**, your skip record goes here | `quality-sweep/skips/<lens>-<date>.txt` |
 
-The engine reads the baseline and unions every findings file under `.claude/sweep-findings/`
+The engine reads the baseline and unions every findings file under `quality-sweep/findings/`
 automatically. Point it at your worktree and it resolves both:
 
-    node ~/.claude/skills/quality-sweep/quality-sweep.mjs --lens <lens>
+    node $ENGINE_ROOT/quality-sweep/quality-sweep.mjs --lens <lens>
 
-On a machine where the engine is checked out somewhere else, read that checkout's path wherever
-this file says `~/.claude/skills`. On a machine with no tracker CLI, ask the tracker yourself
-which suppressed tickets are closed and hand the engine the list with `--closed-keys <file>`;
-SKILL.md Step 2a says how.
+`$ENGINE_ROOT` is the folder that holds the `quality-sweep/` skill. On the desktop it is
+`~/.claude/skills`; on a cloud machine it is wherever the `tld-skills` repository was checked
+out, and your task says where. It appears three times in this document and means the same folder
+each time. On a machine with no tracker CLI, ask the tracker yourself which suppressed tickets are
+closed and hand the engine the list with `--closed-keys <file>`; SKILL.md Step 2a says how.
 
 **There is no shared bookkeeping worktree any more, and you must not look for one.** Until August
 2026 every routine merged and edited a single shared baseline file. One half-finished merge in that
 file silenced every routine for two consecutive weekends. Nothing you write is shared with
 another run, so nothing you write can block one.
 
-If `.claude/quality-sweep-baseline.json` is not in your worktree, **this is a SKIPPED RUN**, not a
+If `quality-sweep/baseline.json` is not in your worktree, **this is a SKIPPED RUN**, not a
 first run. Report exactly:
 
     Could not run. The quality-sweep baseline was not found in this run's worktree.
@@ -91,7 +92,7 @@ Then capture:
 
     base_commit:    git rev-parse HEAD
     behind_main:    git rev-list --count HEAD..origin/main
-    engine_commit:  git -C ~/.claude/skills rev-parse HEAD
+    engine_commit:  git -C $ENGINE_ROOT rev-parse HEAD
 
 `git fetch` is a read. It is not on section 2's banned list and it repairs nothing. The fast-forward
 is the one merge section 2 allows: here, once, before anything has been written.
@@ -111,7 +112,7 @@ or whether the defect had already been fixed on `main` hours earlier.
 The engine you are about to run lives outside your worktree, in a checkout that other sessions
 write to. Before you run it, confirm its own files are committed:
 
-    git -C ~/.claude/skills status --porcelain -- quality-sweep test-audit docs-drift-audit rls-audit
+    git -C $ENGINE_ROOT status --porcelain -- quality-sweep test-audit docs-drift-audit rls-audit
 
 If that prints nothing, proceed. **If it prints anything, this is a SKIPPED RUN.** Name the
 modified files in your skip record and stop. Uncommitted edits to an engine mean you would be
@@ -125,7 +126,7 @@ the ordinary state of a folder several sessions edit at once.
 
 ## 3. Write one new file. Never edit an existing one
 
-Write your findings to `.claude/sweep-findings/<lens>/<date>.json`:
+Write your findings to `quality-sweep/findings/<lens>/<date>.json`:
 
 ```json
 {
@@ -171,11 +172,11 @@ muting tickets that had already closed. Every one of those defects could have co
 sweep would have said nothing, which is the precise opposite of its job. Status belongs to the
 tracker, so it is asked at run time instead of copied into a file nobody updates.
 
-**Do not edit `.claude/quality-sweep-baseline.json`.** It is curated by a human on `main` and is
+**Do not edit `quality-sweep/baseline.json`.** It is curated by a human on `main` and is
 read-only to you. **Do not edit a findings file from an earlier run**, including your own lens's.
 Every run writes exactly one new path, which is what makes conflicts between runs impossible.
 
-If `.claude/sweep-findings/<lens>/<date>.json` already exists when you start, this lens has already
+If `quality-sweep/findings/<lens>/<date>.json` already exists when you start, this lens has already
 run today. Report that and stop rather than overwriting it.
 
 ## 4. Commit and push before you finish
@@ -197,7 +198,7 @@ in the format the table already uses. If the table still says "No runs yet", rep
 your row. Then:
 
     git checkout -b sweep/<lens>-<date>
-    git add .claude/sweep-findings/<lens>/<date>.json \
+    git add quality-sweep/findings/<lens>/<date>.json \
             docs/auto_reviews/<review_folder>/<date>.md \
             docs/auto_reviews/<review_folder>/README.md
     git commit -m "Quality sweep: <lens> <date>"
@@ -226,7 +227,7 @@ worktree and a human can recover it. Do not try to fix the push.
 path instead of three:
 
     git checkout -b sweep/<lens>-<date>
-    git add .claude/sweep-skips/<lens>-<date>.txt
+    git add quality-sweep/skips/<lens>-<date>.txt
     git commit -m "Quality sweep: <lens> <date> SKIPPED"
     git push -u origin sweep/<lens>-<date>
 
@@ -267,7 +268,7 @@ If the run was skipped, the reason is the whole report. Say it in one sentence a
 ## 7. A skipped run must leave something behind
 
 **Any time you stop early, for any reason, write a skip record before you finish.** One file, in
-your own worktree, at `.claude/sweep-skips/<lens>-<date>.txt`:
+your own worktree, at `quality-sweep/skips/<lens>-<date>.txt`:
 
     lens:       <lens>
     date:       <date>
@@ -324,7 +325,7 @@ can act on it without asking anyone a question.
 
 The two landing statuses, their transition ids, the review label and the maintainer's name are
 **not** written here. Read them from `config.ticket_routing` in the project's quality-sweep
-baseline, `.claude/quality-sweep-baseline.json`.
+baseline, `quality-sweep/baseline.json`.
 
 That one file is the home for routing and for the approval list below, **including for the sibling
 audits** whose own findings baselines are TOML or SQL and cannot carry it. Whichever engine you
