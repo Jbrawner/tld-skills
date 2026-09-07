@@ -213,6 +213,7 @@ function verifySuppressions(baseline, closedKeysFile) {
   }
 
   const re = keyRegex(keyPattern);
+  const keysOf = (row) => String(row.ticket || "").match(re) || [];
   const allKeys = suppressionKeys(baseline);
   if (!allKeys.length) return { verified: true, reason: null, checked: 0, closed: 0, watch: [] };
 
