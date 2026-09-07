@@ -30,11 +30,14 @@ const EXIT_COMPLETE = 0;
 const EXIT_PARTIAL = 1;
 const EXIT_NOT_RUN = 2;
 
-const BASELINE_NAME = "quality-sweep-baseline.json";
-const BASELINE_DIRS = [".tld", ".claude", ""];
+// Everything the sweep reads and writes lives in one folder at the repo root. It is not under
+// .claude/ because Claude Code stops for a human before writing anything there, and a scheduled
+// run has nobody to ask.
+const SWEEP_DIR = "quality-sweep";
+const BASELINE_NAME = "baseline.json";
 // Per-run findings live one file per lens per run, beside the baseline. Two runs never write
 // the same path, so they cannot conflict and cannot block each other. See RUN_PROTOCOL.md.
-const FINDINGS_DIR = "sweep-findings";
+const FINDINGS_DIR = "findings";
 const SEP = "::";
 
 // ---------------------------------------------------------------------------
@@ -75,7 +78,7 @@ const HELP = `quality-sweep — noise control for a recurring multi-agent code s
 
   --root       repo root to sweep. Required.
   --lens       which sweep to run. Required except with --list-lenses.
-  --baseline   explicit baseline path. Omit to search .tld/, .claude/, then the repo root.
+  --baseline   explicit baseline path. Omit to read quality-sweep/baseline.json under --root.
   --classify   path to the findings JSON the sweep produced.
   --render     path to the classified JSON, to emit the review document.
   --date       the run date for --render, in YYYY-MM-DD. Read it from the real clock.
@@ -123,13 +126,11 @@ function loadBaseline(root, named) {
     const f = mergeFindings(b, dirname(resolve(named)));
     return { baseline: b, path: named, degraded: false, findings: f };
   }
-  for (const dir of BASELINE_DIRS) {
-    const p = dir ? join(root, dir, BASELINE_NAME) : join(root, BASELINE_NAME);
-    if (existsSync(p)) {
-      const b = parseBaseline(p);
-      const f = mergeFindings(b, dirname(resolve(p)));
-      return { baseline: b, path: p, degraded: false, findings: f };
-    }
+  const p = join(root, SWEEP_DIR, BASELINE_NAME);
+  if (existsSync(p)) {
+    const b = parseBaseline(p);
+    const f = mergeFindings(b, dirname(resolve(p)));
+    return { baseline: b, path: p, degraded: false, findings: f };
   }
   return { baseline: structuredClone(EMPTY_BASELINE), path: null, degraded: true };
 }
@@ -267,7 +268,7 @@ function verifySuppressions(baseline, closedKeysFile) {
 
 // Union every per-run findings file beside the baseline into the in-memory baseline.
 //
-// Each run writes exactly one new file, <baselineDir>/sweep-findings/<lens>/<YYYY-MM-DD>.json, and
+// Each run writes exactly one new file, <baselineDir>/findings/<lens>/<YYYY-MM-DD>.json, and
 // never edits an existing one. That is the whole reason this function exists: the single shared
 // mutable baseline it replaces could be jammed by one bad merge, which silenced every routine for
 // two weekends in Aug 2026. Reading is a union of immutable files, so there is nothing to conflict.

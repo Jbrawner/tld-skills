@@ -56,15 +56,15 @@ Resolve the repo root first. Interactively that is the current working directory
 the checkout the schedule names. Every path below is relative to it, and the report names the
 project, so a result is never mistaken for a different repo.
 
-Then look for the baseline, in this order, and use the first that exists:
+The baseline is `quality-sweep/baseline.json` at the repo root, and every run's findings sit
+beside it under `quality-sweep/findings/<lens>/`. `--baseline <path>` overrides that, and the
+findings are then read from `findings/` beside whatever file it names.
 
-1. `.tld/quality-sweep-baseline.json`
-2. `.claude/quality-sweep-baseline.json`
-3. `quality-sweep-baseline.json` at the repo root
-
-`.tld/` is the natural home, but many repos gitignore it, and a baseline that is not committed
-forgets everything between runs, which defeats the whole point. Check `git check-ignore` before
-recommending a location, and prefer a path this repo actually tracks.
+Nothing the sweep reads or writes lives under `.claude/`. Claude Code stops for a human before it
+writes anything there, and a scheduled run has nobody to ask, so a findings file under `.claude/`
+is a run that hangs until someone notices. The folder must be committed: an uncommitted baseline
+forgets everything between runs, which defeats the whole point. Check `git check-ignore
+quality-sweep` before recommending a location.
 
 **If there is no baseline, run anyway.** The engine reports every finding as NEW and says so loudly
 at the top of its output. That is the correct first run for a new project, not a failure. Treat it as

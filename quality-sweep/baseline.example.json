@@ -1,10 +1,10 @@
 {
   "_comment": [
-    "Copy this to the audited repo and delete the underscore keys. Preferred location",
-    "is .tld/quality-sweep-baseline.json; if the repo gitignores .tld/, use",
-    ".claude/quality-sweep-baseline.json or quality-sweep-baseline.json at the root, so",
-    "the file is committed and reviewed like any other code. An uncommitted baseline",
-    "forgets everything between runs, which defeats the entire point of the check.",
+    "Copy this to the audited repo as quality-sweep/baseline.json and delete the underscore",
+    "keys. Each run's findings go beside it under quality-sweep/findings/. Commit the folder",
+    "and review it like any other code: an uncommitted baseline forgets everything between",
+    "runs, which defeats the entire point of the check. It is not under .claude/ because",
+    "Claude Code stops for a human before writing there, and a scheduled run has nobody to ask.",
     "",
     "Nothing in this file may be time-bound. No month, no year, no 'as of' notes, no",
     "expected finding counts that a landed fix would invalidate. It is read unattended",
