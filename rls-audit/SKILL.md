@@ -39,10 +39,11 @@ for confirmed new findings and (b) the project's baseline file, which is this sk
 
 Work from the current repo root.
 
-1. Find the baseline, taking the first that exists: `.tld/rls-audit-baseline.sql`,
-   `.claude/rls-audit-baseline.sql`, then `rls-audit-baseline.sql` at the repo root. Prefer `.tld/` when
-   writing a new one, but check whether the repo gitignores `.tld/` first: the baseline is worthless
-   uncommitted, so in that case put it in `.claude/` instead.
+1. Find the baseline, taking the first that exists: `quality-sweep/rls-audit-baseline.sql`,
+   `.tld/rls-audit-baseline.sql`, `.claude/rls-audit-baseline.sql`, then `rls-audit-baseline.sql` at
+   the repo root. Prefer `quality-sweep/` when writing a new one, since the run records already live
+   there. `.tld/` is next, but check whether the repo gitignores `.tld/` first: the baseline is
+   worthless uncommitted, so in that case put it in `.claude/` instead.
 
    If none exists, say so plainly and continue: the sweep still runs, but with no baseline **every**
    finding reports as NEW, so treat the first run as establishing a baseline rather than as a list of

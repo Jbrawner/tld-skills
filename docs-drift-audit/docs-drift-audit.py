@@ -231,6 +231,81 @@ class Baseline:
 
 
 # --------------------------------------------------------------------------------------
+# Per-run findings files
+# --------------------------------------------------------------------------------------
+#
+# Every /docs-drift-audit run writes one immutable file at
+# <repo>/quality-sweep/findings/docs-drift/<date>.json, listing what it accepted and what it
+# ticketed. Those sign-offs only count on the next run if this engine reads them back, so they
+# are unioned into the baseline here. Nobody has to fold them in by hand.
+#
+# A findings row names its object as "docs-drift::<doc key>::<id>". The baseline names the same
+# thing as "<doc key> :: <id>". This is the only place that translation lives.
+
+FINDINGS_PREFIX = "docs-drift::"
+
+
+def findings_object_to_objkey(obj: str) -> str:
+    if not obj.startswith(FINDINGS_PREFIX):
+        return obj
+    rest = obj[len(FINDINGS_PREFIX):]
+    # Only the first "::" separates the doc key from the check-specific id.
+    return rest.replace("::", " :: ", 1)
+
+
+def merge_findings(baseline: Baseline, findings_dir: Path) -> dict:
+    """Union every findings file into the baseline. Returns counts for the report.
+
+    A missing directory is fine (nothing to merge). A malformed file is fatal: it must never be
+    read as an empty one, or every finding it records re-files as a new ticket."""
+    stat = {"files": 0, "accepted": 0, "known_open": 0}
+    if not findings_dir.is_dir():
+        return stat
+
+    seen_accepted = {row.get("objkey") for row in baseline.accepted}
+    seen_open = {row.get("objkey") for row in baseline.known_open}
+
+    for path in sorted(findings_dir.glob("*.json")):
+        try:
+            with path.open("rb") as fh:
+                doc = json.load(fh)
+        except ValueError as exc:
+            raise ValueError(f"findings file is not valid JSON: {path} ({exc})") from exc
+        if not isinstance(doc, dict):
+            raise ValueError(f"findings file must be a JSON object: {path}")
+        stat["files"] += 1
+
+        for key in ("accepted", "known_open"):
+            rows = doc.get(key)
+            if rows is None:
+                continue
+            if not isinstance(rows, list):
+                raise ValueError(f'findings file key "{key}" must be an array: {path}')
+            for row in rows:
+                if not isinstance(row, dict) or not isinstance(row.get("object"), str):
+                    raise ValueError(f'findings row is missing a string "object" identity: {path}')
+                objkey = findings_object_to_objkey(row["object"])
+                if key == "accepted":
+                    if objkey in seen_accepted:
+                        continue
+                    seen_accepted.add(objkey)
+                    baseline.accepted.append(
+                        {
+                            "check": row.get("check", "*"),
+                            "objkey": objkey,
+                            "reason": row.get("reason", "(no reason recorded)"),
+                        }
+                    )
+                else:
+                    if objkey in seen_open:
+                        continue
+                    seen_open.add(objkey)
+                    baseline.known_open.append({"objkey": objkey, "ticket": row.get("ticket")})
+                stat[key] += 1
+    return stat
+
+
+# --------------------------------------------------------------------------------------
 # Document inventory
 # --------------------------------------------------------------------------------------
 
@@ -763,6 +838,12 @@ def main() -> int:
     ap.add_argument("--baseline", default=None, help="path to the project's baseline TOML")
     ap.add_argument("--format", choices=["text", "json"], default="text")
     ap.add_argument(
+        "--findings-dir",
+        default=None,
+        help="folder of per-run findings files to union into the baseline "
+        "(default: <repo>/quality-sweep/findings/docs-drift)",
+    )
+    ap.add_argument(
         "--list-docs", action="store_true", help="print the resolved document inventory and exit"
     )
     args = ap.parse_args()
@@ -780,6 +861,18 @@ def main() -> int:
         baseline = Baseline.load(baseline_path)
     except Exception as exc:  # noqa: BLE001
         print(f"FATAL: baseline could not be parsed: {exc}", file=sys.stderr)
+        return 2
+
+    # Union the per-run findings files so last week's sign-offs still count this week.
+    findings_dir = (
+        Path(args.findings_dir).expanduser()
+        if args.findings_dir
+        else repo / "quality-sweep" / "findings" / "docs-drift"
+    )
+    try:
+        findings_stat = merge_findings(baseline, findings_dir)
+    except ValueError as exc:
+        print(f"FATAL: {exc}", file=sys.stderr)
         return 2
 
     cfg = baseline.config
@@ -852,6 +945,10 @@ def main() -> int:
                     "run_status": run_status,
                     "repo": str(repo),
                     "baseline": baseline.source,
+                    "findings_dir": str(findings_dir),
+                    "findings_files_merged": findings_stat["files"],
+                    "findings_accepted_merged": findings_stat["accepted"],
+                    "findings_known_open_merged": findings_stat["known_open"],
                     "doc_roots": [{"name": n, "path": str(p)} for n, p in roots],
                     "docs_text": len([d for d in docs if d.kind == "text"]),
                     "docs_excluded_by_config": excluded_count,
@@ -873,6 +970,10 @@ def main() -> int:
     print("=" * 78)
     print(f"  repo (source of truth) : {repo}")
     print(f"  baseline               : {baseline.source or 'NONE — every finding reads as NEW'}")
+    print(
+        f"  findings files merged  : {findings_stat['files']} "
+        f"(+{findings_stat['accepted']} accepted, +{findings_stat['known_open']} known_open)"
+    )
     for name, path in roots:
         print(f"  doc root               : {name} -> {path}")
     print(

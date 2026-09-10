@@ -4,7 +4,7 @@
 -- application data, and it holds no locks beyond catalog reads.
 --
 -- Usage (baseline optional, but always list it FIRST so its config wins):
---   psql "$CONN" -f <project>/.tld/rls-audit-baseline.sql -f rls-audit.sql
+--   psql "$CONN" -f <project>/quality-sweep/rls-audit-baseline.sql -f rls-audit.sql
 --   psql "$CONN" -f rls-audit.sql                      # no baseline: pure defaults, everything is NEW
 --
 -- Emits ONE result set. Zero rows = clean. Each row: severity | check_name | object | status | detail

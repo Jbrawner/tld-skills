@@ -1,7 +1,8 @@
 {
   "_comment": [
     "Copy this to the audited repo and delete the underscore keys. Preferred location",
-    "is .tld/test-audit-baseline.json; if the repo gitignores .tld/, use",
+    "is quality-sweep/test-audit-baseline.json, beside the run records. Otherwise",
+    ".tld/test-audit-baseline.json; if the repo gitignores .tld/, use",
     ".claude/test-audit-baseline.json or test-audit-baseline.json at the root, so the",
     "file is committed and reviewed like any other code.",
     "",

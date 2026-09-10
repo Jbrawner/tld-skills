@@ -48,11 +48,18 @@ counted as clean. Step 3b is where you check what no engine can.
 Work from the current repo root. That repository is the source of truth; the documents are the thing
 under test, wherever they happen to live.
 
-1. Find the baseline, taking the first that exists: `.tld/docs-drift-baseline.toml`,
-   `.claude/docs-drift-baseline.toml`, then `docs-drift-baseline.toml` at the repo root. Prefer
-   `.tld/` when writing a new one, but check whether the repo gitignores `.tld/` first: an
-   uncommitted baseline forgets every reviewed exception between runs, so in that case put it in
-   `.claude/` instead, or wherever the repo actually commits local tooling config.
+1. Find the baseline, taking the first that exists: `quality-sweep/docs-drift-baseline.toml`,
+   `.tld/docs-drift-baseline.toml`, `.claude/docs-drift-baseline.toml`, then
+   `docs-drift-baseline.toml` at the repo root. Prefer `quality-sweep/` when writing a new one,
+   since that folder is where the run records already live. If the repo has no `quality-sweep/`
+   folder, `.tld/` is next, but check whether the repo gitignores `.tld/` first: an uncommitted
+   baseline forgets every reviewed exception between runs, so in that case put it in `.claude/`
+   instead, or wherever the repo actually commits local tooling config.
+
+   The engine also reads every `quality-sweep/findings/docs-drift/*.json` file beside that
+   baseline and unions their `accepted` and `known_open` rows into it at load time. A run's
+   sign-offs therefore count on the next run without anyone folding them into the baseline by
+   hand. The report says how many files it merged.
 
    If none exists, say so plainly and continue: the sweep still runs against conventional defaults,
    but with no baseline there are no anchors, no retired terms and no watches, so it degrades to a

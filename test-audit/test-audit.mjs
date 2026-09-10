@@ -7,7 +7,7 @@
 // status is NEW, KNOWN-OPEN <TICKET>, or ACCEPTED (accepted rows are counted, not printed).
 //
 // Usage:
-//   node test-audit.mjs --root <repo-root> [--baseline <path>] [--json]
+//   node test-audit.mjs --root <repo-root> [--baseline <path>] [--findings-dir <dir>] [--json]
 //
 // Exit codes: 0 = ran (with or without findings), 2 = could not run.
 // A check that cannot execute reports SKIPPED-CHECK and never a clean pass.
@@ -81,10 +81,11 @@ const SEV = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 // ---------------------------------------------------------------- cli
 
 function parseArgs(argv) {
-  const a = { root: process.cwd(), baseline: '', json: false };
+  const a = { root: process.cwd(), baseline: '', findingsDir: '', json: false };
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === '--root') a.root = argv[++i];
     else if (argv[i] === '--baseline') a.baseline = argv[++i];
+    else if (argv[i] === '--findings-dir') a.findingsDir = argv[++i];
     else if (argv[i] === '--json') a.json = true;
     else if (argv[i] === '--help' || argv[i] === '-h') a.help = true;
     else die(`unknown argument: ${argv[i]}`);
@@ -95,6 +96,63 @@ function parseArgs(argv) {
 function die(msg) {
   process.stderr.write(`test-audit: could not run: ${msg}\n`);
   process.exit(2);
+}
+
+// ---------------------------------------------------------------- findings files
+//
+// Every /test-audit run writes one immutable file at
+// <root>/quality-sweep/findings/test-audit/<date>.json, listing what it accepted and what it
+// ticketed. Those sign-offs only count on the next run if this engine reads them back, so they
+// are unioned into the baseline lists here. Nobody has to fold them in by hand.
+//
+// A findings row names its object as "test-audit::<file>::<title>". The baseline names the
+// same thing as "<file>::<title>". This is the only place that translation lives.
+const FINDINGS_PREFIX = 'test-audit::';
+
+function findingsObject(obj) {
+  return obj.startsWith(FINDINGS_PREFIX) ? obj.slice(FINDINGS_PREFIX.length) : obj;
+}
+
+// Pushes new rows onto accepted / knownOpen in place. Returns counts for the report.
+// A missing directory is fine. A malformed file is fatal: it must never be read as an
+// empty one, or every finding it records re-files as a new ticket.
+function mergeFindings(accepted, knownOpen, dir) {
+  const stat = { files: 0, accepted: 0, known_open: 0 };
+  if (!fs.existsSync(dir)) return stat;
+
+  const seenAccepted = new Set(accepted.map((r) => r.object));
+  const seenOpen = new Set(knownOpen.map((r) => r.object));
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
+
+  for (const f of files) {
+    const p = path.join(dir, f);
+    let doc;
+    try { doc = JSON.parse(fs.readFileSync(p, 'utf8')); }
+    catch (e) { die(`findings file is not valid JSON: ${p} (${e.message}). A malformed findings file must never be read as an empty one.`); }
+    if (doc === null || typeof doc !== 'object' || Array.isArray(doc)) die(`findings file must be a JSON object: ${p}`);
+    stat.files += 1;
+
+    for (const key of ['accepted', 'known_open']) {
+      const rows = doc[key];
+      if (rows === undefined) continue;
+      if (!Array.isArray(rows)) die(`findings file key "${key}" must be an array: ${p}`);
+      for (const row of rows) {
+        if (!row || typeof row.object !== 'string') die(`findings row is missing a string "object" identity: ${p}`);
+        const object = findingsObject(row.object);
+        if (key === 'accepted') {
+          if (seenAccepted.has(object)) continue;
+          seenAccepted.add(object);
+          accepted.push({ check: row.check || '*', object, reason: row.reason || '' });
+        } else {
+          if (seenOpen.has(object)) continue;
+          seenOpen.add(object);
+          knownOpen.push({ object, ticket: row.ticket });
+        }
+        stat[key] += 1;
+      }
+    }
+  }
+  return stat;
 }
 
 // ---------------------------------------------------------------- masking
@@ -572,7 +630,7 @@ function verifySuppressions(knownOpen, cfg) {
 function main() {
   const args = parseArgs(process.argv);
   if (args.help) {
-    process.stdout.write('usage: node test-audit.mjs --root <repo-root> [--baseline <path>] [--json]\n');
+    process.stdout.write('usage: node test-audit.mjs --root <repo-root> [--baseline <path>] [--findings-dir <dir>] [--json]\n');
     return 0;
   }
   const root = path.resolve(args.root);
@@ -589,6 +647,12 @@ function main() {
   const cfg = { ...DEFAULTS, ...((baseline && baseline.config) || {}) };
   const accepted = (baseline && baseline.accepted) || [];
   const knownOpen = (baseline && baseline.known_open) || [];
+
+  // Union the per-run findings files so last week's sign-offs still count this week.
+  const findingsDir = args.findingsDir
+    ? path.resolve(args.findingsDir)
+    : path.join(root, 'quality-sweep', 'findings', 'test-audit');
+  const findings = mergeFindings(accepted, knownOpen, findingsDir);
 
   // Composite map keys join on a byte that can never occur in a check name or a
   // path. Written as an escape rather than a literal so the file stays plain text
@@ -653,6 +717,7 @@ function main() {
   const summary = {
     root,
     baseline: baselineUsed || null,
+    findings: { dir: findingsDir, files: findings.files, accepted: findings.accepted, known_open: findings.known_open },
     test_files: testFiles.length,
     unreadable_files: unreadable,
     rows: rows.length,
@@ -682,6 +747,7 @@ function main() {
   }
   out.push(`root            ${summary.root}`);
   out.push(`baseline        ${summary.baseline || '(none)'}`);
+  out.push(`findings        ${summary.findings.files} file(s) merged (+${summary.findings.accepted} accepted, +${summary.findings.known_open} known_open)`);
   out.push(`test files      ${summary.test_files}`);
   if (unreadable) out.push(`unreadable      ${unreadable}  <- NOT inspected`);
   out.push(`rows            ${summary.rows}   (NEW ${summary.new}, KNOWN-OPEN ${summary.known_open}, REGRESSION ${summary.regression}, suppressed by baseline ${summary.accepted_suppressed})`);

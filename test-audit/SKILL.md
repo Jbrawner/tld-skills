@@ -52,13 +52,19 @@ project, so a result is never mistaken for a different repo.
 
 Then look for the baseline, in this order, and use the first that exists:
 
-1. `.tld/test-audit-baseline.json`
-2. `.claude/test-audit-baseline.json`
-3. `test-audit-baseline.json` at the repo root
+1. `quality-sweep/test-audit-baseline.json`
+2. `.tld/test-audit-baseline.json`
+3. `.claude/test-audit-baseline.json`
+4. `test-audit-baseline.json` at the repo root
 
-`.tld/` is the natural home, but many repos gitignore it, and a baseline that is not committed is
-not reviewed. Check `git check-ignore` before recommending a location, and prefer a path this repo
-actually tracks.
+`quality-sweep/` is the natural home, because the run records already live there. `.tld/` is next,
+but many repos gitignore it, and a baseline that is not committed is not reviewed. Check
+`git check-ignore` before recommending a location, and prefer a path this repo actually tracks.
+
+The engine also reads every `quality-sweep/findings/test-audit/*.json` file beside that baseline
+and unions their `accepted` and `known_open` rows into it at load time. A run's sign-offs therefore
+count on the next run without anyone folding them into the baseline by hand. The report says how
+many files it merged.
 
 **If there is no baseline, run anyway.** The engine reports every finding as NEW and says so at the
 top of its output. That is the correct first run for a new project, not a failure. Treat it as

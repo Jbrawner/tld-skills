@@ -145,7 +145,10 @@ Write your findings to `quality-sweep/findings/<lens>/<date>.json`:
 - `known_open` gets one row for every ticket you filed this run, plus any finding you resolved by
   hand to an existing ticket. Without the row, the next run files it again.
 - `accepted` gets anything you reviewed and deliberately decided is not a defect, with the reason
-  written out. A row with no reason is worthless to the person reading it in six months.
+  written out. A row with no reason is worthless to the person reading it in six months. The engine
+  stamps each row with `accepted_on` (this file's date) and `accepted_by` (this lens) when it reads
+  the file, so the list can be aged and asked which lens waved what through. You may write them
+  yourself; leave them out and the engine fills them in.
 - `completed` is `true` only if the lens actually ran to the end. A skipped or aborted run writes
   no file at all.
 - `object` is the de-dup identity `<lens>::<file>::<symbol>`. Match on it, never on ticket title.

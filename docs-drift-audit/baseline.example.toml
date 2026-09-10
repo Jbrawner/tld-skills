@@ -1,5 +1,6 @@
 # docs-drift-audit baseline — TEMPLATE. Copy into your repo as `docs-drift-baseline.toml` and edit.
-# Put it in `.tld/`, or in `.claude/` if the repo gitignores `.tld/`, or at the repo root.
+# Put it in `quality-sweep/` (beside the run records), or in `.tld/`, or in `.claude/` if the
+# repo gitignores `.tld/`, or at the repo root.
 #
 # This file is the entire per-project surface of /docs-drift-audit. It holds four things:
 #   1. config        — where the docs live, what a file path looks like here, where to file
