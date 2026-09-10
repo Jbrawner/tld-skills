@@ -1,5 +1,6 @@
 -- rls-audit baseline — TEMPLATE. Copy into your repo as `rls-audit-baseline.sql` and edit.
--- Put it in `.tld/`, or in `.claude/` if the repo gitignores `.tld/`, or at the repo root.
+-- Put it in `quality-sweep/` (beside the run records), or in `.tld/`, or in `.claude/` if the
+-- repo gitignores `.tld/`, or at the repo root.
 --
 -- This file is the entire per-project surface of /rls-audit. It holds three things:
 --   1. config      — what this project's roles, schemas and naming conventions are

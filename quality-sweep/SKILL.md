@@ -359,11 +359,12 @@ exactly this reason. Record the hand-resolved ones, and record any ticket you fo
 sibling-label search in 4b as well: those are the rows most likely to be missed, because finding one
 means you did not file, and not filing is what makes it easy to forget.
 
-Also set this lens's `last_completed` to today's date, read from the clock, and only when the run
-status was COMPLETE. A PARTIAL or skipped run must leave it alone, because that field is what makes a
-starved lens visible. Set the run's `completed` flag to match its status for the same reason: the
-engine reads the two together, refuses the stamp when they disagree, and prints the disagreement as
-`DISPUTED` in the next run's manifest rather than quietly believing the flag.
+Never write a `last_completed` date anywhere. The engine derives each lens's last completed run from
+the dates of its findings files, and only from files whose run status was COMPLETE, so a PARTIAL or
+skipped run advances nothing and a starved lens stays visible as a growing number. Set the run's
+`completed` flag to match its status for the same reason: the engine reads the two together, refuses
+the stamp when they disagree, and prints the disagreement as `DISPUTED` in the next run's manifest
+rather than quietly believing the flag.
 
 Slots can overlap, so two lenses may be writing this file at once. Re-read it immediately before
 writing, and merge rather than overwrite. Object keys are lens-prefixed, so two lenses cannot collide
@@ -434,8 +435,8 @@ is there to ask. Failure modes a scheduled run must handle:
 - **A preflight dependency is down.** Same rule. SKIPPED, named, and never substituted.
 - **The baseline is missing or malformed.** The engine refuses rather than reading it as empty.
   Report it and stop; do not re-run without the baseline to get output.
-- **The budget runs out partway.** File what is confirmed, report PARTIAL, and leave `last_completed`
-  untouched so the starvation shows up as a growing number rather than as silence.
+- **The budget runs out partway.** File what is confirmed and report PARTIAL. The engine will not
+  count a PARTIAL run as completed, so the starvation shows up as a growing number rather than as silence.
 - **It runs in whatever checkout the schedule names**, so resolve every path from that repo root, and
   name the project in the report.
 
@@ -469,7 +470,7 @@ every week.
   spends the budget everywhere and finds nothing anywhere.
 - `accepted` and `known_open` match on the exact OBJECT string, so renaming a file or a symbol
   detaches every row that referenced it. Rename deliberately, and re-point the rows in the same edit.
-- Re-rank when `last_completed` shows a lens has not finished in weeks. Either it moves up or it is
+- Re-rank when `LAST COMPLETED` in the manifest shows a lens has not finished in weeks. Either it moves up or it is
   not worth having, and leaving it at the bottom to never run is the one outcome that helps nobody.
 
 ## What this check cannot see

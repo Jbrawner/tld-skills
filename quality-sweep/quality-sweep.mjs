@@ -292,6 +292,24 @@ function verifySuppressions(baseline, closedKeysFile) {
 // report already-ticketed findings as new and duplicate every ticket it holds.
 function mergeFindings(baseline, baselineDir) {
   const root = join(baselineDir, FINDINGS_DIR);
+  // last_completed is derived from the findings files below and nowhere else. The baseline is
+  // read-only to runs, so a date left in it can never be updated: by 2026-09 two lenses carried a
+  // baseline date a month older than what their own findings files said. Clearing it here means a
+  // stale value cannot leak into the manifest. runs_seen counts the files, so "never completed"
+  // can be told apart from "never ran".
+  for (const l of Object.values(baseline.lenses || {})) {
+    delete l.last_completed;
+    l.runs_seen = 0;
+  }
+  // last_completed is derived from the findings files below and nowhere else. The baseline is
+  // read-only to runs, so a date left in it can never be updated: by 2026-09 two lenses carried a
+  // baseline date a month older than what their own findings files said. Clearing it here means a
+  // stale value cannot leak into the manifest. runs_seen counts the files, so "never completed"
+  // can be told apart from "never ran".
+  for (const l of Object.values(baseline.lenses || {})) {
+    delete l.last_completed;
+    l.runs_seen = 0;
+  }
   if (!existsSync(root)) return { files: 0, known_open: 0, accepted: 0, disputed: [] };
 
   const seenOpen = new Set(baseline.known_open.map((r) => r.object));
@@ -322,6 +340,8 @@ function mergeFindings(baseline, baselineDir) {
         die(`findings file must be a JSON object: ${p}`);
       }
       stat.files += 1;
+      const lens = typeof doc.lens === "string" ? doc.lens : lensDir;
+      if (baseline.lenses[lens]) baseline.lenses[lens].runs_seen += 1;
 
       for (const [key, seen] of [["known_open", seenOpen], ["accepted", seenAccepted]]) {
         const rows = doc[key];
@@ -333,6 +353,14 @@ function mergeFindings(baseline, baselineDir) {
           }
           if (seen.has(row.object)) continue;
           seen.add(row.object);
+          if (key === "accepted") {
+            // Every accepted row remembers which run signed it off, so the list can be aged:
+            // "what did we wave through last month, and which lens did it". The field is
+            // accepted_by rather than lens on purpose: a `lens` field narrows which lens the row
+            // suppresses for, and a provenance stamp must never change what a row matches.
+            if (!row.accepted_on && typeof doc.date === "string") row.accepted_on = doc.date;
+            if (!row.accepted_by) row.accepted_by = lens;
+          }
           baseline[key].push(row);
           stat[key] += 1;
         }
@@ -344,7 +372,6 @@ function mergeFindings(baseline, baselineDir) {
       // its own is how a starved lens hides behind a date it did not earn: contract-conformance
       // read "last completed 2026-08-24" for two weeks while every run since 2026-08-11 was
       // PARTIAL. When they disagree, the status wins and the disagreement is reported.
-      const lens = typeof doc.lens === "string" ? doc.lens : lensDir;
       const docStatus = String(doc.runStatus ?? doc.run_status ?? "").toUpperCase();
       const stampsLens =
         doc.completed === true && docStatus !== "PARTIAL" && docStatus !== "SKIPPED";
@@ -582,6 +609,7 @@ function buildManifest(ctx) {
     deadline,
     lastCompleted,
     staleDays,
+    runsSeen: lens.runs_seen || 0,
     counts: {
       accepted: accepted.length,
       knownOpen: knownOpen.length,
@@ -655,8 +683,13 @@ function printManifest(m) {
     L.push(`LAST COMPLETED: ${m.lastCompleted}  (${m.staleDays} days ago)`);
     L.push("   Report this number. A lens that keeps losing its slot to a spent budget goes quiet");
     L.push("   rather than red, and this number is the only thing that makes that visible.");
+  } else if (m.runsSeen > 0) {
+    L.push(`LAST COMPLETED: never. ${m.runsSeen} findings file(s) exist for this lens and none reported COMPLETE.`);
+    L.push("   This lens runs and never finishes. Report it as starved, not as new.");
   } else {
-    L.push("LAST COMPLETED: never recorded");
+    L.push("LAST COMPLETED: never recorded. No findings file exists for this lens.");
+    L.push("   Either it has never fired, or every run died before writing one. The scheduler's own");
+    L.push("   last-run time is the only thing that tells those two apart.");
   }
   if (m.deadline) {
     L.push(`DEADLINE: ${m.deadline}  (${m.maxRunMinutes} minutes from now)`);

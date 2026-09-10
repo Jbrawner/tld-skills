@@ -130,9 +130,9 @@ audit looks for:
 | Audit | Template | Becomes |
 | --- | --- | --- |
 | `/quality-sweep` | `quality-sweep/baseline.example.json` | `quality-sweep/baseline.json` |
-| `/rls-audit` | `rls-audit/baseline.example.sql` | `rls-audit-baseline.sql` |
-| `/test-audit` | `test-audit/baseline.example.json` | `test-audit-baseline.json` |
-| `/docs-drift-audit` | `docs-drift-audit/baseline.example.toml` | `docs-drift-baseline.toml` |
+| `/rls-audit` | `rls-audit/baseline.example.sql` | `quality-sweep/rls-audit-baseline.sql` |
+| `/test-audit` | `test-audit/baseline.example.json` | `quality-sweep/test-audit-baseline.json` |
+| `/docs-drift-audit` | `docs-drift-audit/baseline.example.toml` | `quality-sweep/docs-drift-baseline.toml` |
 
 Then fill in only what can be established by reading the repo, and leave the rest for Step 6:
 
