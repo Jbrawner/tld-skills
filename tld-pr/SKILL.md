@@ -254,7 +254,7 @@ Only after explicit user approval, in this order:
    e. After a successful rebase, **re-run the test command** (from step 6) to confirm the branch still passes on the new base. If tests fail, STOP and report — do not push.
 4. **Move the ticket to the pre-merge status** via `save_issue`. Resolve the status name per [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) § The pre-merge status — never hardcode a name, and never fall back to Done when no pre-merge status exists (leave the ticket In Progress and say so). **Do not set a done-category status here under any circumstance:** this skill stops at an open PR, so no merge has been confirmed.
 5. **Push the feature branch** to its remote (`git push -u origin {branch}`). Never force-push.
-6. **Open the PR** with `gh pr create --base {default} --head {branch}`, title `[TICKET-ID] — [title]`, and a body that summarizes what changed, lists the test results, links the ticket, and notes "TLD verified." Capture the PR URL.
+6. **Open the PR** with `gh pr create --base {default} --head {branch} --draft`, title `[TICKET-ID] — [title]`, and a body that summarizes what changed, lists the test results, links the ticket, and notes "TLD verified." Capture the PR URL. **Open it as a draft and do NOT add a CI-trigger label such as `ci:run`.** The branch is already verified locally and this skill stops before merge, so the user adds the label at the moment they are ready to merge — CI then runs once. On a label-gated repo `ci:run` is a switch: left on, it re-runs the full suite on every push, so it must be the last action before merge, never a step here.
 
 **Do NOT merge the PR.** Merging stays with the user — this skill always stops at an open PR.
 

@@ -130,13 +130,14 @@ Use this structure:
 ## PR
 - [ ] Commit the changes
 - [ ] Push the feature branch
-- [ ] Open a PR with `gh`
-- [ ] Add any required labels, including `ci:run` when the repository expects it
+- [ ] Open a PR with `gh` **as a draft**
+- [ ] Add any required labels — but **not** `ci:run` yet (see CI below)
 - [ ] Move the Jira ticket to `In PR`
 
 ## CI
+- [ ] Only once implementation is complete AND local tests pass: mark the PR ready and add `ci:run` as the **final** step before merge
+- [ ] `ci:run` is a switch, not a one-shot trigger: while it is on, **every push re-runs the full suite**. If you must push more commits, remove it first (`gh pr edit <N> --remove-label ci:run`) and re-add only when the branch is done
 - [ ] Watch PR checks until completion
-- [ ] Fix any failing checks and rerun CI
 - [ ] Confirm all required checks passed
 
 ## Merge
@@ -295,9 +296,9 @@ After local implementation and validation:
 
 - commit the changes with a clear message
 - push the feature branch
-- open the PR with `gh`
-- add labels required by the repository
-- add `ci:run` if the repository requires that label for CI to start
+- open the PR with `gh` as a draft
+- add labels required by the repository, except `ci:run`
+- add `ci:run` only as the final step — once implementation is complete, local tests pass, and the branch is ready to merge. Never add it while still iterating: it keeps CI re-running on every push until removed, so remove it before pushing any further commits and re-add when done
 - move the Jira ticket to `In PR`
 
 The PR description should summarize:
