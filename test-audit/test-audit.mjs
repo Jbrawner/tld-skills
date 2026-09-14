@@ -113,17 +113,31 @@ function findingsObject(obj) {
   return obj.startsWith(FINDINGS_PREFIX) ? obj.slice(FINDINGS_PREFIX.length) : obj;
 }
 
-// Pushes new rows onto accepted / knownOpen in place. Returns counts for the report.
+// Rebuilds accepted / knownOpen in place. Returns counts for the report.
 // A missing directory is fine. A malformed file is fatal: it must never be read as an
 // empty one, or every finding it records re-files as a new ticket.
+//
+// THE NEWEST ROW FOR AN OBJECT WINS, whichever list it is in; the baseline's own rows are the
+// oldest layer. Until 2026-09 the oldest row won, so a baseline row naming a closed ticket beat
+// the later findings file that re-pointed the object at the open ticket that took the work
+// over, and 31 rows printed REGRESSION against closed keys every week while open tickets
+// tracked every one of them. A row is a decision made on a date; the latest one stands.
 function mergeFindings(accepted, knownOpen, dir) {
   const stat = { files: 0, accepted: 0, known_open: 0 };
   if (!fs.existsSync(dir)) return stat;
 
-  const seenAccepted = new Set(accepted.map((r) => r.object));
-  const seenOpen = new Set(knownOpen.map((r) => r.object));
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
+  // object -> the row that currently stands for it, which list it is in, and its date.
+  const standing = new Map();
+  const consider = (list, row, date, fromFile) => {
+    const prev = standing.get(row.object);
+    // Same date: the file read later wins. Files are read in a fixed order, so it is deterministic.
+    if (prev && date < prev.date) return;
+    standing.set(row.object, { list, row, date, fromFile });
+  };
+  for (const r of accepted) consider('accepted', r, '', false);
+  for (const r of knownOpen) consider('known_open', r, '', false);
 
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
   for (const f of files) {
     const p = path.join(dir, f);
     let doc;
@@ -131,6 +145,7 @@ function mergeFindings(accepted, knownOpen, dir) {
     catch (e) { die(`findings file is not valid JSON: ${p} (${e.message}). A malformed findings file must never be read as an empty one.`); }
     if (doc === null || typeof doc !== 'object' || Array.isArray(doc)) die(`findings file must be a JSON object: ${p}`);
     stat.files += 1;
+    const date = typeof doc.date === 'string' ? doc.date : f.slice(0, -'.json'.length);
 
     for (const key of ['accepted', 'known_open']) {
       const rows = doc[key];
@@ -139,18 +154,19 @@ function mergeFindings(accepted, knownOpen, dir) {
       for (const row of rows) {
         if (!row || typeof row.object !== 'string') die(`findings row is missing a string "object" identity: ${p}`);
         const object = findingsObject(row.object);
-        if (key === 'accepted') {
-          if (seenAccepted.has(object)) continue;
-          seenAccepted.add(object);
-          accepted.push({ check: row.check || '*', object, reason: row.reason || '' });
-        } else {
-          if (seenOpen.has(object)) continue;
-          seenOpen.add(object);
-          knownOpen.push({ object, ticket: row.ticket });
-        }
-        stat[key] += 1;
+        const norm = key === 'accepted'
+          ? { check: row.check || '*', object, reason: row.reason || '' }
+          : { object, ticket: row.ticket };
+        consider(key, norm, date, true);
       }
     }
+  }
+
+  accepted.length = 0;
+  knownOpen.length = 0;
+  for (const { list, row, fromFile } of standing.values()) {
+    (list === 'accepted' ? accepted : knownOpen).push(row);
+    if (fromFile) stat[list] += 1;
   }
   return stat;
 }

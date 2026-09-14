@@ -32,6 +32,11 @@ out, and your task says where. It appears three times in this document and means
 each time. On a machine with no tracker CLI, ask the tracker yourself which suppressed tickets are
 closed and hand the engine the list with `--closed-keys <file>`; SKILL.md Step 2a says how.
 
+Pass `--date <date>` on the `--classify` and `--render` calls, the same `<date>` you read at the
+start of the run. It names this run's own findings file, which the engine then leaves out of the
+de-dup; without it a run that classifies again after writing that file matches its own new rows
+against themselves.
+
 **There is no shared bookkeeping worktree any more, and you must not look for one.** Until August
 2026 every routine merged and edited a single shared baseline file. One half-finished merge in that
 file silenced every routine for two consecutive weekends. Nothing you write is shared with
@@ -204,10 +209,17 @@ your row. Then:
     git add quality-sweep/findings/<lens>/<date>.json \
             docs/auto_reviews/<review_folder>/<date>.md \
             docs/auto_reviews/<review_folder>/README.md
+    git diff --cached --check
     git commit -m "Quality sweep: <lens> <date>"
     git push -u origin sweep/<lens>-<date>
 
 Stage only those three paths. Never `git add -A` or `git add .`.
+
+`git diff --cached --check` is a read, not a repair. It prints any staged line with trailing
+whitespace and any staged file that ends with a blank line, which is exactly what the docs check in
+CI rejects: five run documents failed it in one weekend, every one for a blank last line. If it
+prints anything, fix that whitespace in the file, which is a file edit and not a git command, stage
+again, and only then commit. If it prints nothing, commit.
 
 **The third path is your lens's own README, never the shared one.** `docs/auto_reviews/README.md`,
 at the top level, is written by every lens and is the one file here that two runs can genuinely
