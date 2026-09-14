@@ -20,8 +20,8 @@ into a file is stale the moment a ticket moves, and two copies of a fact drift.
 ## Inputs
 
 - `status` (default when no argument is given), or `next`.
-- Optional after `status`: a plan file path. Defaults to the newest `<date>-week.md` in the
-  plan folder.
+- Optional after `status`: a plan file path. Defaults to the newest `<date>-week.md` under
+  `docs/plans/`, at any depth, symlinked folders included.
 
 ## Process
 
@@ -78,13 +78,16 @@ Drafts, shows, and waits. Runs on the planning day the `Cadence` key names, or w
    the last feature ticket.
 5. **Waiting on a ruling.** Every ticket in the `Needs a ruling` status that the draft's
    feature work depends on.
-6. **Write the draft** as `<Plan folder>/<next planning day>-week.md` from `TEMPLATE.md`, on
-   a branch cut from the default branch. Every ticket in the work tables is a link in the
-   `Ticket link` format. No em dashes in prose. No status column and no progress notes: the
-   file holds order and reasons only.
+6. **Write the draft** as `<Plan folder>/<next planning day>-week.md` from `TEMPLATE.md`.
+   Whether that file is tracked is the repo's call and the contract says which: an untracked
+   plan folder (in `.gitignore`) means saving the file is the whole step; a tracked one means
+   the draft goes on a branch cut from the default branch. Every ticket in the work tables is
+   a link in the `Ticket link` format. No em dashes in prose. No status column and no
+   progress notes: the file holds order and reasons only.
 7. **Show it and stop.** Print the day-by-day table and the feature table, then numbered
-   options: approve as is, reorder, change the focus, file the cut ticket. Commit, push, and
-   the cut ticket each need the user's explicit word. Never open a pull request unless asked.
+   options: approve as is, reorder, change the focus, file the cut ticket. The cut ticket,
+   and on a tracked folder the commit and the push, each need the user's explicit word.
+   Never open a pull request unless asked.
 
 ## What this skill does NOT do
 
