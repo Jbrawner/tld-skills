@@ -236,12 +236,17 @@ step.
   `known_open` ticket's status against the tracker on each run, and a row whose ticket has closed
   reports `REGRESSION KEY` instead of `KNOWN-OPEN KEY` on its own.
 
-### 4d — Record it in the baseline
+### 4d — Record it in this run's findings file
 
-Add each filed object to `known_open` with its new ticket key, so the next run reports it as tracked
-instead of re-triaging it from scratch. Add any pattern you accepted in Step 3 to `accepted` with
-its reason at the same time. Leave the edit uncommitted and say so. The tracker search in 4b is the
-real de-dup guard, so a dirty file is never a reason to skip filing.
+Write `quality-sweep/findings/test-audit/<date>.json`, one new file, with a `known_open` row for
+every object you filed, carrying its new ticket key, and for every object you resolved by hand to an
+existing ticket, and an `accepted` row with its reason for every pattern you accepted in Step 3.
+Never edit `baseline.json` and never edit an earlier run's file: the engine unions every file under
+`findings/test-audit/` on the next run, and **the newest row for an object is the one that stands**,
+so re-pointing an object at a new ticket takes effect without anyone touching the row it replaces.
+Interactively, leave the file uncommitted and say so; on a schedule, commit and push it per the run
+protocol. The tracker search in 4b is the real de-dup guard, so a file you could not write is never
+a reason to skip filing, only a reason to say so in the report.
 
 ### Regression rows
 

@@ -73,15 +73,18 @@ const HELP = `quality-sweep — noise control for a recurring multi-agent code s
 
   node quality-sweep.mjs --root <repo> --lens <slug> [--baseline <path>]
   node quality-sweep.mjs --root <repo> --lens <slug> --classify <findings.json> [--deadline <iso>]
-  node quality-sweep.mjs --root <repo> --lens <slug> --render <classified.json> --date <YYYY-MM-DD>
+  node quality-sweep.mjs --root <repo> --lens <slug> --render <findings.json> --date <YYYY-MM-DD>
   node quality-sweep.mjs --root <repo> --list-lenses
 
   --root       repo root to sweep. Required.
   --lens       which sweep to run. Required except with --list-lenses.
   --baseline   explicit baseline path. Omit to read quality-sweep/baseline.json under --root.
-  --classify   path to the findings JSON the sweep produced.
-  --render     path to the classified JSON, to emit the review document.
-  --date       the run date for --render, in YYYY-MM-DD. Read it from the real clock.
+  --classify   path to the sweep's candidate findings JSON.
+  --render     path to the output of --classify --json, or to the candidate findings JSON itself
+               (it is classified first). Emits the review document and the index row.
+  --date       the run date, YYYY-MM-DD, read from the real clock. Required with --render. With
+               --classify it names this run's own findings file so the de-dup leaves it out;
+               omitted, today's date is used.
   --deadline   ISO timestamp from the manifest. Past it, the run cannot report COMPLETE.
   --closed-keys  a file listing the ticket keys that are CLOSED. For a machine with no tracker
                CLI: ask the tracker yourself, write the closed keys to a file, pass it here, and
@@ -113,7 +116,7 @@ const EMPTY_BASELINE = {
  * A path was NAMED and is missing or malformed -> refuse. A typo must never silently become a
  *                             run that re-files every ticket the project already has.
  */
-function loadBaseline(root, named) {
+function loadBaseline(root, named, skip) {
   if (named) {
     if (!existsSync(named)) {
       die(
@@ -124,13 +127,13 @@ function loadBaseline(root, named) {
       );
     }
     const b = parseBaseline(named);
-    const f = mergeFindings(b, dirname(resolve(named)));
+    const f = mergeFindings(b, dirname(resolve(named)), skip);
     return { baseline: b, path: named, degraded: false, findings: f };
   }
   const p = join(root, SWEEP_DIR, BASELINE_NAME);
   if (existsSync(p)) {
     const b = parseBaseline(p);
-    const f = mergeFindings(b, dirname(resolve(p)));
+    const f = mergeFindings(b, dirname(resolve(p)), skip);
     return { baseline: b, path: p, degraded: false, findings: f };
   }
   return { baseline: structuredClone(EMPTY_BASELINE), path: null, degraded: true };
@@ -288,9 +291,22 @@ function verifySuppressions(baseline, closedKeysFile) {
 // mutable baseline it replaces could be jammed by one bad merge, which silenced every routine for
 // two weekends in Aug 2026. Reading is a union of immutable files, so there is nothing to conflict.
 //
+// THE NEWEST ROW FOR AN OBJECT WINS, whichever file it is in and whichever list, known_open or
+// accepted. The baseline's own rows are the oldest layer. Until 2026-09 the OLDEST row won: the
+// baseline seeded the list and every later file was skipped for an object it already held. So an
+// object first ticketed under a key that later closed, and then re-pointed by a later run at the
+// open ticket that took the work over, kept the closed key forever. The engine put it on
+// regression watch, the run re-detected it, and it was stamped NEW as a regression every week
+// while an open ticket already tracked it. Two lenses were correcting that by hand weekly. A row
+// is a decision made on a date, and the latest decision is the one that stands.
+//
 // A malformed findings file is fatal, exactly like a malformed baseline: skipping it would silently
 // report already-ticketed findings as new and duplicate every ticket it holds.
-function mergeFindings(baseline, baselineDir) {
+//
+// `skip` names one file to leave out: this run's own, findings/<lens>/<date>.json. A run that has
+// already written its file and then classifies again, for the render step, would otherwise match
+// every one of its new rows against itself and stamp them all KNOWN-OPEN.
+function mergeFindings(baseline, baselineDir, skip) {
   const root = join(baselineDir, FINDINGS_DIR);
   // last_completed is derived from the findings files below and nowhere else. The baseline is
   // read-only to runs, so a date left in it can never be updated: by 2026-09 two lenses carried a
@@ -301,91 +317,111 @@ function mergeFindings(baseline, baselineDir) {
     delete l.last_completed;
     l.runs_seen = 0;
   }
-  // last_completed is derived from the findings files below and nowhere else. The baseline is
-  // read-only to runs, so a date left in it can never be updated: by 2026-09 two lenses carried a
-  // baseline date a month older than what their own findings files said. Clearing it here means a
-  // stale value cannot leak into the manifest. runs_seen counts the files, so "never completed"
-  // can be told apart from "never ran".
-  for (const l of Object.values(baseline.lenses || {})) {
-    delete l.last_completed;
-    l.runs_seen = 0;
+  const stat = { files: 0, known_open: 0, accepted: 0, disputed: [], skipped: null };
+  if (!existsSync(root)) return stat;
+
+  // object -> the row that currently stands for it, which list it belongs to, and its date.
+  const standing = new Map();
+  const consider = (list, row, date, fromFile) => {
+    const prev = standing.get(row.object);
+    // A later file with the same date replaces an earlier one. Files are read in a fixed order,
+    // so this is deterministic; it only decides the case of two lenses recording the same
+    // object on the same day, and either answer is defensible.
+    if (prev && date < prev.date) return;
+    standing.set(row.object, { list, row, date, fromFile });
+  };
+  for (const list of ["known_open", "accepted"]) {
+    for (const row of baseline[list]) {
+      if (!row || typeof row.object !== "string") continue;
+      consider(list, row, "", false);
+    }
   }
-  if (!existsSync(root)) return { files: 0, known_open: 0, accepted: 0, disputed: [] };
 
-  const seenOpen = new Set(baseline.known_open.map((r) => r.object));
-  const seenAccepted = new Set(baseline.accepted.map((r) => r.object));
-  const stat = { files: 0, known_open: 0, accepted: 0, disputed: [] };
-
-  const lensDirs = readdirSync(root, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name)
-    .sort();
-
-  for (const lensDir of lensDirs) {
-    const dir = join(root, lensDir);
-    const files = readdirSync(dir).filter((f) => f.endsWith(".json")).sort();
-    for (const f of files) {
-      const p = join(dir, f);
-      let doc;
-      try {
-        doc = JSON.parse(readFileSync(p, "utf8"));
-      } catch (e) {
-        die(
-          `findings file is not valid JSON: ${p} (${e.message})\n` +
-            `  Refusing to continue. A malformed findings file must never be read as an empty one, ` +
-            `or every finding it records re-files as a new ticket.`,
-        );
+  const skipPath = skip && skip.lens && skip.date ? resolve(root, skip.lens, `${skip.date}.json`) : null;
+  const files = [];
+  for (const d of readdirSync(root, { withFileTypes: true })) {
+    if (!d.isDirectory()) continue;
+    for (const f of readdirSync(join(root, d.name))) {
+      if (!f.endsWith(".json")) continue;
+      const p = join(root, d.name, f);
+      if (skipPath && resolve(p) === skipPath) {
+        stat.skipped = p;
+        continue;
       }
-      if (doc === null || typeof doc !== "object" || Array.isArray(doc)) {
-        die(`findings file must be a JSON object: ${p}`);
-      }
-      stat.files += 1;
-      const lens = typeof doc.lens === "string" ? doc.lens : lensDir;
-      if (baseline.lenses[lens]) baseline.lenses[lens].runs_seen += 1;
+      files.push({ lensDir: d.name, f, p, date: f.slice(0, -".json".length) });
+    }
+  }
+  // Oldest date first, so "read later" and "newer" mean the same thing.
+  files.sort(
+    (a, b) =>
+      a.date.localeCompare(b.date) || a.lensDir.localeCompare(b.lensDir) || a.f.localeCompare(b.f),
+  );
 
-      for (const [key, seen] of [["known_open", seenOpen], ["accepted", seenAccepted]]) {
-        const rows = doc[key];
-        if (rows === undefined) continue;
-        if (!Array.isArray(rows)) die(`findings file key "${key}" must be an array: ${p}`);
-        for (const row of rows) {
-          if (!row || typeof row.object !== "string") {
-            die(`findings row is missing a string "object" identity: ${p}`);
-          }
-          if (seen.has(row.object)) continue;
-          seen.add(row.object);
-          if (key === "accepted") {
-            // Every accepted row remembers which run signed it off, so the list can be aged:
-            // "what did we wave through last month, and which lens did it". The field is
-            // accepted_by rather than lens on purpose: a `lens` field narrows which lens the row
-            // suppresses for, and a provenance stamp must never change what a row matches.
-            if (!row.accepted_on && typeof doc.date === "string") row.accepted_on = doc.date;
-            if (!row.accepted_by) row.accepted_by = lens;
-          }
-          baseline[key].push(row);
-          stat[key] += 1;
+  for (const { lensDir, f, p } of files) {
+    let doc;
+    try {
+      doc = JSON.parse(readFileSync(p, "utf8"));
+    } catch (e) {
+      die(
+        `findings file is not valid JSON: ${p} (${e.message})\n` +
+          `  Refusing to continue. A malformed findings file must never be read as an empty one, ` +
+          `or every finding it records re-files as a new ticket.`,
+      );
+    }
+    if (doc === null || typeof doc !== "object" || Array.isArray(doc)) {
+      die(`findings file must be a JSON object: ${p}`);
+    }
+    stat.files += 1;
+    const lens = typeof doc.lens === "string" ? doc.lens : lensDir;
+    if (baseline.lenses[lens]) baseline.lenses[lens].runs_seen += 1;
+    const date = typeof doc.date === "string" ? doc.date : f.slice(0, -".json".length);
+
+    for (const key of ["known_open", "accepted"]) {
+      const rows = doc[key];
+      if (rows === undefined) continue;
+      if (!Array.isArray(rows)) die(`findings file key "${key}" must be an array: ${p}`);
+      for (const row of rows) {
+        if (!row || typeof row.object !== "string") {
+          die(`findings row is missing a string "object" identity: ${p}`);
         }
-      }
-
-      // A completed run stamps its lens. Latest date wins, so replaying old files is harmless.
-      // A run that called itself PARTIAL or SKIPPED never stamps, whatever its `completed` flag
-      // says. The two disagreeing is a bug in whoever wrote the file, and believing the flag on
-      // its own is how a starved lens hides behind a date it did not earn: contract-conformance
-      // read "last completed 2026-08-24" for two weeks while every run since 2026-08-11 was
-      // PARTIAL. When they disagree, the status wins and the disagreement is reported.
-      const docStatus = String(doc.runStatus ?? doc.run_status ?? "").toUpperCase();
-      const stampsLens =
-        doc.completed === true && docStatus !== "PARTIAL" && docStatus !== "SKIPPED";
-      if (doc.completed === true && !stampsLens) {
-        stat.disputed.push(
-          `${lensDir}/${f}: completed:true on a ${docStatus} run. Ignored, so this lens keeps ` +
-            "the last_completed date it already had.",
-        );
-      }
-      if (stampsLens && typeof doc.date === "string" && baseline.lenses[lens]) {
-        const prev = baseline.lenses[lens].last_completed;
-        if (!prev || doc.date > prev) baseline.lenses[lens].last_completed = doc.date;
+        if (key === "accepted") {
+          // Every accepted row remembers which run signed it off, so the list can be aged:
+          // "what did we wave through last month, and which lens did it". The field is
+          // accepted_by rather than lens on purpose: a `lens` field narrows which lens the row
+          // suppresses for, and a provenance stamp must never change what a row matches.
+          if (!row.accepted_on) row.accepted_on = date;
+          if (!row.accepted_by) row.accepted_by = lens;
+        }
+        consider(key, row, date, true);
       }
     }
+
+    // A completed run stamps its lens. Latest date wins, so replaying old files is harmless.
+    // A run that called itself PARTIAL or SKIPPED never stamps, whatever its `completed` flag
+    // says. The two disagreeing is a bug in whoever wrote the file, and believing the flag on
+    // its own is how a starved lens hides behind a date it did not earn: contract-conformance
+    // read "last completed 2026-08-24" for two weeks while every run since 2026-08-11 was
+    // PARTIAL. When they disagree, the status wins and the disagreement is reported.
+    const docStatus = String(doc.runStatus ?? doc.run_status ?? "").toUpperCase();
+    const stampsLens =
+      doc.completed === true && docStatus !== "PARTIAL" && docStatus !== "SKIPPED";
+    if (doc.completed === true && !stampsLens) {
+      stat.disputed.push(
+        `${lensDir}/${f}: completed:true on a ${docStatus} run. Ignored, so this lens keeps ` +
+          "the last_completed date it already had.",
+      );
+    }
+    if (stampsLens && typeof doc.date === "string" && baseline.lenses[lens]) {
+      const prev = baseline.lenses[lens].last_completed;
+      if (!prev || doc.date > prev) baseline.lenses[lens].last_completed = doc.date;
+    }
+  }
+
+  baseline.known_open = [];
+  baseline.accepted = [];
+  for (const { list, row, fromFile } of standing.values()) {
+    baseline[list].push(row);
+    if (fromFile) stat[list] += 1;
   }
   return stat;
 }
@@ -545,10 +581,33 @@ function daysBetween(thenISO, nowMs) {
   return Math.floor((nowMs - t) / 86_400_000);
 }
 
+// Today's date in the machine's own time zone, YYYY-MM-DD. This is the one date the engine reads
+// from the clock, and it is only ever used to name this run's own files, never compared to a
+// literal. See the TIME RULE in the file header.
+function todayISO() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// A required-label family the baseline may declare, as a list of names. The baseline writes them
+// as {name: description} so the description sits next to the name; the engine only needs the names.
+function labelNames(v) {
+  if (Array.isArray(v)) return v.map(String);
+  if (v && typeof v === "object") return Object.keys(v);
+  return [];
+}
+
 function buildManifest(ctx) {
-  const { baseline, lens, root, baselinePath, degraded, findings, suppression } = ctx;
+  const { baseline, lens, root, baselinePath, degraded, findings, suppression, runDate } = ctx;
   const nowMs = Date.now();
   const cfg = baseline.config || {};
+  // The file this run will write. If it already exists, this lens has already run today and the
+  // protocol says stop rather than overwrite; the manifest is where that has to be visible.
+  const ownFile = baselinePath
+    ? join(dirname(resolve(baselinePath)), FINDINGS_DIR, lens.slug, `${runDate}.json`)
+    : null;
+  const alreadyWritten = ownFile && existsSync(ownFile) ? ownFile : null;
   const maxMinutes = Number(lens.max_run_minutes ?? cfg.max_run_minutes ?? 0) || null;
   const deadline = maxMinutes ? new Date(nowMs + maxMinutes * 60_000).toISOString() : null;
 
@@ -582,11 +641,18 @@ function buildManifest(ctx) {
       (k) => k.lens === "*" || k.lens === lens.slug,
     ),
     degraded,
+    alreadyWritten,
     reviewFolder: lens.review_folder || null,
     labels: {
       family: cfg.family_label || null,
       lens: cfg.family_label ? `${cfg.family_label}-${lens.slug}` : null,
       topics: lens.topic_labels || [],
+      // A label family the project requires on every ticket, one chosen from a fixed list. It
+      // lives in the baseline because which families exist is the project's decision; the engine
+      // prints it so the LABELS block below is the whole truth and no task wrapper has to add to it.
+      areas: labelNames(cfg.area_labels),
+      // Labels the project retired. Each duplicated a field, and re-creating one is a regression.
+      forbidden: labelNames(cfg.forbidden_labels),
       // There is deliberately no dated label here. See the label rules in SKILL.md step 4c:
       // a check that runs weekly cannot be identified by a month, and a day-granular label
       // is a new unsearchable string every week. The run document carries the date instead.
@@ -636,6 +702,11 @@ function printManifest(m) {
   // A per-run file that called itself PARTIAL and set completed:true anyway. The date it
   // wanted to stamp was refused; say so here, because a silent refusal looks like agreement.
   for (const d of m.findings.disputed || []) L.push(`  DISPUTED: ${d}`);
+  if (m.alreadyWritten) {
+    L.push(`!! ${m.alreadyWritten} ALREADY EXISTS.`);
+    L.push("   This lens has already run today. Report that and stop, per RUN_PROTOCOL section 3.");
+    L.push("   Never overwrite it: every run writes exactly one new file.");
+  }
   const sup = m.suppression || {};
   if (sup.verified) {
     L.push(
@@ -731,8 +802,15 @@ function printManifest(m) {
     L.push(`  searched  ${m.labels.family}          the de-dup lookup`);
     L.push(`  searched  ${m.labels.lens}   which sweep found it`);
     for (const t of m.labels.topics) L.push(`  topic     ${t}`);
+    if (m.labels.areas.length) {
+      L.push(`  area      at least one of: ${m.labels.areas.join(", ")}`);
+      L.push("            never invented; a second only when the ticket genuinely spans two areas.");
+    }
     L.push("  That list is the whole list. Add nothing to it, and put NO date in any label:");
     L.push("  the run document and the ticket's provenance block carry the date.");
+    if (m.labels.forbidden.length) {
+      L.push(`  NEVER these, retired because each duplicated a field: ${m.labels.forbidden.join(", ")}`);
+    }
     L.push("");
     if (m.labels.siblings.length) {
       L.push("SEARCH THESE LABELS TOO, before filing anything:");
@@ -821,6 +899,10 @@ function classify(ctx, input, deadlineISO) {
       detail: f.detail || "",
       file: normPath(f.file ?? f.path, root),
       line: f.line ?? null,
+      // The ticket this finding became, once filed. Carried through so the candidate findings
+      // file can be handed straight to --render after filing and the record links each row to
+      // its ticket, with no second file to keep in step.
+      filedTicket: f.filedTicket || f.filed_ticket || null,
     };
     const acc = matchEntry(accepted, lens.slug, key);
     const open = matchEntry(knownOpen, lens.slug, key);
@@ -876,6 +958,14 @@ function classify(ctx, input, deadlineISO) {
   const claimed = String(input.runStatus || input.run_status || "COMPLETE").toUpperCase();
   const runStatus = overdue || notReached.length || claimed === "PARTIAL" ? "PARTIAL" : "COMPLETE";
 
+  // Two different kinds of "not everything was read", kept apart on purpose. `notReached` is an
+  // area this lens owns that nobody opened, and it forces PARTIAL. `depthGaps` is an area that was
+  // reached but not swept to the bottom: a family of hooks not opened, an older migration chain not
+  // re-diffed. That is recorded so the next run starts there, and it does not make the run PARTIAL,
+  // because a lens that could never call itself complete would have nowhere honest to write it and
+  // was writing it into a hand-made header instead.
+  const depthGaps = [...(input.depthGaps || input.depth_gaps || input.notes || [])].map(String);
+
   return {
     lens: lens.slug,
     runStatus,
@@ -883,6 +973,7 @@ function classify(ctx, input, deadlineISO) {
     unrefuted,
     refuters: Number.isFinite(refuters) ? refuters : null,
     notReached,
+    depthGaps,
     coverage: input.coverage || {},
     refuted: input.refuted || [],
     rows,
@@ -899,7 +990,7 @@ function classify(ctx, input, deadlineISO) {
   };
 }
 
-function printClassified(c, degraded) {
+function printClassified(c, degraded, skipped) {
   const L = [];
   const pad = (s, n) => String(s).padEnd(n);
   L.push(`RUN STATUS: ${c.runStatus}`);
@@ -907,6 +998,11 @@ function printClassified(c, degraded) {
     L.push("  Coverage is incomplete. The findings below are valid; the absence of others is not.");
     for (const n of c.notReached) L.push(`  did not reach: ${n}`);
   }
+  if ((c.depthGaps || []).length) {
+    L.push("  Reached, but not swept to the bottom (recorded; does not make the run PARTIAL):");
+    for (const n of c.depthGaps) L.push(`    ${n}`);
+  }
+  if (skipped) L.push(`  Left out of the de-dup: ${skipped}, this run's own file.`);
   if (c.overdue) L.push("  The deadline passed. COMPLETE is not available to this run.");
   if (c.unrefuted) {
     L.push("  No refutation pass was declared. Every finding below is a candidate a second");
@@ -1211,6 +1307,12 @@ function renderReview(c, lens, date, root, baseline) {
   } else {
     L.push("Nothing. Every area this lens sweeps was reached, and every row above was triaged.");
   }
+  if ((c.depthGaps || []).length) {
+    L.push("");
+    L.push("Reached, but not swept to the bottom. The next run starts here:");
+    L.push("");
+    for (const n of c.depthGaps) L.push(`- ${n}`);
+  }
   L.push("");
   L.push(
     "Nothing was capped. There is no top-N and no sampling: every confirmed finding was filed, and " +
@@ -1258,7 +1360,19 @@ function main() {
   }
 
   const namedBaseline = typeof args.baseline === "string" ? args.baseline : null;
-  const { baseline, path: baselinePath, degraded, findings } = loadBaseline(root, namedBaseline);
+  // The run date names this run's own files. It is read from the clock unless the run passes the
+  // date it read at its start, which matters to a slot that crosses midnight.
+  const runDate = typeof args.date === "string" ? args.date : todayISO();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(runDate)) {
+    die("--date must be YYYY-MM-DD, read from the real clock at run time.");
+  }
+  // When classifying or rendering, this run's own findings file may already exist, and it must
+  // not count: a run cannot be "already tracked" by itself.
+  const classifying =
+    (args.classify && args.classify !== true) || (args.render && args.render !== true);
+  const skip =
+    classifying && typeof args.lens === "string" ? { lens: args.lens, date: runDate } : null;
+  const { baseline, path: baselinePath, degraded, findings } = loadBaseline(root, namedBaseline, skip);
 
   if (args.listKeys) {
     // The keys the suppression check is about to ask the tracker for, one per line. A machine
@@ -1292,33 +1406,52 @@ function main() {
 
   if (!args.lens || args.lens === true) die("--lens is required. Use --list-lenses to see them.");
   const lens = resolveLens(baseline, String(args.lens));
-  const ctx = { baseline, lens, root, baselinePath, degraded, findings, suppression };
+  const ctx = { baseline, lens, root, baselinePath, degraded, findings, suppression, runDate };
+  const deadline = typeof args.deadline === "string" ? args.deadline : null;
 
   if (args.classify && args.classify !== true) {
     const input = loadFindings(String(args.classify));
-    const deadline = typeof args.deadline === "string" ? args.deadline : null;
     const c = classify(ctx, input, deadline);
     process.stdout.write(
-      (args.json ? JSON.stringify(c, null, 2) : printClassified(c, degraded)) + "\n",
+      (args.json ? JSON.stringify(c, null, 2) : printClassified(c, degraded, findings && findings.skipped)) + "\n",
     );
     process.exit(c.runStatus === "COMPLETE" ? EXIT_COMPLETE : EXIT_PARTIAL);
   }
 
   if (args.render && args.render !== true) {
-    const date = typeof args.date === "string" ? args.date : null;
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    if (typeof args.date !== "string") {
       die("--date is required with --render, in YYYY-MM-DD, read from the real clock at run time.");
     }
-    let c;
+    let doc;
     try {
-      c = JSON.parse(readFileSync(String(args.render), "utf8"));
+      doc = JSON.parse(readFileSync(String(args.render), "utf8"));
     } catch (e) {
-      die(`classified file unreadable or invalid: ${args.render} (${e.message})`);
+      die(`--render file unreadable or invalid: ${args.render} (${e.message})`);
+    }
+    // Two shapes render. The output of --classify --json, possibly with a filedTicket added to
+    // each row. Or the sweep's own candidate findings, which are classified right here first, so
+    // there is one file to keep in step and no way for the record to disagree with the triage.
+    let c;
+    if (doc && Array.isArray(doc.rows) && doc.totals) {
+      c = doc;
+    } else if (Array.isArray(doc) || (doc && Array.isArray(doc.findings))) {
+      c = classify(ctx, Array.isArray(doc) ? { findings: doc } : doc, deadline);
+    } else {
+      die(
+        `--render needs one of two shapes, and ${args.render} is neither:\n` +
+          `  the output of --classify --json (has "rows" and "totals"), or\n` +
+          `  the sweep's candidate findings (has a "findings" array), which it classifies first.\n` +
+          `  A per-run record under ${SWEEP_DIR}/${FINDINGS_DIR}/ (known_open + accepted) is not ` +
+          `renderable: that is what a run writes after filing, not what it renders from.`,
+      );
     }
     const keys = typeof args.keys === "string" ? args.keys : "";
-    process.stdout.write(renderReview(c, lens, date, root, baseline));
-    process.stdout.write("\n<!-- index row for this review type's README.md Runs table -->\n");
-    process.stdout.write(renderIndexRow(c, lens, date, keys) + "\n");
+    // The document ends with exactly one newline, and the marker follows it directly. A blank
+    // line here was copied into five run documents in one weekend and failed the docs CI check
+    // on every one of them.
+    process.stdout.write(renderReview(c, lens, runDate, root, baseline));
+    process.stdout.write("<!-- index row for this review type's README.md Runs table -->\n");
+    process.stdout.write(renderIndexRow(c, lens, runDate, keys) + "\n");
     process.exit(c.runStatus === "COMPLETE" ? EXIT_COMPLETE : EXIT_PARTIAL);
   }
 

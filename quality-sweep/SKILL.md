@@ -12,7 +12,7 @@ description: |
   sweep", "sweep the codebase", "weekly code sweep", names one of the lenses, or wants the recurring
   whole-codebase quality check. Complements /tld-audit rather than repeating it: tld-audit reads the
   current diff, this reads the whole tree. Read-only on code; the only writes are tracker tickets,
-  the run record, and this sweep's own baseline.
+  the run record, and this run's own findings file.
 ---
 
 # Quality Sweep
@@ -33,10 +33,12 @@ finding then hides inside the list.
 and it cannot be scheduled, ranked or starved independently. Each lens is its own run, its own
 record and its own slot.
 
-**Read-only.** This skill never edits code, never runs a migration, never writes to a database, never
-commits, never pushes, never opens a pull request, and never moves a ticket to Done. The only writes
-it makes are the tickets it files, the dated run record, and its own baseline bookkeeping. A check
-that changes the thing it measures cannot be re-run to compare.
+**Read-only against the product.** This skill never edits code, never runs a migration, never writes
+to a database, never opens a pull request, never merges, and never moves a ticket to Done. The only
+writes it makes are the tickets it files, the dated run record, and its own per-run findings file. A
+scheduled run commits those three paths, and nothing else, to its own `sweep/<lens>-<date>` branch
+and pushes it, per RUN_PROTOCOL.md; an interactive run leaves them uncommitted for the person at the
+keyboard. A check that changes the thing it measures cannot be re-run to compare.
 
 ## Layout
 
@@ -156,10 +158,23 @@ node <skill-dir>/quality-sweep.mjs --root <repo-root> --lens <lens> --classify <
 ```
 
 The findings file is
-`{ "runStatus", "refuters", "notReached": [], "coverage": {}, "findings": [], "refuted": [] }`,
+`{ "runStatus", "refuters", "notReached": [], "depthGaps": [], "coverage": {}, "findings": [], "refuted": [] }`,
 each finding carrying `file`, `symbol`, `line`, `severity`, `title`, `detail`, and `confirmed`.
 `refuters` is how many agents read the findings trying to knock them down; omit it and the engine
 adds the missing pass to `notReached` and forces PARTIAL.
+
+`notReached` and `depthGaps` are two different admissions, kept apart on purpose. `notReached` is
+an area this lens owns that nobody opened, and it forces PARTIAL. `depthGaps` is an area that was
+reached but not swept to the bottom: a family of hooks nobody opened, an older migration chain not
+re-diffed this week. The engine records those in the run document as the next run's starting point
+and the run still counts as COMPLETE, because a lens that could never call itself complete had
+nowhere honest to write them and was writing them into a hand-made header instead.
+
+Pass `--date <date>` here as well, the date you read at the start of the run. It names this run's
+own `findings/<lens>/<date>.json`, which the engine leaves out of the de-dup: a run that classifies
+again after writing that file would otherwise match every one of its new rows against itself and
+stamp them KNOWN-OPEN. Omitted, the engine uses today's date, which is only wrong for a run that
+crossed midnight.
 
 The identity a row is matched on is `<lens>::<file>::<symbol>`, never the title: the same defect
 re-found next week is described in different words by a different agent, and a title match will miss
@@ -233,16 +248,18 @@ still open. If the key has been closed and the finding is still here, it is a re
 either did not land or did not hold, and it needs a new ticket and a note saying which key it
 regressed from. Never treat a closed key as coverage.
 
-## Step 4 — File a ticket for every confirmed finding
+## Step 4 — File a ticket for every finding that survived refutation
 
 **Filing is the default, not an offer.** This skill is built to run unattended on a schedule, and a
 finding that exists only in a transcript nobody read is a finding nobody found. Stopping to confirm
 would mean a weekend run sits on a confirmed defect until someone happens to look.
 
-The judgment is in Step 3, not here. Only file what you confirmed by reading the code. Never file a
-row you have not triaged, never file a refuted candidate, and never file a KNOWN-OPEN row. A
-KNOWN-FILE row is filed only once Step 3 has read the ticket and established it is a different
-defect.
+The judgment is in Step 3, not here. File every candidate that survived the refutation pass. A
+confirmed one lands where section 8 of RUN_PROTOCOL.md says. One you could not confirm is filed
+too, marked unconfirmed with what would settle it, and it lands in Human Review: dropping it is how
+a real defect with circumstantial evidence disappears for good. Never file a row you have not
+triaged, never file a refuted candidate, and never file a KNOWN-OPEN row. A KNOWN-FILE row is filed
+only once Step 3 has read the ticket and established it is a different defect.
 
 **Never cap how many tickets get filed.** No "top N", no "the most severe few", no sampling, no
 quietly stopping once the list feels long. Every confirmed finding is filed. When the volume is
@@ -314,11 +331,14 @@ at all. Those belong in the baseline's `known_open` instead, which is why they n
   product decision, or work with no single wrong line.
 - Labels: **exactly what the engine printed under `LABELS for anything filed`, and nothing else.**
   That block is built from the project's own baseline, which is the project's decision about its own
-  taxonomy and overrides any example in this file. Never add a label because it seems descriptive,
-  because a previous run used one, or because this engine is called the quality sweep: a project
-  whose tracker already carries that fact in a field will have deleted the label that duplicated it,
-  and re-creating it is a regression. If the project's task wrapper names additional labels, those
-  apply too, and the wrapper wins over this file.
+  taxonomy and overrides any example in this file. It includes any label family the baseline
+  requires on every ticket, such as an area label chosen from a fixed list, and it names the labels
+  the project retired, so the block is the whole truth and a task wrapper has nothing to add to it.
+  Never add a label because it seems descriptive, because a previous run used one, or because this
+  engine is called the quality sweep: a project whose tracker already carries that fact in a field
+  will have deleted the label that duplicated it, and re-creating it is a regression. If a task
+  wrapper names a label the block does not, the wrapper and the baseline have drifted: follow the
+  baseline and report the difference.
 - **No label carries a date.** Not a year, not a month, not a week, in any position or format. This
   check runs weekly, so a month in a label is stamped by four or five different runs and identifies
   none of them, and a day in a label is a fresh unsearchable string every week: coarse and it cannot
@@ -336,12 +356,17 @@ at all. Those belong in the baseline's `known_open` instead, which is why they n
   REGRESSION WATCH on its own, so the row is what lets a returning defect report as a regression of
   closed work rather than as something new. Deleting it is what makes this check go quiet.
 
-### 4d — Record it in the baseline
+### 4d — Record it in this run's findings file
 
-Add each filed object to `known_open` with its new ticket key, so the next run reports it as tracked
-instead of re-triaging it from scratch. Add any pattern you accepted in Step 3 to `accepted` with its
-reason at the same time. Leave the edit uncommitted and say so. The tracker search in 4b is the real
-de-dup guard, so a dirty file is never a reason to skip filing.
+Write `quality-sweep/findings/<lens>/<date>.json`, one new file, in the shape RUN_PROTOCOL.md
+section 3 gives. `known_open` gets a row for every object you filed, with its new ticket key, and
+for every object you resolved by hand to an existing ticket. `accepted` gets every pattern you
+accepted in Step 3, with its reason. Never edit `baseline.json`, and never edit an earlier run's
+file, including your own lens's: the engine unions every file under `findings/` on the next run,
+and **the newest row for an object is the one that stands**, so re-pointing an object at a new
+ticket takes effect without anyone touching the row it replaces. The tracker search in 4b is the
+real de-dup guard, so a file you could not write is never a reason to skip filing; it is a reason
+to say so in the report, because next week will re-triage what it does not know about.
 
 **Take the object strings from the engine, never from your own notes.** The classify output ends with
 a `BASELINE ROWS TO ADD AFTER FILING` block containing the exact key the engine used for every row
@@ -366,9 +391,8 @@ skipped run advances nothing and a starved lens stays visible as a growing numbe
 the stamp when they disagree, and prints the disagreement as `DISPUTED` in the next run's manifest
 rather than quietly believing the flag.
 
-Slots can overlap, so two lenses may be writing this file at once. Re-read it immediately before
-writing, and merge rather than overwrite. Object keys are lens-prefixed, so two lenses cannot collide
-on the same key.
+Two lenses running at once cannot collide: each writes its own file, and object keys are
+lens-prefixed.
 
 ## Step 5 — Write the run record
 
@@ -376,12 +400,17 @@ A report that lives only in a transcript is gone by Monday. Each run leaves a da
 repo, under whatever folder the lens's `review_folder` names.
 
 ```bash
-node <skill-dir>/quality-sweep.mjs --root <repo-root> --lens <lens> --render <classified.json> --date <today> --keys "<ticket keys>"
+node <skill-dir>/quality-sweep.mjs --root <repo-root> --lens <lens> --render <findings.json> --date <today> --keys "<ticket keys>"
 ```
 
-Do this after Step 4, not before, and add each row's `filedTicket` to the classified JSON first, so
-the document records which finding became which ticket. That link is what makes a ticket read six
-months later say which sweep produced it, and a run record say what it cost.
+`--render` takes the same candidate findings file Step 2c classified. It classifies it again and
+renders, so there is one file to keep in step and no way for the document to disagree with the
+triage. It also accepts the saved output of `--classify --json`, if you kept one. Anything else,
+such as the per-run record from Step 4d, is refused with a message naming the two shapes.
+
+Do this after Step 4, not before, and add `filedTicket` to each finding first, so the document
+records which finding became which ticket. That link is what makes a ticket read six months later
+say which sweep produced it, and a run record say what it cost.
 
 The date comes from the real clock at the moment of the run, never from this file and never from the
 schedule's prompt. A run that fires after midnight correctly writes the following day's date.
@@ -393,19 +422,29 @@ and the two are not in tension: a document is a thing you go and read, so it nee
 a label is a thing you search across many runs, so a date makes it useless. `--date` is required and
 the engine refuses to render without it; never drop it, and never shorten the date to a month.
 
-Three writes, not one:
+Two writes, not one:
 
 | Write | What |
 | --- | --- |
-| `<review_folder>/<YYYY-MM-DD>.md` | The run document the command above prints |
-| `<review_folder>/README.md` | Append the index row the command prints after the document |
-| The parent index, if the project keeps one | Update this lens's "latest run" cell |
+| `<review_folder>/<YYYY-MM-DD>.md` | The run document the command above prints, everything above the index-row marker |
+| `<review_folder>/README.md` | Append the index row the command prints after the marker |
 
 If the folder does not exist yet, create it with a `README.md` index carrying an empty Runs table,
 matching whatever shape that project's other review folders use.
 
-**Leave all of it uncommitted and name the paths in the report.** An unattended run does not commit,
-does not push, and does not open a pull request. Reviewing and committing the record is a human act.
+If the project keeps a parent index across every lens, it is not yours to write. Every lens would
+collide on it, and the project's collector regenerates it from disk. A run touches only its own
+lens's README.
+
+The document ends with exactly one newline, and the engine prints the marker directly after it. Do
+not add a blank line at the end: the docs check in CI rejects one, and it failed five run documents
+in a single weekend for that alone.
+
+**Interactively, leave all of it uncommitted and name the paths in the report.** Reviewing and
+committing the record is then a human act. **On a schedule there is no human**, so the run commits
+exactly the paths above plus its findings file to its own `sweep/<lens>-<date>` branch and pushes
+it, never a pull request and never a merge, per RUN_PROTOCOL.md section 4. The two are not in
+tension: both keep the record out of `main` until a person has looked at it.
 
 ## Step 6 — Report
 
