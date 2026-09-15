@@ -243,7 +243,7 @@ a reason to skip filing, only a reason to say so in the report.
 
 `REGRESSION KEY` means the check still fires on an object whose ticket is **closed**. Signed-off
 work broke again, so it is more urgent than a `NEW` finding, not less, and it is not fresh work:
-route it for human review rather than filing it as a new bug. Report the two header lines verbatim,
+route it to Needs Triage rather than filing it as a new bug. Report the two header lines verbatim,
 `rows ...` and `suppressions ...`, so a reader can see how many tickets were checked and how many
 had closed.
 

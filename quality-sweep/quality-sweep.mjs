@@ -162,7 +162,7 @@ function loadBaseline(root, named, skip) {
 //
 // A row whose ticket has closed is not simply dropped. It moves to `regression_watch`: if this run
 // detects that object again, that is a REGRESSION of closed work, which is the most valuable thing
-// a recurring check produces and which routes to human review rather than the ready-for-dev queue.
+// a recurring check produces and which routes to Needs Triage rather than the ready-for-dev queue.
 //
 // PROJECT RULE (see the file header): the command and the key pattern are configuration, never
 // constants. This engine must not know what a ticket key looks like in any particular tracker.
@@ -720,7 +720,7 @@ function printManifest(m) {
           `closed, so`,
       );
       L.push("   they are no longer suppressed. If you detect one again it is a regression of");
-      L.push("   closed work. File it, and land it in human review rather than ready-for-dev.");
+      L.push("   closed work. File it, and land it in Needs Triage rather than ready-for-dev.");
     }
   } else {
     L.push("!! SUPPRESSIONS ARE UNVERIFIED.");

@@ -168,7 +168,7 @@ longer takes your word for it. Two lines in the manifest tell you what it found:
 
 Any object whose ticket has closed is listed as **REGRESSION WATCH** and is no longer suppressed. If
 you detect one of those again, it is a regression of work that was already fixed and signed off.
-File it, say which ticket it regressed, and land it in **Human Review** per section 8. Never in the
+File it, say which ticket it regressed, and land it in **Needs Triage** per section 8. Never in the
 ready-for-dev queue: a defect that came back after a fix is a question about the fix, not a repeat of
 the original ticket.
 
@@ -331,7 +331,7 @@ Do **not** write one for a normal completed run, and do not send a notification 
 run that worked is not news, and an alert for every routine every night is how the ones that matter
 stop being read.
 
-## 8. Where a ticket lands: ready for dev, or human review
+## 8. Where a ticket lands: ready for dev, or needs triage
 
 Filing a ticket is only half the job. A ticket that sits in the default queue tells nobody whether
 it is safe to pick up. **Every ticket you file gets an explicit landing status.** There are two, and
@@ -361,7 +361,7 @@ nothing else.
 Apply whatever `config.ticket_routing.ready.priority` says. A queue that is ordered by a field is
 blind to a ticket that lands in it without one.
 
-### Human review
+### Needs triage
 
 `config.ticket_routing.review`. Also add its `label`. Use it when **any** of these is true:
 
@@ -394,10 +394,10 @@ In the ticket body, one line under the provenance block:
     Landing: <review status> — regression of <key>, and the fix spans two trees.
     Landing: <ready status> — confirmed at <file>:<line>, single-line guard.
 
-And in your final report, give the split: how many went to each, and name every Human Review ticket
+And in your final report, give the split: how many went to each, and name every Needs Triage ticket
 with its one-line reason. That list is the most useful thing the run produces for a human, because
 it is exactly the set of things that need a person and nothing else does.
 
-**When you cannot decide, it is Human Review.** The cost of a ready-for-dev ticket that turns out to
-need a decision is a developer who starts work, hits the question, and stops. The cost of a human
-review ticket that turned out to be obvious is ten seconds of the maintainer's morning.
+**When you cannot decide, it is Needs Triage.** The cost of a ready-for-dev ticket that turns out to
+need a decision is a developer who starts work, hits the question, and stops. The cost of a needs-triage
+ticket that turned out to be obvious is ten seconds of the maintainer's morning.
