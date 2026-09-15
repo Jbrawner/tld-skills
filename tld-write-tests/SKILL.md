@@ -1,7 +1,9 @@
 ---
 name: tld-write-tests
 description: |
-  Write tests for the current TLD ticket (red phase). Use this skill whenever the user says "tld-write-tests", "tld write tests", "write the tests", or wants to create test files for the active ticket before implementation. This is the red phase of test-led development — tests are written first and should all fail because the implementation doesn't exist yet. Always use after /tld-setup and before /tld-build.
+  Red phase: write the tests for the current TLD ticket before any implementation, so they all fail.
+  Use when the user says "tld-write-tests", "write the tests". Runs after /tld-setup and before
+  /tld-build.
 ---
 
 # TLD Write Tests

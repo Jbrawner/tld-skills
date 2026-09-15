@@ -1,16 +1,11 @@
 ---
 name: tld-commit
 description: |
-  Pick up a pending commit after a side quest detour or interrupted flow. Use this skill whenever the user says
-  "tld-commit", "commit the ticket", "finish the commit", "approve the commit", or needs to resume committing
-  changes that passed verification but weren't committed yet (e.g., because they ran a side quest first).
-  This is a lightweight re-entry into the commit flow. It re-runs tests to confirm nothing broke, then asks
-  how to land it: **commit and progress** (commit, move the ticket to the project's pre-merge status, and
-  surface the next ticket), which is the normal choice for a finished ticket including the verified checkpoint
-  you get out of /tld-full-auto or /tld-run-test; or a plain **commit only** (commit and leave the ticket In
-  Progress), a checkpoint for when more work remains on it. It never marks a ticket Done — Done means merged,
-  and a commit is not a merge. You still open one PR for the whole story at the end with /tld-pr. It pushes the
-  feature branch after committing, but never opens a PR itself.
+  Commit verified work after a side quest or an interrupted flow. Use when the user says
+  "tld-commit", "commit the ticket", "finish the commit", "approve the commit". Re-runs the tests,
+  then offers commit-and-progress (commit, move the ticket to the pre-merge status, surface the next
+  ticket) or commit-only (a mid-ticket checkpoint). Pushes the feature branch after committing.
+  Never marks a ticket Done and never opens a PR; /tld-pr does that at the story's end.
 ---
 
 # TLD Commit

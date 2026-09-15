@@ -1,26 +1,19 @@
 ---
 name: tld-full-auto
 description: |
-  Full-auto — take ONE code ticket through the COMPLETE TLD pipeline end-to-end with every phase skill
-  formally invoked via its slash command (/tld-setup → /tld-write-tests → /tld-build → /tld-audit →
-  /tld-run-test), treating routine approval gates as pre-approved and stopping ONLY when something is
-  actually wrong — then it STOPS before commit, preps your manual check, and hands the landing to you.
-  Use this skill whenever the user says "tld-full-auto", "full auto", "full-auto", "run the whole
-  ticket hands off", or "only flag me if something breaks", or wants one ticket driven to a verified,
-  ready-to-land state with no review pauses (this is the most automated TLD skill; for the gated
-  version with a test-spec review and a QA gate, use /tld-partial-auto). Optional argument: a ticket
-  ID passed through to /tld-setup (e.g. /tld-full-auto AMAI-159); with no argument /tld-setup
-  discovers the next ticket. TLD keeps you in control of the landing: full-auto NEVER commits, pushes,
-  opens a PR, marks the ticket Done, or runs /tld-gate — it stops at the verified checkpoint so you do
-  your manual check, then run /tld-commit to commit the ticket (the right call mid-story) or /tld-pr to
-  commit → push → open a PR at the story's end. Stops and alerts on any real problem
-  (a HIGH audit finding or genuine data-integrity/security risk, unfixable failure, drift, out-of-scope
-  work, non-local DB, tracker error); records non-blocking MEDIUM/LOW audit findings as a ticket comment
-  and keeps moving. Handles migration/schema tickets instead of refusing them: it recognizes a migration
-  ticket, applies the migration to the LOCAL database, and verifies it there. Tickets labeled `no-tests`
-  or `build-only` take a label-gated no-tests path: /tld-write-tests is skipped by design and
-  /tld-run-test verifies as a REGRESSION gate (existing suite stays green) instead of a spec check.
-  Not for `skip` (content/doc) campaigns — use /npc-partial or /npc-full there.
+  Drive ONE code ticket through the whole TLD pipeline hands-off, invoking each phase skill by its
+  slash command (/tld-setup, /tld-write-tests, /tld-build, /tld-audit, /tld-run-test), treating
+  routine gates as pre-approved and stopping only when something is actually wrong. Use when the
+  user says "tld-full-auto", "full auto", "run the whole ticket hands off", "only flag me if
+  something breaks". Optional argument: a ticket key (`/tld-full-auto AMAI-159`); with none,
+  /tld-setup discovers the next ticket. It NEVER commits, pushes, opens a PR, marks the ticket Done
+  or runs /tld-gate: it stops at the verified checkpoint for your manual check, then /tld-commit
+  lands it mid-story or /tld-pr at the story's end. Stops on a HIGH audit finding, a data-integrity
+  or security risk, an unfixable failure, drift, out-of-scope work, a non-local DB or a tracker
+  error; MEDIUM and LOW findings become a ticket comment. Migration tickets are applied to the LOCAL
+  database; tickets labeled `no-tests` or `build-only` skip test writing and verify as a regression
+  gate. Not for `skip` (content) campaigns, use /npc-partial or /npc-full; for the version with
+  review gates use /tld-partial-auto.
 ---
 
 # TLD Full-auto

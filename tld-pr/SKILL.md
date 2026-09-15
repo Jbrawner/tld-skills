@@ -1,19 +1,11 @@
 ---
 name: tld-pr
 description: |
-  Land the current TLD ticket — commit the verified work, move the ticket to the project's pre-merge
-  status, push the branch, and open a pull request, then STOP before merge so you stay in control of
-  the merge. It never marks the ticket Done: Done means merged, and this skill stops before the
-  merge. Use this skill
-  whenever the user says "tld-pr", "make a PR", "open a PR", "land it", "land the ticket", "push and
-  PR", or wants to ship a ticket that has already passed verification (typically right after
-  /tld-full-auto stops at its verified checkpoint, or after /tld-partial-auto / /tld-run-test have
-  committed). This is the TLD family's landing step: TLD keeps the human in control of the outward git
-  actions, and tld-pr is the one place they happen. It re-runs the tests to confirm nothing broke,
-  shows exactly what it will commit/push/PR, HARD STOPS for your approval, then commits (if not
-  already committed), moves the ticket to the pre-merge status, pushes, and opens the PR. It NEVER
-  merges — that stays yours. Refuses to run on the default branch (push to a feature branch only) and
-  never force-pushes.
+  Land the current ticket: re-run the tests, show exactly what will be committed, pushed and PR'd,
+  HARD STOP for approval, then commit if needed, move the ticket to the pre-merge status, push the
+  feature branch, open the PR, and stop before the merge. Use when the user says "tld-pr", "make a
+  PR", "open a PR", "land it", "push and PR", typically after /tld-full-auto's verified checkpoint.
+  Never merges, never marks Done, refuses to run on the default branch, never force-pushes.
 ---
 
 # TLD PR

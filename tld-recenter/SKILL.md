@@ -1,13 +1,9 @@
 ---
 name: tld-recenter
 description: |
-  Reset the working tree to a fresh branch cut from the latest `main`. Use this skill
-  whenever the user says "tld-recenter", "recenter", "start clean", "new branch off
-  main", or wants to abandon the current branch and start a new one from the latest
-  main (typical flow: finished one PR, about to start a new ticket, want a clean base).
-  If the user passes a branch name as the argument (e.g., `/tld-recenter feat/new-thing`),
-  uses that name directly. If no argument is given, prompts via AskUserQuestion. Refuses
-  to run when the working tree has uncommitted changes so nothing is lost.
+  Reset to a fresh branch cut from the latest `main`. Use when the user says "tld-recenter",
+  "recenter", "start clean", "new branch off main". Takes a branch name as the argument or asks for
+  one. Refuses when the working tree has uncommitted changes.
 ---
 
 # TLD Recenter

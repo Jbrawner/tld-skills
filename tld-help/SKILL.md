@@ -1,9 +1,8 @@
 ---
 name: tld-help
 description: |
-  Quick reference for all TLD skills. Shows what each skill does, when to use it, and the standard flow.
-  Use this skill whenever the user says "tld-help", "tld help", "what are my options", "what can I run",
-  "help", or needs a reminder of the available TLD commands.
+  Quick reference for all TLD skills: what each does, when to use it, and the standard flow. Use
+  when the user says "tld-help", "what are my options", "what can I run", "help".
 ---
 
 # TLD Help

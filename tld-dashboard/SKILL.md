@@ -1,11 +1,10 @@
 ---
 name: tld-dashboard
 description: |
-  Bird's eye view of milestone progress. Shows all milestones, their tickets, and current status in a compact grid,
-  and reconciles the tracker against git — which tickets read Done but have no code on the default branch, and which
-  merged tickets are still waiting to be closed out. Use this skill whenever the user says "tld-dashboard",
-  "dashboard", "show progress", "milestone status", "how far along are we", "did that actually ship", or wants to see
-  the overall state of the TLD implementation. Read-only — this skill does not modify anything.
+  Bird's-eye grid of every milestone, its tickets and status, reconciled against git: tickets that
+  read Done with no code on the default branch, and merged tickets not yet closed out. Use when the
+  user says "tld-dashboard", "dashboard", "show progress", "milestone status", "did that actually
+  ship". Read-only.
 ---
 
 # TLD Dashboard

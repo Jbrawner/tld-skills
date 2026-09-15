@@ -1,14 +1,10 @@
 ---
 name: campaign-portless
 description: |
-  Set up portless so this repo (or this worktree) gets a stable `<name>.localhost:1355` URL
-  for its dev server. Use this skill whenever the user says "campaign-portless",
-  "campaign portless", "set up portless", "give this worktree a URL", "fix my localhost",
-  "stable dev URL", or wants every project / worktree to have its own non-conflicting
-  localhost URL. Idempotent — first run on a machine installs portless, trusts certs, and
-  starts the proxy; subsequent runs in a new repo or worktree just register the alias and
-  write `.claude/launch.json`. Works in a regular repo or a git worktree; does not require
-  `.tld/campaign.md`.
+  Give this repo or worktree a stable `<name>.localhost:1355` dev URL via portless. Use when the
+  user says "campaign-portless", "set up portless", "give this worktree a URL", "fix my localhost",
+  "stable dev URL". Idempotent: installs and starts the proxy on first run, then only registers the
+  alias and writes `.claude/launch.json`. Needs no campaign file.
 ---
 
 # Campaign Portless

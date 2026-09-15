@@ -1,13 +1,10 @@
 ---
 name: tld-skip
 description: |
-  Skip the current In-Progress TLD ticket without marking it Done. Reverts the ticket's status to Todo
-  (or a dedicated "Skipped" state if the Linear team has one), reads the active milestone's `## Order`
-  section, and suggests the next ticket to pick up. Use this skill whenever the user says "tld-skip",
-  "tld skip", "skip this ticket", "skip ticket", "skip for now", "come back to this later",
-  "move past this one", "not ready for this", or wants to set aside the current ticket and move on
-  without completing it. The skipped ticket stays in the milestone's Order and can be resumed at any
-  time via `/tld-setup {id}`.
+  Skip the current In-Progress ticket without completing it: status back to Todo (or Skipped), then
+  suggest the next ticket from the milestone's `## Order`. Use when the user says "tld-skip", "skip
+  this ticket", "skip for now", "come back to this later". The ticket stays in the Order and can be
+  resumed with `/tld-setup {id}`.
 ---
 
 # TLD Skip

@@ -1,13 +1,10 @@
 ---
 name: campaign-test
 description: |
-  Pre-flight connection check for this repo's `.tld/campaign.md`. Validates the schema on every run (the
-  required four sections, plus the optional v0.2 sections and reject-unknown per docs/CAMPAIGN_SCHEMA.md),
-  and when tracker = Linear also verifies Linear reachability, team / project existence, ticket-prefix
-  match, and the nine required workspace labels. Read-mostly: the only write path is creating missing
-  workspace labels, and only after an explicit user Yes via AskUserQuestion (default No). Use this skill
-  whenever the user says "campaign-test", "campaign test", "test connections", "verify setup", or wants to
-  diagnose a misconfigured campaign before `/tld-setup` fails.
+  Pre-flight check of `.tld/campaign.md`: validates the schema, and for a Linear tracker verifies
+  reachability, team and project, ticket prefix, and the nine required labels. Use when the user
+  says "campaign-test", "test connections", "verify setup", or wants to diagnose a misconfigured
+  campaign before /tld-setup fails. Its only write is creating missing labels after an explicit Yes.
 ---
 
 # Campaign Test

@@ -1,10 +1,10 @@
 ---
 name: tld-save-point
 description: |
-  Smart context recovery for TLD workflows. Reads the campaign file, checks Linear, and figures out exactly where you are
-  so you can resume without pasting /compact prompts. Use this skill whenever the user says "tld-save-point", "save point",
-  "where am I", "resume", "pick up where I left off", or starts a new conversation and needs to know what to work on next.
-  Also trigger when the user has no TLD context in the conversation and asks about the current ticket or next steps.
+  Work out where the TLD flow stands from the campaign file and the tracker so a new conversation
+  can resume without a /compact prompt. Use when the user says "tld-save-point", "save point",
+  "where am I", "resume", "pick up where I left off", or opens a session with no TLD context and
+  asks what to work on.
 ---
 
 # TLD Save Point

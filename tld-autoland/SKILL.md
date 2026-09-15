@@ -1,21 +1,14 @@
 ---
 name: tld-autoland
 description: |
-  Autoland — take one small bug-fix ticket, or a chunk of them, all the way to MERGED on the default
-  branch with no stops: eligibility check → fresh branch → /tld-full-auto → commit → push → open PR →
-  watch CI → squash-merge → delete branch → back to main → next ticket. Use this skill whenever the
-  user says "tld-autoland", "autoland", "auto land", "land it all the way", "merge it for me", "I
-  don't want to deal with the PR", or hands over a batch of small fixes to be shipped end-to-end.
-  Optional argument: one or more ticket IDs (`/tld-autoland AS-31 AS-32 AS-33`), a Story / milestone
-  key that expands to its child tickets in order (`/tld-autoland AS-30`), or nothing (the next
-  eligible Todo ticket). One PR per ticket — each ticket gets its own branch cut from the latest
-  default branch, its own PR, and its own merge, so one bad fix never blocks the rest. This is the
-  ONLY TLD skill that merges. It is gated hard: a ticket must carry the `auto-land` label, and any
-  ticket or diff that touches migrations, schema, auth, RLS, secrets, seed data, billing, or CI
-  workflow files is refused outright and handed back to the gated flow. Merges only after the PR's
-  CI checks go green — never on red, never with --force, never on the default branch directly. Not
-  for feature work, not for anything you would want to eyeball before it hits main — use
-  /tld-full-auto + /tld-pr for those.
+  Take one small bug-fix ticket, or a batch, all the way to MERGED with no stops: fresh branch,
+  /tld-full-auto, commit, push, PR, watch CI, squash-merge, next ticket. Use when the user says
+  "tld-autoland", "autoland", "land it all the way", "merge it for me", "I don't want to deal with
+  the PR". Optional argument: ticket keys, or a Story key that expands to its children. The ONLY TLD
+  skill that merges, and hard-gated: the ticket must carry the `auto-land` label, and anything
+  touching migrations, schema, auth, RLS, secrets, seed data, billing or CI files is refused and
+  handed to the gated flow. Merges only on green CI, never with force, never on the default branch
+  directly. Not for feature work; use /tld-full-auto and /tld-pr for that.
 ---
 
 # TLD Autoland

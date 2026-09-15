@@ -1,7 +1,10 @@
 ---
 name: tld-next
 description: |
-  Transition to the next TLD ticket after a successful commit. Use this skill whenever the user says "tld-next", "tld next", "next ticket", or wants to close out the current ticket and prepare for the next one. Moves the ticket to the project's pre-merge status (never Done — Done means merged, and a commit is not a merge), determines what's next (another ticket or a milestone gate), and outputs the /compact prompt for context reset. Always use after /tld-run-test commits successfully.
+  Close out the current ticket after a successful commit and prepare the next one. Use when the user
+  says "tld-next", "next ticket". Moves the ticket to the pre-merge status (never Done; Done means
+  merged), decides whether what follows is another ticket or a milestone gate, and prints the
+  /compact prompt for the context reset.
 ---
 
 # TLD Next

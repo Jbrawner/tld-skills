@@ -1,12 +1,11 @@
 ---
 name: tld-audit
 description: |
-  Security and architecture audit for the current ticket's changes. Catches mistakes like business logic on the
-  frontend that belongs on the backend, missing auth checks, RLS gaps, exposed secrets, and validation holes.
-  Use this skill whenever the user says "tld-audit", "audit", "security check", "check my work", "anything I'm missing",
-  or wants a safety review before committing. Best run after /tld-build and before /tld-run-test, but can be run anytime
-  there are uncommitted changes. Records low/medium non-blocker findings as one standardized, idempotent
-  tracker comment (the shape tld-story-review aggregates). Read-only for code — this skill does not modify code.
+  Security and architecture audit of the current ticket's uncommitted changes: business logic in the
+  wrong tier, missing auth checks, RLS gaps, exposed secrets, validation holes. Use when the user
+  says "tld-audit", "audit", "security check", "check my work", "anything I'm missing", or wants a
+  safety review before committing. Best after /tld-build and before /tld-run-test. Read-only for
+  code; records low and medium non-blockers as one idempotent tracker comment.
 ---
 
 # TLD Audit

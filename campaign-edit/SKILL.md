@@ -1,13 +1,9 @@
 ---
 name: campaign-edit
 description: |
-  Edit a field in this repo's `.tld/campaign.md` configuration file. Use this skill whenever the user says
-  "campaign-edit", "campaign edit", "edit campaign", "update campaign", "change field", "update project config",
-  or wants to modify a setting in the per-repo campaign file. Edits fields across the four required sections
-  (Project, Test Commands, Stack, Commit format) and can add / replace / remove the optional v0.2 sections
-  (Pipelines, Allowed statuses), always preserving any it is not editing byte-for-byte. Canonical schema:
-  docs/CAMPAIGN_SCHEMA.md. There is at most one campaign per repo, so no picker — the file is
-  at `{cwd}/.tld/campaign.md`.
+  Edit one field in this repo's `.tld/campaign.md`. Use when the user says "campaign-edit", "edit
+  campaign", "update campaign", "change field", "update project config". Preserves every section it
+  is not editing byte-for-byte; schema in docs/CAMPAIGN_SCHEMA.md.
 ---
 
 # Campaign Edit

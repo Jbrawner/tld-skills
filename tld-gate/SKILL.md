@@ -1,7 +1,12 @@
 ---
 name: tld-gate
 description: |
-  Run a milestone boundary gate check for TLD. Use this skill whenever the user says "tld-gate", "tld gate", "run gate check", "gate check", or has finished all tickets in a milestone and needs full regression, consistency, drift, and merge-reconciliation validation before moving to the next milestone. The reconciliation pass tests every resolved ticket against the default branch and FAILs the gate on any ticket that reads Done while its code is not there; it is also the human-landed path's only writer of Done, closing out tickets whose merge it just confirmed. Accepts an optional milestone ID argument (`/tld-gate {milestoneId}`) which `/tld-next` emits automatically. This is the heavyweight verification that runs at milestone boundaries — not after every ticket. Operates ONLY against local database. Always use when /tld-next says to.
+  Milestone-boundary gate: full regression, consistency and drift checks, plus reconciliation of
+  every resolved ticket against the default branch. A ticket that reads Done with no code on the
+  default branch FAILS the gate; a pre-merge ticket whose merge is confirmed is moved to Done here,
+  the only place that happens outside autoland. Use when the user says "tld-gate", "gate check", or
+  when /tld-next says to. Optional milestone argument. Local database only; not run after every
+  ticket.
 ---
 
 # TLD Gate
