@@ -80,7 +80,7 @@ Drafts, shows, and waits. Runs on the planning day the `Cadence` key names, or w
    Whether that file is tracked is the repo's call and the contract says which: an untracked
    plan folder (in `.gitignore`) means saving the file is the whole step; a tracked one means
    the draft goes on a branch cut from the default branch. Every ticket in the work tables is
-   a link in the `Ticket link` format. No em dashes in prose. No status column and no
+   a link in the `Ticket link` format. No status column and no
    progress notes: the file holds order and reasons only.
 7. **Show it and stop.** Print the day-by-day table and the feature table, then numbered
    options: approve as is, reorder, change the focus, file the cut ticket. The cut ticket,
