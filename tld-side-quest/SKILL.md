@@ -1,13 +1,10 @@
 ---
 name: tld-side-quest
 description: |
-  Run a small side quest (polish, minor fix, small feature) without polluting the main conversation context.
-  Use this skill whenever the user says "tld-side-quest", "side quest", "side-quest", "quick fix", "polish task",
-  or wants to handle a small ticket/task in isolation so their main TLD workflow stays clean.
-  This skill spawns a subagent to do the work, then pauses for manual testing before committing.
-  Always use when the user has a small task they don't want mixed into their current context — even if they don't
-  say "side quest" explicitly, trigger on phrases like "handle this on the side", "do this without messing up context",
-  "quick detour", or "small thing I need done".
+  Run a small task (polish, minor fix, small feature) in a subagent so the main conversation stays
+  clean, then pause for manual testing before committing. Use when the user says "tld-side-quest",
+  "side quest", "quick fix", "polish task", "handle this on the side", "quick detour", "small thing
+  I need done".
 ---
 
 # TLD Side Quest

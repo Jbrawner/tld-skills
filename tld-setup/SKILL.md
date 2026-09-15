@@ -1,7 +1,10 @@
 ---
 name: tld-setup
 description: |
-  Set up the next TLD (Test-Led Development) ticket for implementation. Use this skill whenever the user says "tld-setup", "tld setup", "set up next ticket", or wants to start working on the next ticket. This skill finds the next ticket, pulls it from the issue tracker, marks it In Progress, loads relevant files, and outputs the full context needed before writing tests. Always use this before starting any new ticket work.
+  Start the next TLD ticket: find it (or take a ticket key as the argument), pull it from the
+  tracker, mark it In Progress, load the relevant files, and print the context needed before writing
+  tests. Use when the user says "tld-setup", "set up next ticket", "start the next ticket". Always
+  the first step of any ticket.
 ---
 
 # TLD Setup

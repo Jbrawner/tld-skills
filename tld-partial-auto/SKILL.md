@@ -1,7 +1,11 @@
 ---
 name: tld-partial-auto
 description: |
-  Automated TLD pipeline with two review gates. Use this skill whenever the user says "tld-partial-auto", "tld auto", "auto run", "run the full cycle", or wants to execute the full test-led development pipeline (write tests, review gate, build, verify, commit, QA gate, mark done) with minimal interaction. Requires /tld-setup to have been run first. Chains all TLD phases automatically but STOPS after the RED phase for user review and again before closing the ticket out for manual QA. It never marks a code ticket Done — Done means merged, and this skill neither pushes nor merges; code tickets land in the project's pre-merge status, and only a no-code manual-QA ticket is marked Done. Handles migration/schema tickets instead of mislabeling them manual-QA: it recognizes a migration ticket, runs the code path, and verifies the migration by applying it to the LOCAL database and showing the confirmation-check result at the QA gate before you approve the commit.
+  Automated TLD pipeline with two review gates: stops after the RED phase for a test-spec review and
+  again before close-out for manual QA. Use when the user says "tld-partial-auto", "tld auto", "auto
+  run", "run the full cycle". Requires /tld-setup first. Never pushes or merges; code tickets land
+  in the pre-merge status, never Done. Migration tickets are applied to the LOCAL database with the
+  check shown at the QA gate.
 ---
 
 # TLD Auto

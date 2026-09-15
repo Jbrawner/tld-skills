@@ -1,17 +1,11 @@
 ---
 name: tld-spot-check
 description: |
-  Final code spot-check for a container (Story/Epic) closeout — the last human-style read of the Story's
-  combined changes across all its children, catching the integration-seam and final-polish issues that
-  per-ticket audits miss: leftover debug/TODOs, inconsistent patterns between children, dead seams where one
-  child's code meets another's, and acceptance criteria claimed-but-not-actually-in-the-code. Use this skill
-  whenever the user says "tld-spot-check", "spot check", "final code check", "closeout spot check", or when the
-  configured container pipeline reaches its spot-check step. It REUSES tld-gate for regression/consistency and
-  does NOT re-run tests itself; it is a focused code read, not exhaustive. Read-only: it reports findings but
-  does NOT modify code and does NOT transition any ticket. Optional argument: the Story key
-  (`/tld-spot-check DROSS-30`); with no argument it resolves the current Story context. This is the Claude
-  container-closeout spot-check of the dual-runtime workflow: it is ADDITIVE and reads the same standardized
-  child comments Matt's Codex path writes.
+  Final read of a Story or Epic's combined changes at closeout: leftover debug and TODOs,
+  inconsistent patterns between children, acceptance criteria claimed but not in the code. Use when
+  the user says "tld-spot-check", "spot check", "final code check", or when the container pipeline
+  reaches its spot-check step. Reuses tld-gate for regression; read-only, transitions nothing.
+  Optional Story key.
 ---
 
 # TLD Spot Check

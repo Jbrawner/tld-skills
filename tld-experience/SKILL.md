@@ -1,13 +1,10 @@
 ---
 name: tld-experience
 description: |
-  Turn a lived conversation moment into a candidate skill in this repo. Use this skill whenever the user says
-  "tld-experience", "I just experienced", "make this a skill", "turn this into a skill", "save this as a skill",
-  or describes a workflow they just walked through with Claude and wants to capture as a reusable command.
-  Reads the surrounding conversation context, generalizes the experience into a SKILL.md, gates on approval,
-  then commits and opens a PR against `Jbrawner/tld-skills`. Single-file skills only — no `scripts/` or
-  `assets/` subdirectories. (Exception: the framework-level `scripts/verify-block-alignment.py` lives at
-  the repo root and is maintained by hand, not authored through this flow.)
+  Turn a workflow just walked through in conversation into a candidate SKILL.md in this repo, gated
+  on approval, then commit and open a PR against Jbrawner/tld-skills. Use when the user says
+  "tld-experience", "make this a skill", "turn this into a skill", "save this as a skill".
+  Single-file skills only.
 ---
 
 # TLD Experience

@@ -1,7 +1,13 @@
 ---
 name: tld-goal-handoff
 description: |
-  Generate the two copy-paste prompts for a manual TLD build handoff: a /compact message and a /goal message. Use this skill whenever the user says "tld-goal-handoff", "goal handoff", "prep the handoff", "give me the compact and goal", "handoff prompt", or wants ready-to-paste /compact + /goal text. By DEFAULT the composed goal drives EVERY remaining Story, one at a time, and lands each one through its own PR gate at the Story mark: /tld-gate → full local suite → push → open PR → watch CI (bounded fix rounds) → squash-merge → next Story cut from the updated default branch — the goal text itself carries the explicit push/PR/merge authorization. Arguments narrow the scope: one or more Story keys (e.g. /tld-goal-handoff LAB-397 LAB-410) hand off just those Stories; a Sub-task key (e.g. /tld-goal-handoff LAB-398) composes the single-ticket goal with NO PR gate (a mid-Story landing). Reads the tracker from Jira, resolves branch policy + commit format + Jira pre-merge and Done transitions + local DB, verifies gh can actually merge (auth, squash allowed, write permission), then PRINTS two fenced blocks for the user to paste by hand — first /compact, then /goal after compaction finishes. Each block INCLUDES its own leading slash command, so one click on the copy button yields a message the user can paste and send without typing anything. There is NO hook, NO auto-fire, NO clipboard, and NO keystroke automation: this skill only composes and prints text.
+  Compose the two copy-paste prompts for a manual TLD handoff, a /compact message and a /goal
+  message, each fenced with its own leading slash command. Use when the user says
+  "tld-goal-handoff", "goal handoff", "prep the handoff", "give me the compact and goal". By default
+  the goal drives every remaining Story and lands each through its own PR gate (gate, full suite,
+  push, PR, CI, squash-merge), carrying that push/PR/merge authorization in its own text; Story keys
+  narrow the scope, a Sub-task key composes a single-ticket goal with no PR gate. Verifies gh can
+  actually merge before composing. Prints text only: no hook, no auto-fire, no clipboard.
 ---
 
 # TLD Goal Handoff — print the `/compact` and `/goal` prompts for manual paste

@@ -1,10 +1,9 @@
 ---
 name: campaign-remove
 description: |
-  Delete this repo's `.tld/campaign.md` configuration file. Use this skill whenever the user says
-  "campaign-remove", "campaign remove", "remove campaign", "delete campaign", "kill campaign", or wants
-  to remove the per-repo campaign config. Deletes the file (and the `.tld/` directory if it becomes empty).
-  Requires explicit confirmation. Does NOT affect Linear tickets or milestones — only the local config file.
+  Delete this repo's `.tld/campaign.md` (and `.tld/` if that leaves it empty). Use when the user
+  says "campaign-remove", "remove campaign", "delete campaign", "kill campaign". Requires explicit
+  confirmation; touches nothing in the tracker.
 ---
 
 # Campaign Remove

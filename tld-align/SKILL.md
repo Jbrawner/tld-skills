@@ -1,7 +1,10 @@
 ---
 name: tld-align
 description: |
-  Align implementation to pass failing tests after a /tld-run-test failure. Use this skill whenever the user says "tld-align", "tld align", "align the implementation", "fix the failures", or wants to correct implementation code that failed verification. Reads the failure output and fixes the implementation to match expectations. Does NOT modify tests unless flagged for user decision. Always use after /tld-run-test reports a failure.
+  Fix the implementation after /tld-run-test reports failures. Use when the user says "tld-align",
+  "align the implementation", "fix the failures". Reads the failure output and changes
+  implementation code to meet the tests; never modifies tests unless it flags that for a user
+  decision.
 ---
 
 # TLD Align

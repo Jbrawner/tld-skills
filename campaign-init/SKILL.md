@@ -1,15 +1,10 @@
 ---
 name: campaign-init
 description: |
-  Scaffold a per-repo `.tld/campaign.md` configuration file for the TLD skills framework.
-  Use this skill whenever the user says "campaign-init", "campaign init", "scaffold campaign",
-  "set up this repo", "new project config", or when a TLD skill fails because no campaign
-  exists in the current repo. Creates the four required sections (Project, Test Commands,
-  Stack, Commit format) and can optionally scaffold the v0.2 sections (Pipelines, Allowed
-  statuses); omitting them yields today's fixed default flow. Canonical schema:
-  docs/CAMPAIGN_SCHEMA.md. Jira and Linear are both supported issue trackers (see
-  LIMITATIONS.md); GitHub Issues and Other are accepted in the schema but unimplemented —
-  no TLD skill resolves operations against them.
+  Scaffold a per-repo `.tld/campaign.md` for the TLD framework. Use when the user says
+  "campaign-init", "scaffold campaign", "set up this repo", "new project config", or when a TLD
+  skill fails because no campaign exists. Jira and Linear are supported trackers; GitHub Issues and
+  Other are accepted by the schema but unimplemented.
 ---
 
 # Campaign Init

@@ -1,13 +1,10 @@
 ---
 name: tld-cancel
 description: |
-  Cancel the current In-Progress TLD ticket — mark it Canceled in Linear, remove it from the active milestone's
-  `## Order` section, and suggest the next ticket. Use this skill whenever the user says "tld-cancel",
-  "tld cancel", "cancel ticket", "cancel this ticket", "drop this ticket", "this ticket is no longer needed",
-  "scrap this ticket", or wants to permanently remove the current ticket from the work queue without
-  completing it. Unlike `/tld-skip`, the canceled ticket does NOT stay in the milestone's Order — it is
-  removed entirely and will not be picked up by future `/tld-setup` runs. Does NOT modify files, branches,
-  or `.tld/campaign.md`.
+  Cancel the current In-Progress TLD ticket: mark it Canceled in the tracker, remove it from the
+  milestone's `## Order`, suggest the next ticket. Use when the user says "tld-cancel", "cancel this
+  ticket", "drop this ticket", "scrap this ticket". Unlike /tld-skip the ticket leaves the queue for
+  good. Touches no files, branches or campaign.
 ---
 
 # TLD Cancel

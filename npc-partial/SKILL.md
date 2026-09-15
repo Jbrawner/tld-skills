@@ -1,7 +1,10 @@
 ---
 name: npc-partial
 description: |
-  NPC ("no preview check") — partial flow for content/doc tickets that skip testing entirely. Use this skill whenever the user says "npc-partial", "npc partial", "build then pause then commit", or wants to run /tld-build → STOP for manual QA on the uncommitted diff → commit + /tld-next in one shot, skipping /tld-run-test. Designed for doc-only or content tickets where the campaign test command is "skip" and the only verification is a manual eye on the diff. The hard stop sits between build and commit so you can review (and amend / discard) before anything lands.
+  No-preview-check flow for content and doc tickets whose campaign test command is "skip":
+  /tld-build, then a hard stop for a manual look at the uncommitted diff, then commit and /tld-next.
+  Use when the user says "npc-partial", "build then pause then commit". Skips /tld-run-test by
+  design.
 ---
 
 # NPC Partial

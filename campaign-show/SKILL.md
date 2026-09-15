@@ -1,11 +1,9 @@
 ---
 name: campaign-show
 description: |
-  Display this repo's `.tld/campaign.md` configuration — all four sections (Project, Test Commands, Stack,
-  Commit format) — plus an optional tracker snapshot showing milestone names and progress. Use this skill
-  whenever the user says "campaign-show", "campaign show", "show campaign", "what campaign am I on",
-  "view campaign", "current project", or wants to see the per-repo project configuration. Read-only;
-  does not modify any files.
+  Print this repo's `.tld/campaign.md` (all four sections) plus an optional tracker snapshot of
+  milestone progress. Use when the user says "campaign-show", "show campaign", "what campaign am I
+  on", "current project". Read-only.
 ---
 
 # Campaign Show

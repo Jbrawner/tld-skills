@@ -1,7 +1,9 @@
 ---
 name: tld-run-test
 description: |
-  Run tests and drift check for the current TLD ticket, then present manual QA and commit on user approval. Use this skill whenever the user says "tld-run-test", "tld run test", "run the tests", "verify and commit", or wants to independently verify that the implementation passes tests and hasn't drifted from the spec. This is the verification gate before committing. Does NOT auto-commit — waits for user approval after manual testing. Always use after /tld-build.
+  Verification gate: run the tests and the drift check for the current ticket, then present manual
+  QA and commit only on the user's approval. Use when the user says "tld-run-test", "run the tests",
+  "verify and commit". Runs after /tld-build. Does NOT auto-commit.
 ---
 
 # TLD Run Test

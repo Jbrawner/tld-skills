@@ -1,16 +1,11 @@
 ---
 name: tld-writeup
 description: |
-  Per-ticket completion writer — the bridge between the TLD flow and the orchestrator's "done" signal.
-  Runs as a pipeline step AFTER tld-commit and BEFORE tld-next: it fills the standardized output template
-  from the finished ticket's prior-step data (setup, build, run-test, audit, commit), posts exactly ONE
-  idempotent completion comment to the tracker, and writes the machine-readable handoff block
-  (handoff_state / handoff_validation_summary / handoff_changed_files_summary / handoff_token_usage /
-  handoff_blocker) into the shared checklist so the orchestrator sees the result without reading chatter.
-  Use this skill whenever the user says "tld-writeup", "tld writeup", "write up the ticket", "post the
-  completion comment", "record the handoff", or when the configured pipeline reaches its write-up step.
-  It does NOT advance the ticket, commit, push, PR, or mark Done — tld-next owns the transition. This is
-  an ADDITIVE Claude skill: it mirrors Matt's Codex `bin/workflow-final-comment` without touching it.
+  Per-ticket completion writer, run after tld-commit and before tld-next: fills the output template
+  from the prior steps, posts ONE idempotent completion comment, writes the handoff block to the
+  shared checklist. Use when the user says "tld-writeup", "write up the ticket", "post the
+  completion comment", "record the handoff", or when the pipeline reaches its write-up step.
+  Advances nothing.
 ---
 
 # TLD Writeup — the completion + handoff bridge

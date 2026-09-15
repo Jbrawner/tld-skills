@@ -1,13 +1,9 @@
 ---
 name: milestone-create
 description: |
-  Create a single Linear milestone with an optional set of tickets and a populated
-  `## Order` section. Use this skill whenever the user says "milestone-create",
-  "milestone create", "add a milestone", "new milestone", "one more phase", or wants
-  to scaffold one milestone without the full /campaign-plan flow. Writes to the tracker
-  only — does NOT touch `.tld/campaign.md`. For full project planning from scratch
-  use /campaign-plan. For repairing Order sections on existing milestones use
-  /milestone-sync.
+  Create one Linear milestone with optional tickets and a populated `## Order` section. Use when the
+  user says "milestone-create", "add a milestone", "new milestone", "one more phase". Writes to the
+  tracker only. Full planning: /campaign-plan. Repairing Order sections: /milestone-sync.
 ---
 
 # Milestone Create

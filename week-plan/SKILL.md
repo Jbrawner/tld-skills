@@ -1,13 +1,11 @@
 ---
 name: week-plan
 description: |
-  A weekly plan as a source of truth: one file per week under docs/plans/ holds what gets
-  built and in what order, and the tracker holds status. `/week-plan status` prints the
-  current plan with live status and what is next. `/week-plan next` drafts next week's file
-  from what this week did not finish plus the dev queue, shows it, and stops for a ruling.
-  Reads the repo's docs/plans/README.md contract; knows nothing about the product itself.
-  Use when the user says "week plan", "what's next this week", "plan next week", "what did
-  we not finish", or on the planning day the contract names.
+  A weekly plan file under docs/plans/ as the source of truth for what gets built and in what order;
+  the tracker holds status. `/week-plan status` prints the current plan with live status;
+  `/week-plan next` drafts next week's file from unfinished work plus the dev queue and stops for a
+  ruling. Use when the user says "week plan", "what's next this week", "plan next week", "what did
+  we not finish".
 ---
 
 # Week plan

@@ -1,19 +1,10 @@
 ---
 name: tld-orchestrate
 description: |
-  Config-driven pipeline runner — read the `pipelines:` config from `.tld/campaign.md`, resolve the
-  current ticket's type against the cascade (team standard → project override → type override), and
-  drive each step's TLD skill in order, handling every outcome (done / failed / blocked / needs_user),
-  the `stop_after` review pause, per-step retries with a circuit breaker, and resume-from-where-it-stopped.
-  Use this skill whenever the user says "tld-orchestrate", "orchestrate", "run the pipeline", "run the
-  configured pipeline", "drive this ticket by config", or wants ONE ticket taken through whatever step
-  sequence the project configured (instead of the fixed sequence /tld-full-auto hard-codes). Optional
-  argument: a ticket ID passed through to the first step (e.g. /tld-orchestrate DROSS-19); with no
-  argument the first step (/tld-setup) discovers the next ticket. This is the Claude pipeline runner of
-  the dual-runtime workflow: it is ADDITIVE and reads the same per-type config Matt's Codex path will
-  read later. It never invents flow — the config decides which steps run, which agent, and where it
-  pauses. For the fixed, non-configurable leaf flow use /tld-full-auto; for the two-gate version use
-  /tld-partial-auto.
+  Config-driven pipeline runner: reads `pipelines:` from `.tld/campaign.md`, resolves the ticket's
+  type through the cascade (team, project, type), and drives each step's TLD skill in order with
+  retries, pauses and resume. Use when the user says "tld-orchestrate", "run the pipeline", "drive
+  this ticket by config". Optional ticket argument. For the fixed flow use /tld-full-auto.
 ---
 
 # TLD Orchestrate — the config-driven pipeline runner

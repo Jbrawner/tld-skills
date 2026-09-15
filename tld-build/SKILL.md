@@ -1,7 +1,8 @@
 ---
 name: tld-build
 description: |
-  Implement the functionality for the current TLD ticket (green phase). Use this skill whenever the user says "tld-build", "tld build", "build it", "implement the ticket", or wants to write the actual implementation code to make failing tests pass. This is the green phase — tests already exist and are failing, and you write the code to make them pass. Always use after /tld-write-tests. Does NOT commit.
+  Green phase: implement the current TLD ticket so the failing tests pass. Use when the user says
+  "tld-build", "build it", "implement the ticket". Runs after /tld-write-tests. Does NOT commit.
 ---
 
 # TLD Build

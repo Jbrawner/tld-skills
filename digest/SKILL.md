@@ -1,11 +1,9 @@
 ---
 name: digest
 description: |
-  Collapse a wall of text into a scannable table + one recommendation + short reasoning, then stop and
-  wait for the user's answer. Use this skill whenever the user says "digest", "digest this", "table it",
-  "tableize", "put it in a table", "make it digestible", "give me a table", "distill this", "tl;dr this",
-  "too long", "wall of text", or reacts to a long prose answer by asking for it shorter / in a table.
-  Also trigger proactively is NOT this skill's job — but when invoked, always produce the table-first shape below.
+  Collapse a wall of text into a table, one recommendation and short reasoning, then stop for the
+  user's answer. Use when the user says "digest", "table it", "tableize", "make it digestible",
+  "tl;dr this", "too long", "wall of text", or asks for a long answer shorter or in a table.
 ---
 
 # Digest
