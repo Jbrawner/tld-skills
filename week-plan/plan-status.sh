@@ -9,13 +9,15 @@
 # and uses Jira's three status categories (To Do, In Progress, Done), which every
 # Jira project has, instead of any project's own status names.
 #
-# Usage:  plan-status.sh              the newest docs/plans/*-week.md in the current repo
+# Usage:  plan-status.sh              the newest *-week.md under docs/plans/ in the current repo
+#                                    (any depth, symlinked folders followed: a repo may keep
+#                                    the week files in an untracked docs/plans/weeks/)
 #         plan-status.sh <file.md>    a specific plan file
 # Needs:  acli (signed in) and jq, run from inside the repo.
 set -euo pipefail
 
 REPO="$(git rev-parse --show-toplevel)"
-PLAN="${1:-$(ls "$REPO"/docs/plans/*-week.md | sort | tail -n 1)}"
+PLAN="${1:-$(find -L "$REPO/docs/plans" -name "*-week.md" | sort | tail -n 1)}"
 WORK="$(mktemp -d)"
 echo "Plan: ${PLAN#"$REPO"/}"
 
