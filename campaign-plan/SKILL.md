@@ -1,12 +1,10 @@
 ---
 name: campaign-plan
 description: |
-  Full planning flow — walk scope → phases (milestones) → tickets, and create everything in
-  Linear with properly formatted `## Order` sections. Use this skill whenever the user says
-  "campaign-plan", "campaign plan", "plan the project", "new project from scratch", "scaffold
-  the tracker", or needs to set up a tracker project end to end. Writes to the tracker only — does
-  NOT touch `.tld/campaign.md`. For a single milestone without the full flow, use
-  /milestone-create. For existing milestones missing Order sections, use /milestone-sync.
+  Full planning flow: scope, phases (milestones) and tickets, all created in Linear with `## Order`
+  sections. Use when the user says "campaign-plan", "plan the project", "new project from scratch",
+  "scaffold the tracker". Writes to the tracker only, never `.tld/campaign.md`. One milestone:
+  /milestone-create. Missing Order sections: /milestone-sync.
 ---
 
 # Campaign Plan

@@ -1,19 +1,10 @@
 ---
 name: test-audit
 description: |
-  Recurring check for tests that cannot fail and tests that never run, for any JavaScript or
-  TypeScript project. Runs a deterministic read-only sweep over every test file and reports the
-  ones that pass regardless of what the product does: bodies with no assertion, bodies where every
-  assertion sits inside a conditional guard, empty wait callbacks, tautologies, negative-path tests
-  whose only assertion is that no error came back, assertions on a component's source text rather
-  than its rendered output, test files no runner collects, and CI test jobs switched off with a
-  constant-false condition. Separates NEW deviations from ones already tracked by a ticket, and
-  files a tracker ticket per confirmed new finding. Use whenever the user says "test-audit", "test
-  audit", "audit the tests", "check the test suite", "which tests cannot fail", "are our tests
-  real", "do the tests actually test anything", or wants the recurring test-suite health sweep.
-  Complements /tld-audit rather than repeating it: tld-audit reads the current diff, this reads the
-  whole suite. Read-only on code and tests; the only writes are tracker tickets and this audit's
-  own baseline.
+  Recurring check for tests that cannot fail or never run, for JS and TS projects: no assertion,
+  assertions behind conditionals, tautologies, uncollected test files, CI test jobs switched off.
+  Files a ticket per confirmed new finding. Use when the user says "test-audit", "audit the tests",
+  "which tests cannot fail", "are our tests real". Read-only; writes only tickets and its baseline.
 ---
 
 # Test Audit

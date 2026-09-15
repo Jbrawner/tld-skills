@@ -1,16 +1,11 @@
 ---
 name: docs-drift-audit
 description: |
-  Recurring documentation-versus-code drift check for any project. Sweeps a configured set of
-  documents, which may live outside the repository, and reports where they disagree with the code:
-  file paths and links that no longer resolve, stated counts and version numbers that the code
-  contradicts, retired routes and product names still being told to readers, and docs whose subject
-  matter has moved on without them. Separates NEW deviations from ones already tracked by a ticket,
-  and files a tracker ticket per confirmed new finding. Use whenever the user says "docs-drift-audit",
-  "docs drift", "doc audit", "check the docs", "are the docs still true", "audit the documentation",
-  or wants the recurring documentation-accuracy sweep. Complements /tld-audit rather than repeating
-  it: tld-audit reads the current diff, this reads what the documentation claims. Read-only on code,
-  data, and the documents themselves; the only writes are tracker tickets and this audit's own baseline.
+  Recurring documentation-versus-code drift check: broken paths and links, counts and versions the
+  code contradicts, retired routes still documented. Files a ticket per confirmed new finding,
+  skipping ones already ticketed. Use when the user says "docs-drift-audit", "docs drift", "doc
+  audit", "are the docs still true". Read-only on code and docs; writes only tickets and its own
+  baseline.
 ---
 
 # Docs Drift Audit

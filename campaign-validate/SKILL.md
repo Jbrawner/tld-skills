@@ -1,15 +1,10 @@
 ---
 name: campaign-validate
 description: |
-  Schema-only validator for this repo's `.tld/campaign.md`. Checks the required four-section
-  structure and required fields, accepts the optional v0.2 sections (`Pipelines`, `Allowed
-  statuses`) when present, and rejects genuinely unknown sections — all without reaching out to
-  Linear or any other external system. Canonical schema: docs/CAMPAIGN_SCHEMA.md. Use this
-  skill whenever the user says "campaign-validate", "campaign validate", "validate schema",
-  "check the campaign file offline", or wants to confirm the local config parses correctly
-  without paying for a tracker round-trip. Read-only — never writes to disk, never modifies
-  Linear. For the connectivity check (team / project / labels reachable in Linear), use
-  /campaign-test instead.
+  Schema-only, offline validator for `.tld/campaign.md`: required sections and fields, optional v0.2
+  sections, rejects unknown sections. Use when the user says "campaign-validate", "validate schema",
+  "check the campaign file offline". Read-only, no tracker calls; for connectivity use
+  /campaign-test.
 ---
 
 # Campaign Validate

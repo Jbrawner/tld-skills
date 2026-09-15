@@ -1,11 +1,10 @@
 ---
 name: tld-ticket
 description: |
-  Create standardized tracker tickets that the TLD pipeline can consume cleanly. Supports feature, bug, QA, and
-  polish ticket types. Each type has a template with the exact fields the TLD skills need (AC, files, pattern refs,
-  test command). Use this skill whenever the user says "tld-ticket", "create a ticket", "new ticket", "file a bug",
-  "add a ticket for", or wants to create a ticket that will flow through the TLD pipeline. Also use when
-  the user describes work that should be tracked but hasn't been ticketed yet.
+  Create standardized tracker tickets the TLD pipeline can consume: feature, bug, QA and polish
+  templates with the fields the skills need (AC, files, pattern refs, test command). Use when the
+  user says "tld-ticket", "create a ticket", "new ticket", "file a bug", "add a ticket for", or
+  describes work that should be tracked but isn't.
 ---
 
 # TLD Ticket

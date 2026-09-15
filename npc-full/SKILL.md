@@ -1,7 +1,10 @@
 ---
 name: npc-full
 description: |
-  NPC ("no preview check") — full uninterrupted flow for content/doc tickets that skip testing entirely. Use this skill whenever the user says "npc-full", "npc full", "build commit next no stop", or wants to run /tld-build → commit → /tld-next end-to-end with no review pause, skipping /tld-run-test. Designed for doc-only or content tickets where the campaign test command is "skip" and you trust the build enough to land it without a manual diff check. No stop gap between commit and /tld-next — only a single hard stop at the very end before the next /tld-setup.
+  No-preview-check flow for content and doc tickets whose campaign test command is "skip":
+  /tld-build, commit, /tld-next with no pause until the very end. Use when the user says "npc-full",
+  "build commit next no stop". Skips /tld-run-test by design; for a review pause before the commit
+  use /npc-partial.
 ---
 
 # NPC Full

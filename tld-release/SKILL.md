@@ -1,13 +1,10 @@
 ---
 name: tld-release
 description: |
-  Cut a new tagged release of the tld-skills plugin. Use this skill whenever the user
-  says "tld-release", "release", "cut a release", "ship a release", "publish a version",
-  or wants to wrap the manual procedure in RELEASING.md (bump CHANGELOG, PR the bump,
-  merge, then `gh release create`) into one guided flow with stops at each destructive
-  moment. Optional argument: `patch`, `minor`, `major`, or an explicit version like
-  `v0.2.0`. Refuses to run when the working tree has uncommitted changes or when not on
-  the default branch. Watches the marketplace auto-bump workflow and reports the result.
+  Cut a tagged release of the tld-skills plugin by wrapping RELEASING.md (bump CHANGELOG, PR the
+  bump, merge, `gh release create`) into one guided flow with a stop at each destructive step. Use
+  when the user says "tld-release", "cut a release", "ship a release", "publish a version". Optional
+  argument: patch, minor, major or a version. Refuses on a dirty tree or off the default branch.
 ---
 
 # TLD Release

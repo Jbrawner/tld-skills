@@ -1,15 +1,10 @@
 ---
 name: milestone-sync
 description: |
-  Author `## Order` sections on existing Linear milestones that don't have them yet.
-  Use this skill whenever the user says "milestone-sync", "milestone sync", "sync
-  milestones", "repair order sections", "fix order sections", or when /tld-setup
-  fails because a milestone's description is missing or has a malformed `## Order`
-  section. Writes to tracker milestone descriptions only — does NOT touch
-  `.tld/campaign.md`, does NOT create new milestones or tickets. Idempotent:
-  re-running skips milestones that already have a valid Order section. For creating
-  milestones from scratch use /campaign-plan (full project) or /milestone-create
-  (single phase).
+  Author `## Order` sections on existing Linear milestones that lack them. Use when the user says
+  "milestone-sync", "sync milestones", "repair order sections", or when /tld-setup fails on a
+  missing or malformed Order section. Idempotent; edits milestone descriptions only, creates
+  nothing.
 ---
 
 # Milestone Sync

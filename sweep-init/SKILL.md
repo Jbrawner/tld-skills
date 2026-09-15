@@ -1,15 +1,11 @@
 ---
 name: sweep-init
 description: |
-  Scaffold the recurring-audit setup for a project: pick which of the four sweeps it wants
-  (`/quality-sweep`, `/rls-audit`, `/test-audit`, `/docs-drift-audit`), write each one's baseline into
-  the repo at a path that repo actually commits, generate one thin scheduled-routine wrapper per audit
-  and per declared quality-sweep lens, and propose a schedule that spreads the slots instead of
-  stacking them. Use whenever the user says "sweep-init", "sweep init", "set up the sweeps", "add the
-  audits to this repo", "schedule the audits here", "point the sweeps at another project", or wants
-  the recurring-check family standing up in a repo that does not have it yet. Writes the baseline, the
-  wrappers, and the review folders; registers schedules only after the user approves the proposed
-  slots. Never edits application code and never files a ticket.
+  Scaffold the recurring audits for a repo: pick which of /quality-sweep, /rls-audit, /test-audit
+  and /docs-drift-audit it wants, write each baseline, generate a scheduled-routine wrapper per
+  audit and lens, propose a schedule. Use when the user says "sweep-init", "set up the sweeps", "add
+  the audits to this repo". Registers schedules only after approval; never edits app code or files
+  tickets.
 ---
 
 # Sweep Init

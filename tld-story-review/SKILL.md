@@ -1,16 +1,11 @@
 ---
 name: tld-story-review
 description: |
-  Story closeout rollup — reads every child Sub-task's completion write-up (tld-writeup output) and
-  standardized audit-findings comment (tld-audit output), surfaces open findings and unmet acceptance
-  criteria across the children, and posts ONE idempotent Story rollup comment for humans and the Epic-level
-  review to read. Use this skill whenever the user says "tld-story-review", "story review", "story rollup",
-  "close out the story", "roll up the sub-tasks", or when the configured container pipeline reaches its
-  review step. Read-mostly: it reads child comments and writes exactly one rollup comment. It does NOT run
-  tests, does NOT modify code, and does NOT transition any ticket — tld-gate owns regression and the Story
-  transition. Optional argument: the Story key (`/tld-story-review DROSS-30`); with no argument it resolves
-  the current Story context. This is the Claude container-closeout review of the dual-runtime workflow: it is
-  ADDITIVE and parses the same standardized comments Matt's Codex path writes.
+  Story closeout rollup: reads every child's completion write-up and audit comment, surfaces open
+  findings and unmet acceptance criteria, posts ONE idempotent rollup comment. Use when the user
+  says "tld-story-review", "story review", "story rollup", "close out the story", or when the
+  container pipeline reaches its review step. No tests, no code changes, no transitions. Optional
+  Story key.
 ---
 
 # TLD Story Review

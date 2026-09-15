@@ -1,15 +1,11 @@
 ---
 name: rls-audit
 description: |
-  Recurring row-level-security and SECURITY DEFINER posture check for any Postgres or Supabase project.
-  Runs a deterministic read-only SQL sweep against the LOCAL database and reports deviations: tables that
-  lost RLS, DEFINER functions missing a pinned search_path, write policies missing WITH CHECK, internal-only
-  helpers left executable by anon/authenticated, world-open policies, and unguarded data RPCs. Separates NEW
-  deviations from ones already tracked by a ticket, and files a tracker ticket per confirmed new finding.
-  Use whenever the user says "rls-audit", "rls audit", "check RLS", "run the RLS check", "did we break any
-  RLS", "security posture check", or wants the recurring row-level-security regression sweep. Complements
-  /tld-audit rather than repeating it: tld-audit reads the current diff, this reads the live database.
-  Read-only on code and data; the only writes are tracker tickets and the project's own baseline file.
+  Recurring row-level-security check for Postgres/Supabase, read-only against the LOCAL database:
+  tables without RLS, DEFINER functions without a pinned search_path, write policies without WITH
+  CHECK, unguarded RPCs. Files a ticket per confirmed new finding. Use when the user says
+  "rls-audit", "check RLS", "did we break any RLS", "security posture check". Writes only tickets
+  and the baseline.
 ---
 
 # RLS Audit

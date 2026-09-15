@@ -1,12 +1,11 @@
 ---
 name: release-qa
 description: |
-  Walk every user-facing flow of a product, happy path and failure path, once per role, in
-  the built-in browser against the code a release tag will point at. Reads the project's
-  `docs/release-qa/` contract, diffs the live surfaces against the flow matrix, records a run
-  file, files tickets for real defects, and ends with a release verdict. Never pushes a tag.
-  Use when the user says "release qa", "run the release walk", "qa the release", "walk the
-  flow matrix", or before cutting a production tag.
+  Walk every user-facing flow of a product, happy and failure paths, per role, in the built-in
+  browser against the code a release tag will point at, per the repo's `docs/release-qa/` contract.
+  Records a run file, files tickets for real defects, ends with a verdict. Never pushes a tag. Use
+  when the user says "release qa", "run the release walk", "qa the release", or before cutting a
+  production tag.
 ---
 
 # Release QA

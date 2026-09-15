@@ -1,18 +1,11 @@
 ---
 name: quality-sweep
 description: |
-  Recurring multi-agent quality sweep of a whole codebase, one lens per run, for any project. Each
-  lens is a standing question the sweep asks every week: does this produce wrong output, does it fail
-  silently, is it slow, does it contradict the project's own written rules, is the copy consistent,
-  is it reachable by keyboard, are the dependencies safe, is the backlog honest. Agents find, other
-  agents try to refute, and only what survives is reported. Separates NEW findings from ones already
-  tracked by a ticket and from exceptions a human reviewed and accepted, files a tracker ticket for
-  every confirmed new finding without asking, and writes a dated run record into the repo. Use
-  whenever the user says "quality-sweep", "quality sweep", "run the bug hunt", "run the performance
-  sweep", "sweep the codebase", "weekly code sweep", names one of the lenses, or wants the recurring
-  whole-codebase quality check. Complements /tld-audit rather than repeating it: tld-audit reads the
-  current diff, this reads the whole tree. Read-only on code; the only writes are tracker tickets,
-  the run record, and this run's own findings file.
+  Recurring multi-agent quality sweep of a codebase, one lens per run (bugs, silent failures,
+  performance, contracts, copy, accessibility, dependencies, backlog). Finders find, refuters
+  refute, survivors are filed. Use when the user says "quality-sweep", "run the bug hunt", "sweep
+  the codebase", or names a lens. Read-only on code; writes tickets, the run record and its findings
+  file.
 ---
 
 # Quality Sweep
