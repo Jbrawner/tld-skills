@@ -776,7 +776,7 @@ function main() {
   out.push('');
   if (summary.regression) {
     out.push(`REGRESSION rows name a ticket that is CLOSED. The check still fires, so signed-off work`);
-    out.push(`broke again. Treat these ahead of NEW findings, and route them for human review rather`);
+    out.push(`broke again. Treat these ahead of NEW findings, and route them to Needs Triage rather`);
     out.push(`than filing them as fresh work.`);
     out.push('');
   }

@@ -191,7 +191,7 @@ last month is the same defect another finds this week.
 
 The header also prints a **REGRESSION WATCH** count: `known_open` rows whose ticket the tracker says
 has closed. They no longer suppress anything. If a run detects one of those objects again, that is a
-regression of closed work, so it is filed and landed in human review rather than the ready-for-dev
+regression of closed work, so it is filed and landed in Needs Triage rather than the ready-for-dev
 queue. The engine works this out from the tracker on every run and never edits the baseline, so the
 rows stay in `known_open` on disk and nobody has to remember to move them.
 
@@ -256,7 +256,7 @@ would mean a weekend run sits on a confirmed defect until someone happens to loo
 
 The judgment is in Step 3, not here. File every candidate that survived the refutation pass. A
 confirmed one lands where section 8 of RUN_PROTOCOL.md says. One you could not confirm is filed
-too, marked unconfirmed with what would settle it, and it lands in Human Review: dropping it is how
+too, marked unconfirmed with what would settle it, and it lands in Needs Triage: dropping it is how
 a real defect with circumstantial evidence disappears for good. Never file a row you have not
 triaged, never file a refuted candidate, and never file a KNOWN-OPEN row. A KNOWN-FILE row is filed
 only once Step 3 has read the ticket and established it is a different defect.
