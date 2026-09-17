@@ -168,7 +168,7 @@ Type **1**, **2**, or **3** to proceed.
 
 ### 7. Update CHANGE_LOG.md
 
-Read the `Changelog path` from `.tld/campaign.md`'s Stack section. If the value is blank, skip this step. Otherwise, if the changes are not already committed and the changelog was not updated, add an entry now documenting what changed and the test counts. Projects that use a CI changelog gate will fail without it. (If the work is already committed, do not amend it to add a changelog entry — note the omission for the user instead.)
+Read the `Changelog path` from `.tld/campaign.md`'s Stack section. If the value is blank, skip this step. Otherwise, if the changes are not already committed and the changelog was not updated, add an entry now documenting what changed and the test counts, in the shape the repo's PR doc requires (on a repo that bumps `VERSION` per pull request, that means the bump and a new released section, with `[Unreleased]` left empty). Projects that use a CI changelog gate will fail without it. (If the work is already committed, do not amend it to add a changelog entry — note the omission for the user instead.)
 
 ### 8. Present the landing plan for approval
 
@@ -221,7 +221,7 @@ Type **1**, **2**, or **3** to proceed.
 
 ### >>> MANDATORY APPROVAL GATE — STOP HERE <<<
 
-**HARD STOP.** Do NOT commit, push, or open a PR until the user explicitly approves. Wait for one of:
+**HARD STOP**, unless the pick already happened. If the message that invoked `/tld-pr` was itself a pick of an option naming a PR ("do the PR", "push and PR", a numbered option whose text says PR), the summary above is the gate and you continue straight to step 9 (see STANDARDS.md § Approval keyword set, "A pick is the approval"). Otherwise do NOT commit, push, or open a PR until the user explicitly approves. Wait for one of:
 - Any canonical approval keyword: "approve", "commit", "lgtm", "looks good", "ship it", "go", "proceed", or "1" (see STANDARDS.md § Approval keyword set) → proceed to step 9
 - User describes a problem → suggest `/tld-align` or a manual fix, then re-run `/tld-pr`
 - "2" or "side quest" → invoke `/tld-side-quest`, come back later with `/tld-pr`
@@ -246,9 +246,9 @@ Only after explicit user approval, in this order:
    e. After a successful rebase, **re-run the test command** (from step 6) to confirm the branch still passes on the new base. If tests fail, STOP and report — do not push.
 4. **Move the ticket to the pre-merge status** via `save_issue`. Resolve the status name per [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) § The pre-merge status — never hardcode a name, and never fall back to Done when no pre-merge status exists (leave the ticket In Progress and say so). **Do not set a done-category status here under any circumstance:** this skill stops at an open PR, so no merge has been confirmed.
 5. **Push the feature branch** to its remote (`git push -u origin {branch}`). Never force-push.
-6. **Open the PR** with `gh pr create --base {default} --head {branch} --draft`, title `[TICKET-ID] — [title]`, and a body that summarizes what changed, lists the test results, links the ticket, and notes "TLD verified." Capture the PR URL. **Open it as a draft and do NOT add a CI-trigger label such as `ci:run`.** The branch is already verified locally and this skill stops before merge, so the user adds the label at the moment they are ready to merge — CI then runs once. On a label-gated repo `ci:run` is a switch: left on, it re-runs the full suite on every push, so it must be the last action before merge, never a step here.
+6. **Open the PR ready for review** with `gh pr create --base {default} --head {branch}`, title `[TICKET-ID] — [title]`, and a body that summarizes what changed, lists the test results, links the ticket, and notes "TLD verified." Capture the PR URL. If the repo gates CI on a label (lab-inventory's `ci:run`), add it now: the branch is verified locally and this is the last push, so CI runs once. **Draft is only for work that is not finished**, and this skill runs on finished work. `ci:run` is a switch, not a one-shot: while it is on, every push re-runs the full suite. So if a fix has to follow (a red CI job, a review change), remove the label before that push (`gh pr edit <N> --remove-label ci:run`) and re-add it once the branch is done.
 
-**Do NOT merge the PR.** Merging stays with the user — this skill always stops at an open PR.
+**Do NOT merge the PR.** Merging stays with the user — this skill always stops at an open PR. "Merge" is the user's word for that step; `/tld-autoland` is the only skill that merges.
 
 ### 10. Determine what's next
 
@@ -267,7 +267,7 @@ Runtime state lives in the tracker. From the current ticket's milestone:
 
 - **Commit:** [short-sha] [or "already committed"]
 - **Pushed:** [feature branch] → origin
-- **PR:** [PR URL]  (open — not merged)
+- **PR:** [PR URL]  (ready for review, `ci:run` on where the repo uses it — not merged)
 - **Tracker:** [TICKET-ID] → [pre-merge status]  (not Done — Done is set after the merge)
 - **Closes out:** merge the PR, then run `/tld-dashboard` to see it as ready-to-close, or `/tld-gate [milestoneId]` to mark it Done
 - **Next:** /tld-setup [next-id]   (or /tld-gate [milestoneId] if the milestone just completed)

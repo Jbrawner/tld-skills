@@ -95,6 +95,8 @@ Every gate skill that waits for explicit user approval (`/tld-partial-auto`, `/t
 
 Silence, questions, partial responses, and off-list words are not approval.
 
+**A pick is the approval.** When the message that invoked the skill was itself a pick of an option that names the gated action (a numbered option or a phrase such as "do the PR", "push and PR"), the gate is already satisfied: print the gate summary so the user can see what is about to happen, then continue without waiting. Waiting again asks for the same go twice. The user's global rules say what a picked option authorizes; the skill's gate exists for the case where nothing was picked yet.
+
 ---
 
 ## Canonical paste-blocks
