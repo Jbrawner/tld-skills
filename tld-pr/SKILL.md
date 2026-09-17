@@ -168,7 +168,7 @@ Type **1**, **2**, or **3** to proceed.
 
 ### 7. Update CHANGE_LOG.md
 
-Read the `Changelog path` from `.tld/campaign.md`'s Stack section. If the value is blank, skip this step. Otherwise, if the changes are not already committed and the changelog was not updated, add an entry now documenting what changed and the test counts. Projects that use a CI changelog gate will fail without it. (If the work is already committed, do not amend it to add a changelog entry — note the omission for the user instead.)
+Read the `Changelog path` from `.tld/campaign.md`'s Stack section. If the value is blank, skip this step. Otherwise, if the changes are not already committed and the changelog was not updated, add an entry now documenting what changed and the test counts, in the shape the repo's PR doc requires (on a repo that bumps `VERSION` per pull request, that means the bump and a new released section, with `[Unreleased]` left empty). Projects that use a CI changelog gate will fail without it. (If the work is already committed, do not amend it to add a changelog entry — note the omission for the user instead.)
 
 ### 8. Present the landing plan for approval
 
