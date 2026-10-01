@@ -153,8 +153,10 @@ Rules that do not bend:
 
 ### 6. Write the run file
 
-Copy `docs/release-qa/runs/TEMPLATE.md` to `docs/release-qa/runs/<version>-<short sha>.md`,
-where the version comes from the contract's `Version files`. Fill every section: one result
+Copy `docs/release-qa/runs/TEMPLATE.md` to `docs/release-qa/runs/<version>-<short sha>-local.md`,
+where the version comes from the contract's `Version files`. The last segment names the
+environment walked, and it is always `local` because step 2 refuses any other database; a
+staging or demo walk is written by that environment's own harness. Fill every section: one result
 row per matrix ID in matrix order, the money path block, the console and network block per
 role, and the drift outcome from step 4. Derive the run date now. The run file is never
 edited after the run ends.
