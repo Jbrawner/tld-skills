@@ -34,6 +34,12 @@ Parse the **Project config** table. Every key is required: `Tracker`, `Project k
 `Ticket link`, `Plan folder`, `Dev queue`, `Needs a ruling`, `Build workflow`, `Cut ticket`,
 `Cadence`. If one is missing, stop and name it.
 
+One key is optional: `Week release`, the name of the Jira release (fix version) that holds a
+week's work, with `<monday>` standing for the date in the plan file's name, for example
+`Week of <monday>`. With it, the plan file holds the order and the reasons and the release holds
+which tickets are in the week, and the status script checks the two against each other. Without
+it, the skill behaves exactly as it did before releases existed.
+
 `Tracker` must be Jira for now: the status script uses `acli` and Jira's three status
 categories (To Do, In Progress, Done). On any other tracker stop and output:
 
@@ -45,8 +51,13 @@ categories (To Do, In Progress, Done). On any other tracker stop and output:
    if one was given. It finds the newest week file, takes every linked ticket in the order the
    plan gives, asks the tracker once, and prints one table per section with the live status,
    the counts by category, and "Next up": the first ticket in the first work table that is
-   still in the To Do category.
-2. Show the output as it is: the tables, the counts, the "Next up" line.
+   still in the To Do category. With a `Week release` key it also asks which tickets carry
+   this week's release: every table gains a `Release` column (`yes` or `no`), and a release
+   check follows "Next up" with how many plan tickets carry the release and every ticket in the
+   release that the plan does not link. If the release does not exist yet, the script prints
+   one line naming it and where to create it, and everything else as usual.
+2. Show the output as it is: the tables, the counts, the "Next up" line, and the release check
+   when there is one.
 3. If "Next up" names a ticket, say it and stop. Do not start it: starting a ticket is a
    separate ask, and it runs through the `Build workflow` the contract names.
 
@@ -61,7 +72,9 @@ Drafts, shows, and waits. Runs on the planning day the `Cadence` key names, or w
 2. **Feature focus.** If the current plan's first work table is fully Done, ask for the
    week's one feature focus. If rows remain, the focus carries over and the question is not
    asked.
-3. **Stability picks.** Query the `Dev queue` status ordered by priority:
+3. **Stability picks.** With a `Week release` key, start from every ticket already in next
+   week's release (`fixVersion = "<release>"`) that is not in the draft yet: someone put it in
+   the week on purpose. Then query the `Dev queue` status ordered by priority:
 
    ```bash
    acli jira workitem search --jql 'project = <Project key> AND status = "<Dev queue>" ORDER BY priority DESC, key ASC' --fields key,summary,priority,labels --paginate --json
@@ -86,6 +99,16 @@ Drafts, shows, and waits. Runs on the planning day the `Cadence` key names, or w
    options: approve as is, reorder, change the focus, file the cut ticket. The cut ticket,
    and on a tracked folder the commit and the push, each need the user's explicit word.
    Never open a pull request unless asked.
+8. **Set the release** (only with a `Week release` key, and only after the user approves the
+   draft). Every ticket in the approved work tables, and the cut ticket once filed, that does
+   not carry next week's release yet gets it, through the Jira MCP `editJiraIssue` with
+   `fixVersions: [{"name": "<release>"}]`, one ticket per call (acli has no flag for fix
+   versions). On a carried-over ticket this replaces last week's release, so each ticket sits
+   in the one week it will be built in. Rows in the rules and waiting-on-a-ruling tables never
+   get it. The release must already exist: neither acli nor the Atlassian MCP can create one,
+   so if it is missing, name the menu path (Jira, Releases, Create version, with the Monday as
+   start date and the cut day as release date) and wait for the user. Then run the status
+   script on the new plan to show the release check.
 
 ## What this skill does NOT do
 
@@ -93,4 +116,6 @@ Drafts, shows, and waits. Runs on the planning day the `Cadence` key names, or w
 - It never starts a ticket. Ticketed work runs through the `Build workflow` the contract names.
 - It never commits, pushes, opens a PR, or files the cut ticket on its own.
 - It never drops an unfinished ticket from the carry-over.
+- It never creates a Jira release and never marks one released. Creating next week's release
+  and releasing the finished one on the cut day are the user's steps in Jira.
 - It does not support Linear yet. The status script is `acli` and Jira status categories.
