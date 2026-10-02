@@ -11,6 +11,8 @@ The skills support two trackers, selected by the `Issue tracker` field in `.tld/
 
 `/week-plan` is Jira only. Its status script (`week-plan/plan-status.sh`) calls `acli` and reads Jira's three status categories, and the contract it loads from a repo's `docs/plans/README.md` names the tracker; on any value but `Jira` the skill stops. A Linear path needs an adapter for the status read before the skill can take it.
 
+`/attach-mockups` is Jira only. It reads the ticket tree through `acli` and uploads through Jira's REST API with the user's own API token, and the token lookup uses the macOS Keychain (`JIRA_API_TOKEN` works anywhere). A Linear path would need its own upload script.
+
 `/campaign-init` and `/campaign-edit` also accept **GitHub Issues** and **Other**, but those remain unimplemented — the schema accepting a tracker name is not the same thing as the framework supporting it. If you pick one of those, `/campaign-init` writes the file and prints an advisory, but the pipeline has no path for them until an adapter lands. See [docs/ADAPTERS.md](docs/ADAPTERS.md) for the full interface contract every adapter must satisfy.
 
 Jira carries its own caveats that Linear does not — order comes from Jira's native rank rather than a `## Order` text list, labels are free-text with no create step or typo protection, and the five Linear status classes collapse into three Jira status categories. These are detailed in [docs/JIRA.md](docs/JIRA.md). Two instance-specific behaviors (rank ordering through the connector, and how a Story parents its Task/Bug tickets) must be confirmed per Jira project; see the Phase 1 spike notes in that file.
