@@ -2,7 +2,8 @@
 name: test-audit
 description: |
   Recurring check for tests that cannot fail or never run, for JS and TS projects: no assertion,
-  assertions behind conditionals, tautologies, uncollected test files, CI test jobs switched off.
+  assertions behind conditionals, tautologies, uncollected test files, CI test jobs switched off,
+  a screen every outcome shows, a pinned external URL, a flow never followed back into the app.
   Files a ticket per confirmed new finding. Use when the user says "test-audit", "audit the tests",
   "which tests cannot fail", "are our tests real". Read-only; writes only tickets and its baseline.
 ---
@@ -108,6 +109,53 @@ either.
 `config.runners`; `runner-job-disabled` needs `config.ci_workflow_dir`. A skipped check is printed
 under a heading that says it is not a pass, and it must be reported that way. Never let an
 unconfigured check read as a clean result.
+
+### The reading checks: what the engine cannot see from one file
+
+The engine reads one test file at a time. Three ways a green test sits on a broken flow only show
+when the test is read beside the app code it exercises, so after the engine, run these by reading,
+every run. They come from one day: on 2026-10-01 forgot password and the upgrade button were both
+broken in a product whose every test passed, and this audit reported neither.
+
+| check | severity | what it found |
+| --- | --- | --- |
+| `outcome-blind-assertion` | HIGH | The only assertion on a flow's result is a screen, message or toast the code shows for every outcome: success, failure and unknown user alike |
+| `external-url-pinned` | MEDIUM | Asserts an absolute URL whose host is not one the project lists as its own, so the test stays green after that page moves or dies |
+| `exit-not-followed` | MEDIUM | Tests a flow that leaves the app and never follows the link back in to assert the page it lands on |
+
+**`outcome-blind-assertion`.** For each test of a flow with more than one outcome (sign-in, sign-up,
+password reset, invite, checkout, any form submit), take what it asserts about the result: the text,
+the element, the toast, the route. Find the code that renders it and read the branch around it. If
+it renders whether the request succeeded, failed, or named a user who does not exist, the assertion
+cannot fail when the flow breaks, and a test with no other assertion on the outcome is a finding.
+The usual case is deliberate: a reset screen that says "Check your email" for every address, so the
+form does not reveal which accounts exist. The screen is right and the test is what is wrong. The
+repair asserts something only success produces: the request the code sent, the email that arrived,
+the row that changed.
+
+**`external-url-pinned`.** Flag every assertion on an absolute `http` or `https` URL, in an `href`, a
+`toBe`, `toEqual` or `toHaveAttribute` value, a redirect target or a `window.location` assignment,
+whose host is not one the project lists as its own. The project's own hosts are the ones its own
+configuration names, the site and API URLs in its env example and deploy config, plus `localhost`.
+A test that asserts a third-party URL proves only that the code still holds the string: when the
+page behind it moves or dies, the test stays green and the link ships broken. The repair asserts the
+link against the project's own config or route. Whether a third-party page is still alive is a link
+check's question, not a unit test's.
+
+**`exit-not-followed`.** A flow leaves the app when it hands the user to an email or another site:
+password reset, invite, email confirmation, magic link, checkout, billing portal, any button in an
+email. Flag a test of one that stops at the exit, the email sent or the redirect issued, and never
+follows the link back in to assert the page it lands on. The landing is where these flows break: a
+redirect URL the auth provider does not allow, a token the callback route cannot read, a return path
+that 404s. It is benign when another test follows the same link in and asserts the landing page,
+and the accepted reason names that test.
+
+Report each in the engine's row shape, `SEVERITY | check | object | status | detail`, with
+`file::test title` as the object, and take it through Steps 3 and 4 like any engine row. The engine
+does not print these rows, so match them against the baseline and the findings files yourself: an
+`accepted` row for the same check and object suppresses it and counts it, and a `known_open` row
+makes it `KNOWN-OPEN KEY`. A flow nobody read produces no row, so Step 5 names the flows these
+checks did not reach.
 
 ## Step 3 — Triage every NEW row
 
@@ -255,8 +303,8 @@ open, or regression-of). If nothing is new, say so in one line: "no new tests th
 still tracked under KEY". Name the project and the repo root that was swept.
 
 Then state anything that did not make it: a row left untriaged, a ticket that failed to create, a
-check that reported SKIPPED, a file the engine could not read or could not parse. List each one and
-why. "Here are the findings" must never quietly mean "here are some of the findings", and a report
+check that reported SKIPPED, a file the engine could not read or could not parse, a flow the reading
+checks did not reach. List each one and why. "Here are the findings" must never quietly mean "here are some of the findings", and a report
 that omits something silently is the one failure this whole skill is built to prevent.
 
 Report the suppressed count as a number every time, even when it is uninteresting. A baseline that
