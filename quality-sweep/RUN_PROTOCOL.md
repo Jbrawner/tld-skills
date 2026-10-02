@@ -358,8 +358,9 @@ nothing else.
 - It changes only behaviour that is **already wrong**. Nobody is relying on the current output.
 - It touches **nothing on the approval list** below.
 
-Apply whatever `config.ticket_routing.ready.priority` says. A queue that is ordered by a field is
-blind to a ticket that lands in it without one.
+Apply whatever `config.ticket_routing.ready.priority` says, raised to the finding's priority floor
+(below) when the floor is higher. A queue that is ordered by a field is blind to a ticket that
+lands in it without one.
 
 ### Needs triage
 
@@ -387,12 +388,38 @@ The list is project law and belongs to the project, not to this document. A repo
 `approval_list` has simply not written its decisions down yet, which is worth saying in your report:
 it means every judgement call in this section rests on your reading alone.
 
+### Priority: severity sets the floor
+
+A finding's severity sets the lowest priority its ticket may carry, whichever landing status it
+gets. You may file it higher. You may never file it lower.
+
+| The finding | Lowest priority |
+| --- | --- |
+| Breaks account recovery, money, or a link a user receives (reset, invite, confirmation, checkout, an email or share link), at any severity | High |
+| S1 on the lens's severity scale | High |
+| S2 | Medium |
+| S3 | Low |
+
+The names are Jira's. Linear's rungs carry the same names, with Urgent above High.
+
+**Lowering a finding's severity, and with it the floor, needs evidence.** "Production has it too"
+and "already known" are claims, not evidence. If either is the reason, cite what proves it in the
+ticket body: an open ticket's key, a test, or a check recorded in the run record with the command
+and its output. Without that, the severity you first gave the finding stands, and so does its
+floor. Even a proven "production has it too" is no reason to file lower: a defect that is already
+live reaches users today, so it is more urgent, not less.
+
+This rule exists because of LAB-2256. The sweep called the lab-inventory fallback host serious,
+then filed it at Low on an unchecked note that production had it too. A month later, on
+2026-10-01, that host broke forgot password and the upgrade button.
+
 ### Say which, and why
 
-In the ticket body, one line under the provenance block:
+In the ticket body, one line under the provenance block for the landing, and one for the priority:
 
     Landing: <review status> — regression of <key>, and the fix spans two trees.
     Landing: <ready status> — confirmed at <file>:<line>, single-line guard.
+    Priority: High — floor for a reset link a user receives; S2 on this lens's scale.
 
 And in your final report, give the split: how many went to each, and name every Needs Triage ticket
 with its one-line reason. That list is the most useful thing the run produces for a human, because
