@@ -5,9 +5,10 @@ description: |
   message, each fenced with its own leading slash command. Use when the user says
   "tld-goal-handoff", "goal handoff", "prep the handoff", "give me the compact and goal". By default
   the goal drives every remaining Story and lands each through its own PR gate (gate, full suite,
-  push, PR, CI, squash-merge), carrying that push/PR/merge authorization in its own text; Story keys
-  narrow the scope, a Sub-task key composes a single-ticket goal with no PR gate. Verifies gh can
-  actually merge before composing. Prints text only: no hook, no auto-fire, no clipboard.
+  push, PR, CI, squash-merge), carrying that push/PR/merge authorization in its own text. Keys
+  narrow the scope and are grouped by parent Story, so a Story's sub-tasks share one PR and only a
+  standalone ticket gets its own; a lone Sub-task key composes a single-ticket goal with no PR gate.
+  Verifies gh can actually merge before composing. Prints text only: no hook, no auto-fire, no clipboard.
 ---
 
 # TLD Goal Handoff — print the `/compact` and `/goal` prompts for manual paste
@@ -15,6 +16,8 @@ description: |
 Your job: produce TWO ready-to-paste text blocks and nothing else — a **`/compact`** message and a **`/goal`** message — so the user pastes them by hand. You do NOT run `/compact` or `/goal`, you do NOT use a hook, you do NOT touch the clipboard, you do NOT inject keystrokes. Compose and print, then stop.
 
 The default composed goal is a **multi-Story run**: every remaining Story in rank order, each one landed through its own **PR gate at the Story mark** — gate, full suite, push, PR, CI green, squash-merge — so the next Story starts from the freshly-updated default branch. The goal text carries the explicit authorization for those pushes, PRs, and merges; nothing else in the TLD family self-merges except `/tld-autoland`, and this composed goal borrows its discipline (merge only on positively-confirmed green, confirm `MERGED` state, stop on unknown).
+
+**A Story always lands as one PR.** Its Sub-tasks are built one at a time, committed onto the Story's one branch, and the PR opens at the Story mark. A composed goal never gives a Sub-task its own branch or its own PR, whatever shape the argument came in. Only a **standalone ticket** (a Bug or Task with no parent Story) gets a PR of its own.
 
 **The order the user will use them:** copy block 1, paste, send; wait for the compaction to fully finish; then copy block 2, paste, send.
 
@@ -35,17 +38,23 @@ For Jira: resolve cloudId via `getAccessibleAtlassianResources`; project key = `
 
 Resolve the argument into a scope:
 - **No argument** → **multi-Story handoff** (the default): ALL Stories in the project that still have at least one unfinished Sub-task, by rank ascending.
-- **One or more Story keys** (space- or comma-separated, e.g. `LAB-397 LAB-410`) → multi-Story handoff over exactly those Stories, in the order given. A listed Story with no unfinished Sub-task is dropped with a note.
-- **A Sub-task key** (e.g. `LAB-398`) → **single-ticket handoff**: the §4b goal builds just that ticket, with no PR gate.
+- **One Sub-task key and nothing else** (e.g. `LAB-398`) → **single-ticket handoff**: the §4b goal builds just that ticket, with no PR gate.
+- **Any other list of keys** (space- or comma-separated; Stories, Sub-tasks and standalone tickets in any mix, e.g. `LAB-397 LAB-412 LAB-415 LAB-430`) → multi-Story handoff. Look each key up (`getJiraIssue`: issuetype, parent, status, subtasks) and **group the list by parent Story before composing anything**:
+  - A **Sub-task** key stands for its parent Story.
+  - A **Story** key (an issue with Sub-tasks) is a Story. A Story listed together with its own Sub-tasks counts once, as the Story.
+  - Any other key (a Bug, a Task, or a Story with no Sub-tasks at all) is a **standalone ticket**: built alone, with its own PR.
+  - Each Story or standalone ticket takes the run position of its first listed key.
+  - A Story is built whole: all its unfinished Sub-tasks by rank, not only the listed ones, because it lands as one PR. When that adds Sub-tasks the user did not list, name them in a note under the printed blocks; to build only some of a Story's Sub-tasks, hand off each one alone (§4b), and the Story's PR waits for its last.
+  - A listed Story with no unfinished Sub-task is dropped with a note.
 
 **Merge-lane guard (multi-Story only):** if the campaign has no runnable test command at all (every Test Commands field empty or the literal `skip`), STOP: "This campaign has no runnable test command — an auto-merging goal needs a test signal to gate merges on (same reason /tld-autoland aborts skip-campaigns). Hand off a single ticket instead, or set a test command via /campaign-edit." Individual `no-tests`-labeled tickets inside a tested campaign are fine — they ride `/tld-full-auto`'s label-gated path and the Story still merges on the campaign's real suite + CI.
 
 ### 2. Gather what the `/goal` message needs
-- **Stories:** for each in-scope Story, a condensed 3–5-word title and a branch slug (title lowercased, non-alphanumerics collapsed to `-`, ~30 chars). Do **NOT** enumerate their Sub-tasks in the goal — the runner resolves each Story's unfinished Sub-tasks from Jira by rank at runtime. That runtime resolution is what keeps block 2 flat no matter how many Stories are in the run.
+- **Stories:** for each in-scope Story, a condensed 3–5-word title and a branch slug (title lowercased, non-alphanumerics collapsed to `-`, ~30 chars). Do **NOT** enumerate their Sub-tasks in the goal — the runner resolves each Story's unfinished Sub-tasks from Jira by rank at runtime. That runtime resolution is what keeps block 2 flat no matter how many Stories are in the run. A standalone ticket gets the same title and slug and runs on a branch of the same shape.
 - **Branch model:** resolve the default branch (`origin/HEAD` → otherwise `main`, then `master`) as `{default}`. Each Story runs on its own branch `story/{KEY}-{slug}` cut from `origin/{default}` (works in worktrees; never checkout `{default}` itself). Check the current branch: if it is not `{default}` AND carries in-flight work (uncommitted changes, or commits ahead of `origin/{default}`), bake the braced Story-1 clause so the first Story continues on it; if that in-flight work is clearly not the first Story's, warn under the printed blocks and suggest `/tld-recenter`.
 - **Landing preflight (multi-Story only):** the composed goal merges, so prove the lane works now — `gh auth status` succeeds, and `gh repo view --json squashMergeAllowed,viewerPermission` shows squash allowed and permission ≥ write. Any failure → STOP with the exact remediation; do not compose a goal that dies at its first Story mark.
 - **Commit:** the campaign Commit `Pattern`; the `Co-Authored-By` trailer from Stack → Co-author (omit if blank).
-- **Jira transitions:** `getTransitionsForJiraIssue` on one unfinished Sub-task → capture the **cloudId**, the **done** transition id (target category `done`, NOT cancel), and the **pre-merge** transition id (target is the project's pre-merge status per [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) — an `indeterminate`-category status named `In PR`/`In Review`/similar). Then the same call on one in-scope Story — Story workflows can differ, so capture the Story's done-transition **id** separately. Bake real values in. If the project has no pre-merge status, omit that clause from the landing step and the ticket simply stays In Progress until its Story merges — never substitute the Done transition.
+- **Jira transitions:** `getTransitionsForJiraIssue` on one unfinished Sub-task → capture the **cloudId**, the **done** transition id (target category `done`, NOT cancel), and the **pre-merge** transition id (target is the project's pre-merge status per [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) — an `indeterminate`-category status named `In PR`/`In Review`/similar). Then the same call on one in-scope Story — Story workflows can differ, so capture the Story's done-transition **id** separately, and when the run has a standalone ticket, the same call on one of them for its done-transition id. Bake real values in. If the project has no pre-merge status, omit that clause from the landing step and the ticket simply stays In Progress until its Story merges — never substitute the Done transition.
 - **Local DB:** campaign Stack → Database. If `.tld/goal-notes.md` exists, read it for env quirks and any prod-DB-to-never-touch; fold into Safety.
 
 ### 3. Compose Block 1 — the `/compact` message
@@ -54,10 +63,10 @@ One line: the literal `/compact ` token, then plain prose, no other slash token.
 `/compact Keep the campaign config, the ordered Story list for this run with a one-line status for each, and the outcome of any Story or ticket already finished. Drop verbose tool output, diffs, and resolved debugging so the run starts from a clean slate.`
 
 ### 4. Compose Block 2 — the multi-Story `/goal` message
-Fill real values. The `/goal ` prefix on the first line is **part of block 2**, not a label you put above it. Render `{STORY-LIST}` as `KEY (condensed title)` entries in run order — e.g. `AS-30 (autoland hardening), AS-40 (dashboard filters)`. Braces below mark conditional clauses: include the Story-1 clause only when step 2 detected in-flight work, the trailer clause only when Co-author is non-blank, the prod-ref clause only when goal-notes names one. "Omit" means delete the clause, not leave it braced.
+Fill real values. The `/goal ` prefix on the first line is **part of block 2**, not a label you put above it. Render `{STORY-LIST}` as `KEY (condensed title)` entries in run order, and a standalone ticket as `KEY (ticket: condensed title)` — e.g. `AS-30 (autoland hardening), AS-44 (ticket: fix typo), AS-40 (dashboard filters)`. Braces below mark conditional clauses: include the Story-1 clause only when step 2 detected in-flight work, the standalone clause only when the list has a standalone ticket, the trailer clause only when Co-author is non-blank, the prod-ref clause only when goal-notes names one. "Omit" means delete the clause, not leave it braced.
 
 ```
-/goal Drive the remaining Stories through the TLD flow, one at a time, in this order: {STORY-LIST}. Start each Story on its own branch story/<KEY>-<slug> cut from origin/{default} (fetch first){; Story 1 only: continue on {branch}, which already carries its work}. Each Story ends at its PR gate: gate, full suite, push, PR, CI green, squash-merge — so the next Story starts from the updated {default}.
+/goal Drive the remaining Stories through the TLD flow, one at a time, in this order: {STORY-LIST}. Start each Story on its own branch story/<KEY>-<slug> cut from origin/{default} (fetch first){; Story 1 only: continue on {branch}, which already carries its work}. Each Story ends at its PR gate: gate, full suite, push, PR, CI green, squash-merge — so the next Story starts from the updated {default}.{ A (ticket) entry is built alone; its Story mark skips /tld-gate and marks only it Done (transition {ticket-done-id}).}
 
 METHOD — non-negotiable:
 - Per Story, resolve its unfinished Sub-tasks from Jira by rank, then drive EVERY ticket by invoking /tld-full-auto <ticket> via the Skill tool. Do NOT inline, reproduce, or shortcut its phases yourself.
@@ -108,7 +117,7 @@ Report: built/committed status, hash, tests. STOP.
 ```
 
 ### 5. Self-check before printing
-Verify all five, and fix any that fail before you print:
+Verify all six, and fix any that fail before you print:
 
 | Check | Requirement |
 | --- | --- |
@@ -116,6 +125,7 @@ Verify all five, and fix any that fail before you print:
 | Block 2 opening | Starts with the exact characters `/goal ` — if not, prepend them |
 | Slash tokens | Block 1 has exactly one `/word` (the leading `/compact`); block 2's `/goal` is its first token |
 | Fences | Both fences untagged — no `bash`, no `text`, no language hint |
+| One PR per Story | Block 2 opens a PR only at a Story mark: one per Story, one per standalone ticket, never one per Sub-task. Every listed Sub-task sits inside its parent Story's entry (step 1 grouping) |
 | **Block 2 length** | **Measured under 4000 characters.** Trim and re-measure until it is. Do not print an unmeasured block, and do not print a 4000+ block with a note admitting it is over |
 
 **How to measure — actually run it.** Write the fully composed block 2 to a scratch file and count it:
@@ -126,12 +136,13 @@ wc -m /path/to/scratch/goal-block.txt
 
 An eyeballed or recalled count is not a measurement. Estimating the length and printing anyway is precisely how a 4,300-character block ships with "4,300 characters" written next to it.
 
-**Trim order when it is over** — the multi-Story template's fixed scaffolding measures ~3,680 characters in a typical run (~3,890 with every braced clause present) before a single Story is listed, leaving roughly 310 characters for the Story list and the substituted values at ~25–35 characters per Story entry. That is tight: a run of more than ~10 Stories will usually need the split lever below rather than a trim. When that is not enough, trim where the characters actually are, top of this list first:
+**Trim order when it is over** — the multi-Story template's fixed scaffolding measures ~3,680 characters in a typical run (~4,010 with every braced clause present, the standalone one included, which is already over the cap) before a single Story is listed, leaving roughly 310 characters for the Story list and the substituted values at ~25–35 characters per Story entry. That is tight: a run of more than ~10 Stories will usually need the split lever below rather than a trim. When that is not enough, trim where the characters actually are, top of this list first:
 
 | Lever | Typical saving | Notes |
 | --- | --- | --- |
 | Drop braced conditional clauses that do not apply | up to ~200 | "Omit" means delete the clause, not leave it braced |
 | Condense Story titles to 3–4 words each | ~10–20 per Story | Titles are context, not contract — the runner reads the real Story from Jira |
+| Hand off the standalone tickets as a run of their own | ~120 plus their entries | Drops the standalone clause from the Stories' block; the standalone run carries it with a short list, and each ticket still gets its own PR |
 | Split the run | unbounded | Hand back TWO handoffs: the first half of the Stories now, the rest after — each Story still merges at its own mark, so nothing is lost by splitting |
 
 **Never trim:** the METHOD "STOP and report" bullet, the METHOD terminal-stop bullet (without it the run parks after every ticket, which is the whole reason it is there), the Story-mark authorization line, the "fix the code, never the gate" CI rule, the park-and-dependency-judgment rule in Story-mark step 5, the Safety bullets, or the commit-suffix rules. The single-ticket variant renders far under the cap, but the measurement rule applies to it all the same.
