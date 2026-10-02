@@ -130,6 +130,7 @@ Marks:
 | Mark | Meaning |
 |---|---|
 | ✅ | Done, and the expected outcome was observed |
+| ❌ | Done, and the outcome was wrong. A defect: it fails its area and gets a ticket |
 | ◑ | Rendered or visible, but the action itself was not run |
 | ✗ | Not tested |
 | 🔒 | Refused or hidden, as the matrix expects. The pass mark for a `refuse` cell |
@@ -139,6 +140,16 @@ Rules that do not bend:
 
 - A `refuse` cell that turned out to be allowed is a defect, and the ticket for it is at least
   the tracker's second-highest priority. Say so in the run file the moment you see it.
+- A ⏸️ or known row in account recovery (password reset, magic link, email confirmation),
+  invites or the money path fails its area unless the row names a ticket at High priority or
+  above. A known row is a defect that already has a ticket. Look the priority up in the tracker
+  when you write the verdict: a ticket below High, or no ticket at all, fails the area. These are
+  the flows a user cannot route around when they break. On 2026-10-01 lab-inventory's reset-link
+  rows were ⏸️ on every rung while the reset flow was broken, and the walk still passed.
+- A link or redirect whose final page is on a host the project does not run is ❌, not ◑, even
+  when that page renders: the flow has left the product. The project runs the app under test and
+  its own deployed domains. The payment page on the money path is the one expected outside host,
+  and only for the provider the contract's `Money path` key names.
 - Save real data only on rows marked `(write)`. Open every other dialog to prove it renders
   and binds, then close it. Note or undo what a `(write)` row saved.
 - The money path stops at the payment page. Confirm the test-mode badge. Never enter a card.
@@ -161,6 +172,9 @@ row per matrix ID in matrix order, the money path block, the console and network
 role, and the drift outcome from step 4. Derive the run date now. The run file is never
 edited after the run ends.
 
+The run file's What's next section lists every ⏸️ row, by matrix ID and role, with what would
+let it run, as work still to do. A paused row is never counted as a pass, there or in any total.
+
 ### 7. Tickets
 
 For every real defect, draft one ticket: the matrix row and role, expected versus observed,
@@ -175,7 +189,8 @@ Tickets table and in the matching Results row.
 Print, in this order:
 
 1. The pass/fail table, one row per matrix area, with the ticket links that explain any
-   fail.
+   fail. An area fails on any ❌ row, and account recovery, invites and money also fail on any
+   ⏸️ or known row without a High ticket (step 5).
 2. The money path line: HTTP status, session id, what the payment page showed.
 3. The release-readiness line: "No blockers" or "Blocked by <tickets>".
 4. The words "Tag not pushed."
