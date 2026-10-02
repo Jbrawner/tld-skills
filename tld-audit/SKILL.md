@@ -5,14 +5,15 @@ description: |
   wrong tier, missing auth checks, RLS gaps, exposed secrets, validation holes. Use when the user
   says "tld-audit", "audit", "security check", "check my work", "anything I'm missing", or wants a
   safety review before committing. Best after /tld-build and before /tld-run-test. Read-only for
-  code; records low and medium non-blockers as one idempotent tracker comment.
+  code; records low and medium non-blockers as one idempotent tracker comment and files each real
+  out-of-scope finding as its own ticket.
 ---
 
 # TLD Audit
 
 You are running a security and architecture review of the current ticket's changes. Your job is to catch the mistakes the developer isn't thinking about: logic that belongs on a different layer, missing protections, data exposure risks, and architectural smells.
 
-**This skill is read-only with respect to code. It reports findings and records the non-blocker ones as a standardized tracker comment, but does NOT modify any code.**
+**This skill is read-only with respect to code. It reports findings, records the non-blocker ones as a standardized tracker comment, and files each real out-of-scope finding as its own ticket (§3.6), but does NOT modify any code.**
 
 ## When to use this
 
@@ -217,6 +218,16 @@ Summary: <N> findings · <O> open · <R> resolved
 **Parsing contract for `tld-story-review` (DROSS-24).** A reader aggregates a child's non-blockers by: (1) finding the comment whose first line is the marker; (2) reading the `Summary:` line for the Open/Resolved counts; (3) optionally parsing the table rows for per-finding detail. The marker line and the `Summary:` line are the stable contract; treat the table as detail.
 
 > **Template location.** This shape is carried inline here for now. Phase 4 extracts the standardized templates to a shared `share/templates/` file both agents read (in workflow-tools); when the shared audit-findings template lands, switch to reading it so the Codex and Claude copies cannot drift.
+
+### 3.6 File every real out-of-scope finding as its own ticket
+
+A finding is **out of scope** when it is real but fixing it is not this ticket's work: it sits in a file the ticket's "Files to Create/Modify" does not list, or in behaviour its AC does not cover. Such a finding is filed as its own ticket **in this run**, before the §3.5 comment is written, at any severity. Nobody reads an audit comment as a backlog, and a finding left there is a finding nobody files. In lab-inventory an audit comment called the Lovable fallback host "worth its own ticket" and filed nothing; a month later that host broke forgot password and the upgrade button.
+
+1. **De-dup first.** Search the tracker for an open ticket that already names the same location and defect. If one exists, use its key and file nothing.
+2. **File it.** Otherwise create one standalone ticket in the campaign's project, not a Sub-task of the current milestone: it is not this milestone's work. Jira: `createJiraIssue`, type Bug for a defect and Task otherwise, then `createIssueLink` "relates to" the current ticket. Linear: `save_issue` with a related link. Priority follows severity: HIGH → High, MEDIUM → Medium, LOW → Low. Body: the location (`file:line` or area), the finding, the break it allows, the fix, and the line `Found by /tld-audit on <current ticket key>`. Never copy a secret, token or key value into the ticket, even when the finding is that one is exposed: name the `file:line` only. A ticket is read by more people and more integrations than the repo, so pasting the value there spreads the leak it reports.
+3. **Carry the key.** The finding's row in the §3.5 comment ends its summary with `→ <KEY>`, and the §3 report table names the key too. A HIGH finding is not in the comment, so its key goes in the report only.
+
+**No promise without a key.** The phrases "worth its own ticket", "should be ticketed" and "ticket separately", and any wording that means the same, never appear in an audit comment or report without a ticket key next to them. If the tracker refuses the create, say so in the report with the tracker's error, and write `not filed: <error>` in the row instead of the key. Never fall back to the phrase.
 
 ### Numbered shortcut recognition
 
