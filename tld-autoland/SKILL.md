@@ -4,7 +4,8 @@ description: |
   Take one small bug-fix ticket, or a batch, all the way to MERGED with no stops: fresh branch,
   /tld-full-auto, commit, push, PR, watch CI, squash-merge, next ticket. Use when the user says
   "tld-autoland", "autoland", "land it all the way", "merge it for me", "I don't want to deal with
-  the PR". Optional argument: ticket keys, or a Story key that expands to its children. The ONLY TLD
+  the PR". Optional argument: standalone ticket keys; a Story or a Story's sub-task is refused and
+  pointed to /tld-goal-handoff, because a Story lands as one PR. The ONLY TLD
   skill that merges, and hard-gated: the ticket must carry the `auto-land` label, and anything
   touching migrations, schema, auth, RLS, secrets, seed data, billing or CI files is refused and
   handed to the gated flow. Merges only on green CI, never with force, never on the default branch
@@ -17,7 +18,7 @@ Ship small bug fixes all the way into the default branch, unattended. Autoland i
 
 The whole point: you hand it a bug (or a stack of them), and the next thing you hear is what merged and what didn't. No commit gate, no PR gate, no merge gate.
 
-The contract, in one line: **only clearly-small, explicitly-labeled, low-risk tickets get in; each one gets its own branch and PR; nothing merges until CI is green; anything that surprises the flow is parked with the work preserved and the run keeps going.**
+The contract, in one line: **only clearly-small, explicitly-labeled, low-risk standalone tickets get in; each one gets its own branch and PR; nothing merges until CI is green; anything that surprises the flow is parked with the work preserved and the run keeps going.**
 
 ## Authorization — read this once
 
@@ -33,14 +34,15 @@ That authorization does not travel. It covers the tickets named in the invocatio
 
 Trigger phrases: `tld-autoland`, `autoland`, "land it all the way", "merge it for me", "I don't want to deal with the PR", "clear these bugs".
 
-**Use `/tld-full-auto` + `/tld-pr` instead** for anything you'd want to see before it merges — that pair stops at a verified checkpoint and then at an open PR. **Use `/tld-partial-auto`** when you want the test-spec review gate. **Use `/npc-full`** for content/doc tickets in a `skip`-command campaign (autoland refuses those: with no test signal there is nothing to gate the merge on).
+**Use `/tld-goal-handoff` instead** for a Story or any of its sub-tasks: a Story lands as one PR, so its tickets never get a PR each. **Use `/tld-full-auto` + `/tld-pr` instead** for anything you'd want to see before it merges — that pair stops at a verified checkpoint and then at an open PR. **Use `/tld-partial-auto`** when you want the test-spec review gate. **Use `/npc-full`** for content/doc tickets in a `skip`-command campaign (autoland refuses those: with no test signal there is nothing to gate the merge on).
 
 ## Inputs
 
 What the user provides (all optional):
-- **Nothing** — autoland resolves the next Todo ticket in milestone order and runs it, provided it is eligible
-- **One or more ticket IDs** — `/tld-autoland AS-31 AS-32 AS-33` (space- or comma-separated), run in the order given
-- **A Story / milestone key** — `/tld-autoland AS-30` expands to that milestone's child tickets in tracker order (Linear: the `## Order` section; Jira: child sub-tasks by rank), and runs each eligible one
+- **Nothing** — autoland resolves the next Todo standalone ticket labeled `auto-land` and runs it, provided it is eligible
+- **One or more standalone ticket IDs** — `/tld-autoland AS-31 AS-32 AS-33` (space- or comma-separated), run in the order given
+
+A **standalone ticket** is one with no parent Story: on Jira a Bug or Task that is not a Sub-task and has no Sub-tasks of its own, on Linear an issue in no milestone. A Story key, or a ticket that belongs to a Story, is refused (§0.4, §1.1 Check 0) and pointed to `/tld-goal-handoff`, because a Story lands as one PR.
 
 What you read on your own:
 - `.tld/campaign.md` (project config, test commands, stack, commit format, changelog path)
@@ -53,7 +55,7 @@ Six rules govern the entire run:
 
 1. **The eligibility gate is absolute.** A ticket enters the flow only if it carries the `auto-land` label AND passes the risky-surface scan (§1.1). An ineligible ticket is **skipped, not run** — autoland never "decides" a ticket is small enough. There is no override argument and no approval keyword that admits an ineligible ticket; the fix is to label the ticket or run the gated flow instead.
 
-2. **One ticket, one branch, one PR, one merge.** Every ticket is cut fresh from the latest default branch, so tickets never stack on each other and a parked ticket never blocks the next one. Autoland never reuses a branch across tickets.
+2. **One standalone ticket, one branch, one PR, one merge.** Every ticket is cut fresh from the latest default branch, so tickets never stack on each other and a parked ticket never blocks the next one. Autoland never reuses a branch across tickets. A Story's tickets never enter autoland: a Story lands as one PR, through `/tld-goal-handoff`.
 
 3. **Nothing merges on red or on unknown.** The merge happens only after the PR's checks report success. Red checks, a check that never finishes inside the watch window, a merge conflict, or any state you cannot positively confirm → the PR stays open and the ticket is parked. "I could not tell" is treated exactly like "it failed."
 
@@ -134,8 +136,8 @@ Autoland pushes and merges, so prove the landing path works before doing any wor
 Build the ordered list of candidate tickets from the argument:
 
 - **Ticket IDs given** → that list, in the order given.
-- **A Story / milestone key given** → its child tickets in tracker order (Linear: parse the `## Order` section with the unanchored `({prefix}-\d+)` algorithm; Jira: child sub-tasks by rank ascending). Drop any that are already work-complete — Done, Canceled, or in the project's pre-merge status (docs/DONE_MEANS_MERGED.md). A pre-merge ticket has been built and is waiting on a merge somebody else owns; autoland must not rebuild it.
-- **No argument** → resolve the next Todo ticket exactly as `/tld-setup`'s discovery does (walk milestones in order, first ticket that is neither work-complete — Done, Canceled, or pre-merge — nor In Progress for someone else). The list is that one ticket.
+- **Every key given is a Story or belongs to one** → this is not a work list. Stop before any write and output: "Autoland lands standalone tickets only. {KEY} is a Story (or part of {STORY-KEY}), and a Story lands as one PR. Run /tld-goal-handoff {STORY-KEY}." Then end the turn. A list that mixes them with standalone tickets runs, and §1.1 Check 0 skips the Story ones.
+- **No argument** → the next Todo standalone ticket labeled `auto-land`, by rank (Jira: `project = "{prefix}" AND labels = "auto-land" AND issuetype not in subTaskIssueTypes() AND issuetype != Epic AND statusCategory = "To Do" ORDER BY rank ASC`, skipping any result that has Sub-tasks; Linear: the first Todo `auto-land` issue in no milestone). The list is that one ticket.
 
 If the list is empty, stop and output: "Nothing to autoland — no candidate tickets resolved." Then end the turn.
 
@@ -147,7 +149,10 @@ Run these steps for each candidate ticket in order. Announce which ticket is sta
 
 #### 1.1 Eligibility gate
 
-Load the ticket. Two checks, both must pass. **A failure here is a SKIP, not a park** — no branch is cut, no work is done, and the ticket's status is left exactly as it was.
+Load the ticket. Three checks, all must pass. **A failure here is a SKIP, not a park** — no branch is cut, no work is done, and the ticket's status is left exactly as it was.
+
+**Check 0 — a standalone ticket.** A Story (Jira: an issue with Sub-tasks; Linear: a milestone), or a ticket that belongs to one (Jira: a Sub-task; Linear: an issue in a milestone) → SKIP with:
+  "{ID} is part of {STORY-KEY}, and a Story lands as one PR. Run /tld-goal-handoff {STORY-KEY}."
 
 **Check A — the `auto-land` label.** The ticket's labels must include `auto-land`. Missing → SKIP with:
   "{ID} is not labeled `auto-land` — autoland only runs explicitly opted-in tickets. Label it, or run /tld-full-auto {ID} for the gated flow."
@@ -318,7 +323,8 @@ On abort, output what completed, what was in flight, exactly where the worktree 
 - **Never force-push, never `--amend`, never `git add -A`/`.`, never commit onto the default branch**, and never bypass a pre-commit hook or a required review.
 - **Never resolve a merge conflict unattended.** A conflict parks the ticket; you resolve it.
 - **Never discard work.** Parking always commits and pushes first. There is no path through this skill that runs `git reset --hard`, `git checkout -- .`, `git stash drop`, or `git clean`.
-- **Never run `/tld-gate`, never start work outside the candidate list.** If the last merge completes a milestone, say so in the report and recommend `/tld-gate {milestoneId}` — do not run it.
+- **Never run `/tld-gate`, never start work outside the candidate list.**
+- **A Story never autolands.** Its tickets land together as one PR through `/tld-goal-handoff`; Check 0 skips them.
 - **If the run is interrupted** mid-ticket: nothing is reverted, so the in-flight ticket's branch is wherever the last completed step left it. Run `/tld-save-point` to see where you are; do not re-run `/tld-autoland` on the same ticket blindly, since it would cut a second branch and re-run the build over a half-finished worktree.
 
 ### Numbered shortcut recognition
@@ -339,12 +345,9 @@ After the §3 run report, present:
 > **2.** /tld-full-auto {ID} — take a parked ticket through the gated flow
 >    Best for: something parked and you want to drive it yourself from the verified checkpoint
 
-> **3.** /tld-dashboard — see where the milestone stands now
+> **3.** /tld-dashboard — see where the project stands now
 >    Best for: several tickets just merged and you want the big picture
 
-> **4.** /tld-gate {milestoneId} — run the milestone gate
->    Best for: this run finished the milestone (only offer this option when it did)
-
-Type **1**, **2**, **3**, or **4** to proceed.
+Type **1**, **2**, or **3** to proceed.
 
 **HARD STOP: After outputting the above, you are DONE. Do NOT start another ticket, do NOT run /tld-gate, do NOT merge anything else. Wait for the user.**

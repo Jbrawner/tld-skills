@@ -1,11 +1,12 @@
 ---
 name: tld-pr
 description: |
-  Land the current ticket: re-run the tests, show exactly what will be committed, pushed and PR'd,
-  HARD STOP for approval, then commit if needed, move the ticket to the pre-merge status, push the
-  feature branch, open the PR, and stop before the merge. Use when the user says "tld-pr", "make a
-  PR", "open a PR", "land it", "push and PR", typically after /tld-full-auto's verified checkpoint.
-  Never merges, never marks Done, refuses to run on the default branch, never force-pushes.
+  Land a standalone ticket, or a whole Story after its last ticket, as one PR: re-run the tests,
+  show exactly what will be committed, pushed and PR'd, HARD STOP for approval, then commit if
+  needed, move the ticket(s) to the pre-merge status, push the feature branch, open the PR, and stop
+  before the merge. Use when the user says "tld-pr", "make a PR", "open a PR", "land it", "push and
+  PR", typically after /tld-full-auto's verified checkpoint. Refuses mid-Story (points to
+  /tld-commit). Never merges, never marks Done, refuses the default branch, never force-pushes.
 ---
 
 # TLD PR
@@ -14,17 +15,19 @@ Land a verified ticket: commit → move to the pre-merge status → push → ope
 
 **Nothing pushes or opens a PR without your explicit approval at the gate. Merging is never automated.**
 
+**A Story lands as one PR.** A ticket that belongs to a Story (a Jira Sub-task; a Linear issue in a milestone) is committed with `/tld-commit` while the Story still has open tickets, and `tld-pr` opens one PR for the whole Story after its last ticket (step 2b). Only a **standalone ticket** (a Bug or Task with no parent Story) gets a PR of its own.
+
 **This skill does not mark the ticket Done.** An open PR is not a merge, and a ticket that reads Done while its branch sits unmerged is the exact failure [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) was written from. `tld-pr` moves the ticket to the project's **pre-merge status** (`In PR` by default) and tells you what closes it out.
 
 ## When to use this
 
-- Right after `/tld-full-auto` stops at its verified checkpoint and your manual check passed
+- Right after `/tld-full-auto` stops at its verified checkpoint on a standalone ticket, or on a Story's last ticket, and your manual check passed
 - After `/tld-partial-auto`, `/tld-run-test`, or `/tld-commit` committed locally and you now want a PR
 - Any time the current ticket's work is verified and you want it committed (if needed), pushed, and PR'd
 
 Trigger phrases: `tld-pr`, "make a PR", "open a PR", "land it", "land the ticket", "push and PR".
 
-**Use `/tld-commit` instead** if you only want a local commit and no push/PR. **Use `/tld-next` instead** if the work is already committed *and* pushed and you just want to record the ticket as work-complete and move on without a PR.
+**Use `/tld-commit` instead** if you only want a local commit and no push/PR, and for every ticket of a Story but its last. **Use `/tld-next` instead** if the work is already committed *and* pushed and you just want to record the ticket as work-complete and move on without a PR.
 
 ## Process
 
@@ -66,6 +69,26 @@ Do not guess, do not walk milestones — that is /tld-setup's job.
 If the tracker is unreachable at any step, stop and output:
   "Cannot reach the issue tracker — aborting. No offline mode."
 Do not fall back to cached state; there is none.
+
+### 2b. Story check: a Story lands as one PR
+
+If the current ticket is a **standalone ticket** (Jira: not a Sub-task; Linear: in no milestone), skip this step. It gets its own PR.
+
+Otherwise it belongs to a Story (Jira: the Sub-task's parent Story; Linear: its milestone). Read every ticket of that Story with its status (Jira: the Story's Sub-tasks; Linear: the milestone's `## Order`), and list the commits on this branch (`git log origin/{default}..HEAD --format=%s`, with `{default}` resolved as in step 3). Sort each ticket other than the current one:
+
+| The ticket is | It counts as |
+|---|---|
+| Done, Canceled, or in the pre-merge status | Finished |
+| In any other status, with a commit on this branch whose subject names its key | Landing with this PR (step 9 moves it to the pre-merge status) |
+| In any other status, with no commit on this branch | **Open** |
+
+**Any open ticket → STOP before committing, pushing or opening anything:**
+
+  "{TICKET-ID} is part of {STORY-KEY} ({story title}), which still has open tickets: {open list}. A Story lands as one PR, after its last ticket. Commit this one with /tld-commit (choose "commit and progress"), then carry on with /tld-setup {first open ticket by rank}. To land the Story without one of its tickets, cancel that ticket (/tld-cancel) or move it out of the Story first."
+
+Then end the turn. This is not an approval gate: no keyword and no picked option opens a PR mid-Story.
+
+**No open ticket → this is the Story's end,** and the PR lands the whole Story: step 8 shows the Story, and step 9 titles the PR with the Story key and moves every ticket "landing with this PR" to the pre-merge status along with the current one.
 
 ### 3. Branch safety
 
@@ -176,6 +199,7 @@ Show the user exactly what will happen:
 
 ```
 ## Ready to land: [TICKET-ID] — [title]
+[at a Story's end: ## Ready to land: [STORY-KEY] — [story title] ([N] tickets: [keys])]
 
 ### Branch
 [current feature branch] → PR into [default branch]
@@ -193,12 +217,13 @@ Show the user exactly what will happen:
 All [N] tests passing
 
 ### Pull request
-- Title: [ticket ID — title]
+- Title: [TICKET-ID] — [title]   [at a Story's end: [STORY-KEY] — [story title]]
 - Base: [default branch]  ·  Head: [feature branch]
 - Will NOT merge — stops after opening the PR
 
 ### Tracker
 - [TICKET-ID] → [resolved pre-merge status]  (NOT Done — Done is set only after the merge)
+[at a Story's end, one line for each ticket step 2b found landing with this PR: [KEY] → [resolved pre-merge status]]
 [or, when the tracker has no pre-merge status: "[TICKET-ID] → stays In Progress ([tracker] has no pre-merge status). Done is set only after the merge."]
 ```
 
@@ -244,9 +269,9 @@ Only after explicit user approval, in this order:
    c. **Conflict ONLY in `Changelog path` file(s)** → auto-resolve: keep `{default}`'s released entries AND re-apply this branch's new entry stacked directly above them; set this branch's version header strictly above `{default}`'s current top version (main released 0.18.0 and branch was 0.18.0 → 0.19.0; branch already 0.15.0 vs main 0.14.1 → keep 0.15.0). Bump the matching version file(s) (package.json, etc.) to the same number. `git add` the resolved files, then `git rebase --continue`.
    d. **Any conflict outside the changelog, or a changelog conflict you cannot mechanically resolve** → `git rebase --abort`, STOP, and report the conflicting files for the user to resolve manually. Never force anything.
    e. After a successful rebase, **re-run the test command** (from step 6) to confirm the branch still passes on the new base. If tests fail, STOP and report — do not push.
-4. **Move the ticket to the pre-merge status** via `save_issue`. Resolve the status name per [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) § The pre-merge status — never hardcode a name, and never fall back to Done when no pre-merge status exists (leave the ticket In Progress and say so). **Do not set a done-category status here under any circumstance:** this skill stops at an open PR, so no merge has been confirmed.
+4. **Move the ticket to the pre-merge status** via `save_issue`, and at a Story's end every ticket step 2b found landing with this PR. Resolve the status name per [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) § The pre-merge status — never hardcode a name, and never fall back to Done when no pre-merge status exists (leave the ticket In Progress and say so). **Do not set a done-category status here under any circumstance:** this skill stops at an open PR, so no merge has been confirmed.
 5. **Push the feature branch** to its remote (`git push -u origin {branch}`). Never force-push.
-6. **Open the PR ready for review** with `gh pr create --base {default} --head {branch}`, title `[TICKET-ID] — [title]`, and a body that summarizes what changed, lists the test results, links the ticket, and notes "TLD verified." Capture the PR URL. If the repo gates CI on a label (lab-inventory's `ci:run`), add it now: the branch is verified locally and this is the last push, so CI runs once. **Draft is only for work that is not finished**, and this skill runs on finished work. `ci:run` is a switch, not a one-shot: while it is on, every push re-runs the full suite. So if a fix has to follow (a red CI job, a review change), remove the label before that push (`gh pr edit <N> --remove-label ci:run`) and re-add it once the branch is done.
+6. **Open the PR ready for review** with `gh pr create --base {default} --head {branch}`, title `[TICKET-ID] — [title]` (at a Story's end `[STORY-KEY] — [story title]`, and the body lists every ticket on the branch), and a body that summarizes what changed, lists the test results, links the ticket, and notes "TLD verified." Capture the PR URL. If the repo gates CI on a label (lab-inventory's `ci:run`), add it now: the branch is verified locally and this is the last push, so CI runs once. **Draft is only for work that is not finished**, and this skill runs on finished work. `ci:run` is a switch, not a one-shot: while it is on, every push re-runs the full suite. So if a fix has to follow (a red CI job, a review change), remove the label before that push (`gh pr edit <N> --remove-label ci:run`) and re-add it once the branch is done.
 
 **Do NOT merge the PR.** Merging stays with the user — this skill always stops at an open PR. "Merge" is the user's word for that step; `/tld-autoland` is the only skill that merges.
 
@@ -297,6 +322,7 @@ Type **1**, **2**, or **3** to proceed.
 ## Guardrails
 
 - **Never merge.** This skill always stops at an open PR; merging is the user's call.
+- **A Story lands as one PR.** Never open a PR while the current ticket's Story still has open tickets (step 2b). Only a standalone ticket gets a PR of its own.
 - **Never mark the ticket Done.** Done means merged (docs/DONE_MEANS_MERGED.md). This skill stops before the merge, so the furthest it may move a ticket is the pre-merge status.
 - **Never push to the default branch**, and never force-push. Refuse on the default branch (step 3).
 - **Stage only this ticket's files** (+ the changelog). Never `git add -A`/`.`; never stage a pre-existing dirty path recorded in step 4.
