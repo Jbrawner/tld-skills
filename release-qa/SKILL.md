@@ -49,22 +49,28 @@ say which side is wrong.
 This mirrors STANDARDS.md § Local DB safety check, with the contract's `Database` key as the
 source of truth instead of `.tld/campaign.md`.
 
-Scan the repo for database URL references (`.env*`, the platform config, `SUPABASE_URL`,
-`DATABASE_URL`, or the equivalent for this stack). If any reference the app will use names a
-host that is not `127.0.0.1` or `localhost`, or names a project ref the contract forbids,
-**HARD ABORT**:
+Work out which database the app will reach, without opening any file that is a link. The app
+starts the way the contract's `App` key says, so its env comes from the repo's env files
+(`.env*`, the platform config) and from any file a start command sources first. A real file:
+read its database URL lines only. A link into another checkout: leave it closed; the checkout
+hook that made it refuses a file naming a remote host, so the link counts as local and stands
+for the database the contract names. If the contract names a container, confirm with
+`docker ps --format '{{.Names}} {{.Ports}}'` that it owns the port. If the database found
+names a host that is not `127.0.0.1` or `localhost`, names a project ref the contract forbids,
+or is one the contract does not name, **HARD ABORT**:
 
 ```
-🛑 ABORT: Non-local database detected.
+🛑 ABORT: [Non-local database detected | Database not named by the contract]
 
-Found: [the URL/host/ref that is not local]
-Location: [where you found it]
+Found: [host:port or ref, and the container that owns the port]
+Set by: [the env file, config or sourced file that set it]
 Contract Database: [value from README.md]
 
-This skill signs in and writes rows. Refusing to proceed against a non-local database.
+This skill signs in and writes rows. Refusing to proceed against a database the contract does not name as local.
 ```
 
-Do not proceed. Do not start the app. Stop completely.
+Do not proceed. Do not start the app. Stop completely. Otherwise say in one line which database
+the app reaches and what set it.
 
 ### 3. Prove the code under test
 

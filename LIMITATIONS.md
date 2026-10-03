@@ -47,7 +47,7 @@ Test framework adapters are deferred.
 
 ## Local database: Supabase at 127.0.0.1:54321 assumed
 
-Skills that touch the database (`/tld-gate`, `/tld-audit`'s RLS checks, the local DB safety check) assume a local Supabase instance reachable at `127.0.0.1:54321`. Migration commands, RLS policy reads, and seed-data inspections all target that endpoint.
+Skills that touch the database (`/tld-gate`, `/tld-audit`'s RLS checks) assume a local Supabase instance reachable at `127.0.0.1:54321`. Migration commands, RLS policy reads, and seed-data inspections all target that endpoint. The local DB safety check is the exception: it reads the campaign's `Stack.Database`, which may name more than one local stack, and checks the one the commands will reach.
 
 If your project uses a different Postgres setup (raw Postgres, RDS proxy, a different port, no local DB at all), those skills will either fail outright or produce misleading output.
 

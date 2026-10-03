@@ -117,7 +117,7 @@ Four sections, in this order:
 - Backend directory: {path}
 - Frontend directory: {path}
 - Landing directory: {path to landing-site code, if the project has one}
-- Database: {connection hint, e.g. Supabase local at 127.0.0.1:54321}
+- Database: {the local database(s), e.g. Supabase local at 127.0.0.1:54321; stack 2 at 127.0.0.1:54621}
 - Changelog path: {path to repo CHANGELOG, if the project keeps one}
 
 ## Commit format

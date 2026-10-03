@@ -98,28 +98,33 @@ This skill's ticket and milestone operations are written using neutral adapter n
 
 **Run the local-DB safety check before any test command or destructive database operation.**
 
-Read `Stack.Database` from `.tld/campaign.md` — this names the expected local instance (e.g., `Supabase local at 127.0.0.1:54321`).
+Read `Stack.Database` from `.tld/campaign.md`. It names every local database this project may use, one or more, each by address and, where two projects can share a port, by container (e.g. `Supabase local at 127.0.0.1:54321 (container supabase_db_abc); stack 2 at 127.0.0.1:54621 (container supabase_db_abc_2)`). A lane picks one of them with the prefix its test commands carry.
 
-Verify the live database connection also points at local:
-1. Scan the repo for database URL references (Supabase config, `.env*`, `SUPABASE_URL`, `DATABASE_URL`, or equivalent for this project's stack).
-2. If any reference names a non-local host (anything that is not `127.0.0.1` or `localhost`), **HARD ABORT immediately**:
+Work out which database the commands will reach, without opening any file that is a link:
+1. **The command prefix.** If a test command begins by sourcing a file (`. <file> &&` or `source <file> &&`), run that prefix in the same command and print the host and port of each database variable it sets, never a key, token or password: `. <file> && env | grep -E '^(SUPABASE_URL|VITE_SUPABASE_URL|DATABASE_URL|SUPABASE_PROJECT_ID|SUPABASE_DB_PORT)=' | sed -E 's#//[^@/]*@#//#'`, or the equivalent for this project's stack. What the prefix sets wins over any file.
+2. **The env files.** Where the prefix sets nothing, the tools read the repo's env files (`.env*`, the platform config). `ls -la` each file's folder to see which are links. A real file: read its database URL lines only. A link into another checkout: leave it closed; the checkout hook that made it refuses a file naming a remote host, so the link counts as local and stands for the first database `Stack.Database` names.
+3. **The container.** If `Stack.Database` names a container for that database, confirm with `docker ps --format '{{.Names}} {{.Ports}}'` that this container owns its port; two projects can share a port, and only the container name tells them apart.
+
+If the database found names a host that is not `127.0.0.1` or `localhost`, or is one `Stack.Database` does not name, **HARD ABORT immediately**:
 
 ```
-🛑 ABORT: Non-local database detected.
+🛑 ABORT: [Non-local database detected | Database not named by Stack.Database]
 
-Found: [the URL/host that's not local]
-Location: [where you found it]
+Found: [host:port, and the container that owns the port]
+Set by: [the prefix file, env file or config that set it]
 Campaign Stack.Database: [value from campaign.md]
 
 This skill runs tests or destructive operations against the database.
-Refusing to proceed against a non-local database.
+Refusing to proceed against a database the campaign does not name as local.
 
-Fix: Ensure the configured database URL points at local (matches Stack.Database).
+Fix: point the commands at a database Stack.Database names. If this one is local and meant to be used, add it to Stack.Database first.
 ```
 
 Do not proceed. Do not run any tests. Do not run any commands. Stop completely.
 
-Additionally (autoland-specific, because nobody is watching): if `Stack.Database` names a local instance, confirm it is reachable before starting. For local Supabase, check `supabase status`; if it is not running, run `supabase start` once and re-check. Still unreachable after that one attempt → ABORT.
+Otherwise say in one line which named database the commands reach and what set it, e.g. `Database: stack 2 at 127.0.0.1:54621 (supabase_db_abc_2), set by .tld/lane-2-env.sh`.
+
+Additionally (autoland-specific, because nobody is watching): confirm the database the check resolved is reachable before starting. For local Supabase, check `supabase status`, with the lane prefix in front in the same command when the test commands carry one, so the lane's own stack is the one checked; if it is not running, run `supabase start` once the same way and re-check. Still unreachable after that one attempt → ABORT.
 
 #### 0.3 Landing preflight
 
@@ -294,7 +299,7 @@ Everything else parks one ticket and continues. These stop everything:
 |---|---|---|
 | 1 | Campaign missing / invalid field / unsupported tracker / tracker unreachable | Preflight, any ticket |
 | 2 | Campaign test command is `skip` — no signal to gate a merge on | Preflight |
-| 3 | Non-local database, or local DB unreachable after one start attempt | Preflight |
+| 3 | Database not local or not named by `Stack.Database`, or unreachable after one start attempt | Preflight |
 | 4 | Working tree dirty at the start of the run | Preflight |
 | 5 | `gh` missing / not authenticated / cannot merge / squash-merge disabled on the repo | Preflight |
 | 6 | Cannot fetch `origin/{default}` | Preflight, §1.2, §1.9 |
