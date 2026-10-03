@@ -68,7 +68,7 @@ AskUserQuestion for each; all blank-allowed:
 - **Backend directory** — e.g. `backend`
 - **Frontend directory** — e.g. `frontend-next`
 - **Landing directory** — the marketing / SEO site's directory, if distinct from Frontend; e.g. `landing` or `marketing-site`
-- **Database** — free text, e.g. `Supabase local at 127.0.0.1:54321`
+- **Database** — free text naming every local database the project may use, e.g. `Supabase local at 127.0.0.1:54321`, or `Supabase local at 127.0.0.1:54321 (container supabase_db_abc); stack 2 at 127.0.0.1:54621 (container supabase_db_abc_2)` when a second build lane has its own stack
 - **Changelog path** — e.g. `CHANGELOG.md` or `backend/CHANGE_LOG.md`
 
 ### 5. Collect the Commit format section

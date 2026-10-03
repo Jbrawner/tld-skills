@@ -41,7 +41,7 @@ These four must be present. Their fields and validation rules are unchanged from
 - Backend directory: {dir or blank}
 - Frontend directory: {dir or blank}
 - Landing directory: {dir or blank}
-- Database: {e.g. Supabase local at 127.0.0.1:54321}
+- Database: {the local database(s), e.g. Supabase local at 127.0.0.1:54321; stack 2 at 127.0.0.1:54621}
 - Changelog path: {path or blank}
 
 ## Commit format
@@ -50,6 +50,11 @@ These four must be present. Their fields and validation rules are unchanged from
 ```
 
 Required non-empty fields: `Project name`, `Ticket prefix`, `Commit format.Pattern`.
+
+`Stack.Database` names every local database the project may use, one or more, each by address
+and, where two projects can share a port, by container. A lane picks one with the prefix its
+test commands carry (`. <file> && <command>`); the local DB safety check refuses any database
+the line does not name.
 
 ## Optional sections (v0.2)
 
