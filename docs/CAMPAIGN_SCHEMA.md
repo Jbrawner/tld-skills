@@ -14,11 +14,14 @@ active campaign.
 |---|---|
 | v0.1 | The four required sections: `Project`, `Test Commands`, `Stack`, `Commit format`. |
 | v0.2 | v0.1 plus two **optional** sections: `Pipelines`, `Allowed statuses`. |
+| v0.3 | v0.2 plus one **optional** field in `Stack`: `Reset command`. |
 
 v0.2 is a strict superset. **A file with only the four v0.1 sections is a valid v0.2 file and
 behaves exactly as it did under v0.1** — the two new sections are opt-in, and every consumer
 treats their absence as "use the built-in default." There is no version marker line in the
-file; a file is v0.2 simply if it uses a v0.2 section.
+file; a file is v0.2 simply if it uses a v0.2 section. v0.3 adds one optional field the same way,
+`Stack.Reset command`: absent means the built-in default, and a file is v0.3 simply if it carries
+the field.
 
 ## Required sections (v0.1)
 
@@ -119,6 +122,23 @@ Consumer of record: the workflow status guard (DROSS-26 moves the previously-har
 `SAFE_JIRA_STATUSES` set to read this section, defaulting to the four names above so a default run
 is unchanged).
 
+## Optional field (v0.3)
+
+### `Stack.Reset command`
+
+One optional line inside the required `Stack` section, anywhere after `Database`:
+
+```markdown
+- Reset command: {command that resets the lane's own local database from empty, e.g. bash .tld/lane-db.sh reset}
+```
+
+`/tld-gate` runs it from the repo root to prove the milestone's migrations apply from empty. It
+should act on the database the current worktree's lane prefix selects and refuse the shared one,
+the first database `Stack.Database` names, as lab-inventory's `.tld/lane-db.sh` does. Blank or
+absent: the gate runs the platform's own reset under the lane prefix instead, and only when that
+prefix selects a database other than the first one named; a project whose `Database` names a single
+database resets it as before.
+
 ## Known-section allowlist
 
 The complete set of section headings a valid campaign file may contain:
@@ -156,6 +176,8 @@ today.
 
 - A campaign.md with only the four v0.1 sections validates, scaffolds, and edits exactly as it did
   under v0.1.
+- A campaign.md without `Stack.Reset command` gates exactly as it did under v0.2: `/tld-gate` uses
+  the platform's reset under the lane prefix, and never on a shared stack.
 - The `campaign-*` skills are Claude-path skills; the Codex path does not run them, so the stricter
   reject-unknown validation cannot affect a default Codex run.
 - Every v0.2 consumer treats an absent section as "use the built-in default," so opting out is the

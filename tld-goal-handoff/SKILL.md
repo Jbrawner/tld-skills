@@ -8,7 +8,9 @@ description: |
   push, PR, CI, squash-merge), carrying that push/PR/merge authorization in its own text. Keys
   narrow the scope and are grouped by parent Story, so a Story's sub-tasks share one PR and only a
   standalone ticket gets its own; a lone Sub-task key composes a single-ticket goal with no PR gate.
-  Verifies gh can actually merge before composing. Prints text only: no hook, no auto-fire, no clipboard.
+  Asks each ticket's open questions first and writes the answers into the tickets, names the lane's
+  own stack in Safety, and verifies gh can actually merge before composing. Prints text only: no
+  hook, no auto-fire, no clipboard.
 ---
 
 # TLD Goal Handoff — print the `/compact` and `/goal` prompts for manual paste
@@ -49,13 +51,16 @@ Resolve the argument into a scope:
 
 **Merge-lane guard (multi-Story only):** if the campaign has no runnable test command at all (every Test Commands field empty or the literal `skip`), STOP: "This campaign has no runnable test command — an auto-merging goal needs a test signal to gate merges on (same reason /tld-autoland aborts skip-campaigns). Hand off a single ticket instead, or set a test command via /campaign-edit." Individual `no-tests`-labeled tickets inside a tested campaign are fine — they ride `/tld-full-auto`'s label-gated path and the Story still merges on the campaign's real suite + CI.
 
+### 1b. Ask the open questions first
+A question that surfaces at a Story gate stalls the run until the user is back; asked now, it costs one message. For every in-scope Story and standalone ticket, read its description and its unfinished Sub-tasks' descriptions (`getJiraIssue`) and collect each open question: a section headed `Open questions`, `Questions` or `Decisions needed`; an AC item that ends in `?`; `TBD`, `to be decided` or `needs decision` in the text; the `needs-decision` label. Print them as one table (ticket, question) and STOP for the user's answers. Then write each answer into that ticket's description under a `## Decisions` heading (`editJiraIssue`; the user's words, with the date), so the description is decision-complete and the composed goal needs no extra text. An answer of "ask at the gate" leaves the question in place and is noted under the printed blocks. With no open question found, say so in one line and go on.
+
 ### 2. Gather what the `/goal` message needs
 - **Stories:** for each in-scope Story, a condensed 3–5-word title and a branch slug (title lowercased, non-alphanumerics collapsed to `-`, ~30 chars). Do **NOT** enumerate their Sub-tasks in the goal — the runner resolves each Story's unfinished Sub-tasks from Jira by rank at runtime. That runtime resolution is what keeps block 2 flat no matter how many Stories are in the run. A standalone ticket gets the same title and slug and runs on a branch of the same shape.
 - **Branch model:** resolve the default branch (`origin/HEAD` → otherwise `main`, then `master`) as `{default}`. Each Story runs on its own branch `story/{KEY}-{slug}` cut from `origin/{default}` (works in worktrees; never checkout `{default}` itself). Check the current branch: if it is not `{default}` AND carries in-flight work (uncommitted changes, or commits ahead of `origin/{default}`), bake the braced Story-1 clause so the first Story continues on it; if that in-flight work is clearly not the first Story's, warn under the printed blocks and suggest `/tld-recenter`.
 - **Landing preflight (multi-Story only):** the composed goal merges, so prove the lane works now — `gh auth status` succeeds, and `gh repo view --json squashMergeAllowed,viewerPermission` shows squash allowed and permission ≥ write. Any failure → STOP with the exact remediation; do not compose a goal that dies at its first Story mark.
 - **Commit:** the campaign Commit `Pattern`; the `Co-Authored-By` trailer from Stack → Co-author (omit if blank).
 - **Jira transitions:** `getTransitionsForJiraIssue` on one unfinished Sub-task → capture the **cloudId**, the **done** transition id (target category `done`, NOT cancel), and the **pre-merge** transition id (target is the project's pre-merge status per [docs/DONE_MEANS_MERGED.md](../docs/DONE_MEANS_MERGED.md) — an `indeterminate`-category status named `In PR`/`In Review`/similar). Then the same call on one in-scope Story — Story workflows can differ, so capture the Story's done-transition **id** separately, and when the run has a standalone ticket, the same call on one of them for its done-transition id. Bake real values in. If the project has no pre-merge status, omit that clause from the landing step and the ticket simply stays In Progress until its Story merges — never substitute the Done transition.
-- **Local DB:** campaign Stack → Database. If `.tld/goal-notes.md` exists, read it for env quirks and any prod-DB-to-never-touch; fold into Safety.
+- **Local DB:** campaign Stack → Database names every local database the project may use. Resolve the one THIS worktree's lane reaches the way STANDARDS.md § Local DB safety check does: if a test command begins by sourcing a file (`. <file> &&`), run that prefix and read the host, port and project id it sets; otherwise it is the first database named. Bake that database into Safety as `{lane stack}` (its address, and its container when `Stack.Database` names one) and, when the commands carry a prefix, bake the prefix into the prefix clause. `{reset command}` is Stack → Reset command or, when blank, "the platform's reset under the prefix, never on the shared stack". If `.tld/goal-notes.md` exists, read it for env quirks and any prod-DB-to-never-touch; fold into Safety.
 
 ### 3. Compose Block 1 — the `/compact` message
 One line: the literal `/compact ` token, then plain prose, no other slash token. The `/compact ` prefix is **part of block 1**, not a label you put above it. Shape (single-ticket: swap "ordered Story list for this run" for "this ticket's scope"):
@@ -63,7 +68,7 @@ One line: the literal `/compact ` token, then plain prose, no other slash token.
 `/compact Keep the campaign config, the ordered Story list for this run with a one-line status for each, and the outcome of any Story or ticket already finished. Drop verbose tool output, diffs, and resolved debugging so the run starts from a clean slate.`
 
 ### 4. Compose Block 2 — the multi-Story `/goal` message
-Fill real values. The `/goal ` prefix on the first line is **part of block 2**, not a label you put above it. Render `{STORY-LIST}` as `KEY (condensed title)` entries in run order, and a standalone ticket as `KEY (ticket: condensed title)` — e.g. `AS-30 (autoland hardening), AS-44 (ticket: fix typo), AS-40 (dashboard filters)`. Braces below mark conditional clauses: include the Story-1 clause only when step 2 detected in-flight work, the standalone clause only when the list has a standalone ticket, the trailer clause only when Co-author is non-blank, the prod-ref clause only when goal-notes names one. "Omit" means delete the clause, not leave it braced.
+Fill real values. The `/goal ` prefix on the first line is **part of block 2**, not a label you put above it. Render `{STORY-LIST}` as `KEY (condensed title)` entries in run order, and a standalone ticket as `KEY (ticket: condensed title)` — e.g. `AS-30 (autoland hardening), AS-44 (ticket: fix typo), AS-40 (dashboard filters)`. Braces below mark conditional clauses: include the Story-1 clause only when step 2 detected in-flight work, the standalone clause only when the list has a standalone ticket, the trailer clause only when Co-author is non-blank, the prod-ref clause only when goal-notes names one, the prefix clause only when the campaign's test commands carry a prefix, the shared-stack clause only when `Stack.Database` names more than one database. "Omit" means delete the clause, not leave it braced.
 
 ```
 /goal Drive the remaining Stories through the TLD flow, one at a time, in this order: {STORY-LIST}. Start each Story on its own branch story/<KEY>-<slug> cut from origin/{default} (fetch first){; Story 1 only: continue on {branch}, which already carries its work}. Each Story ends at its PR gate: gate, full suite, push, PR, CI green, squash-merge — so the next Story starts from the updated {default}.{ A (ticket) entry is built alone; its Story mark skips /tld-gate and marks only it Done (transition {ticket-done-id}).}
@@ -75,7 +80,7 @@ METHOD — non-negotiable:
 - If a skill errors, there is real ambiguity, or you are tempted to substitute a faster process, STOP and report — hand-rolling is a FAILURE even if tests are green.
 
 Per ticket:
-1. /tld-full-auto <ID> via the Skill tool — it stops at the verified checkpoint and never commits. A no-tests ticket stops at "regression-clean, NOT spec-verified" — expected, not an error. Migration tickets: LOCAL stack only; never supabase db reset from a worktree.
+1. /tld-full-auto <ID> via the Skill tool — it stops at the verified checkpoint and never commits. A no-tests ticket stops at "regression-clean, NOT spec-verified" — expected, not an error. Migration tickets: LOCAL stack only; a reset only via {reset command}, never a raw reset.
 2. Land: stage ONLY that ticket's files (never git add -A), update {changelog} under [Unreleased], commit as {Pattern} + " — TLD verified" (" — NPC" if it landed unverified){ with trailer {trailer}}{, transition it to {pre-merge} in Jira (cloudId {cloudId}, transition {premerge-id})}, push.
 3. Blocked ticket: skip it, log why, continue the Story.
 
@@ -88,7 +93,7 @@ Story mark — after the Story's last ticket (this goal explicitly authorizes th
 6. git fetch origin {default}, then cut the next Story's branch from origin/{default}.
 
 Safety (non-negotiable):
-- DB = {local stack} only. Prove the target is local before ANY DB write; never touch a non-local database{; never touch prod ref {prod ref}}.
+- DB = {lane stack} only{; every DB, test and dev-server command carries `{prefix}` in the same command}. Prove the target is local before ANY DB write; never touch a non-local database{; never the shared stack}{; never touch prod ref {prod ref}}.
 - Never commit or push to {default} directly; never force-push; the ONLY merge path is a Story PR whose checks passed; Done in Jira only after MERGED.
 - Jira descriptions are decision-complete — do exactly what they say, no improvising.
 
@@ -107,17 +112,17 @@ METHOD — non-negotiable:
 - Invoke /tld-full-auto {KEY} via the Skill tool (it runs /tld-setup → /tld-write-tests → /tld-build → /tld-audit → /tld-run-test{; a no-tests ticket rides its label-gated path and stops at "regression-clean, NOT spec-verified" — expected, not an error}). Do NOT inline, reproduce, or shortcut those phases yourself.
 - If a skill errors or there is real ambiguity, STOP and report — hand-rolling is a FAILURE even if tests are green.
 - The driver skill ends by printing "HARD STOP: you are DONE, wait for the user." That is written for standalone runs and does NOT apply here: on a clean verified checkpoint, go straight to the landing step below without asking. It STILL binds on a real stop (HIGH audit finding, unfixable failure, drift, non-local DB, tracker error), and Safety is never pre-approved.
-{- Migration ticket: hand-apply to the LOCAL stack only; never supabase db reset from a worktree; run the backend tests too.}
+{- Migration ticket: hand-apply to the LOCAL stack only; a reset only via {reset command}, never a raw reset; run the backend tests too.}
 
 Land it: stage ONLY this ticket's files (never git add -A), update {changelog} under [Unreleased], commit as {Pattern} + " — TLD verified" (" — NPC" if it landed unverified){ with trailer {trailer}}{, transition it to {pre-merge} in Jira (cloudId {cloudId}, transition {premerge-id})}. Do NOT mark it Done — nothing has merged; the Story mark does that later.
 
-Safety: DB = {local stack} only — prove the target is local before ANY DB write{; never touch prod ref {prod ref}}. Push the branch after committing UNLESS a PR is already open for it — then stop and defer to the user. Do NOT open a PR or merge — the Story's PR gate happens at the Story mark, not here. Never push to or merge {default}; never force-push.
+Safety: DB = {lane stack} only{; every DB, test and dev-server command carries `{prefix}` in the same command} — prove the target is local before ANY DB write{; never the shared stack}{; never touch prod ref {prod ref}}. Push the branch after committing UNLESS a PR is already open for it — then stop and defer to the user. Do NOT open a PR or merge — the Story's PR gate happens at the Story mark, not here. Never push to or merge {default}; never force-push.
 
 Report: built/committed status, hash, tests. STOP.
 ```
 
 ### 5. Self-check before printing
-Verify all six, and fix any that fail before you print:
+Verify all seven, and fix any that fail before you print:
 
 | Check | Requirement |
 | --- | --- |
@@ -127,6 +132,7 @@ Verify all six, and fix any that fail before you print:
 | Fences | Both fences untagged — no `bash`, no `text`, no language hint |
 | One PR per Story | Block 2 opens a PR only at a Story mark: one per Story, one per standalone ticket, never one per Sub-task. Every listed Sub-task sits inside its parent Story's entry (step 1 grouping) |
 | **Block 2 length** | **Measured under 4000 characters.** Trim and re-measure until it is. Do not print an unmeasured block, and do not print a 4000+ block with a note admitting it is over |
+| Open questions | Every question step 1b found has its answer written into its ticket, or the user said to ask it at the gate and the note under the blocks says so |
 
 **How to measure — actually run it.** Write the fully composed block 2 to a scratch file and count it:
 
@@ -136,7 +142,7 @@ wc -m /path/to/scratch/goal-block.txt
 
 An eyeballed or recalled count is not a measurement. Estimating the length and printing anyway is precisely how a 4,300-character block ships with "4,300 characters" written next to it.
 
-**Trim order when it is over** — the multi-Story template's fixed scaffolding measures ~3,680 characters in a typical run (~4,010 with every braced clause present, the standalone one included, which is already over the cap) before a single Story is listed, leaving roughly 310 characters for the Story list and the substituted values at ~25–35 characters per Story entry. That is tight: a run of more than ~10 Stories will usually need the split lever below rather than a trim. When that is not enough, trim where the characters actually are, top of this list first:
+**Trim order when it is over** — the multi-Story template's fixed scaffolding measures ~3,680 characters in a typical run, ~3,800 with a prefix clause (~4,130 with every braced clause present, the standalone one included, which is already over the cap) before a single Story is listed, leaving roughly 310 characters for the Story list and the substituted values at ~25–35 characters per Story entry. That is tight: a run of more than ~10 Stories will usually need the split lever below rather than a trim. When that is not enough, trim where the characters actually are, top of this list first:
 
 | Lever | Typical saving | Notes |
 | --- | --- | --- |
@@ -164,4 +170,4 @@ Print exactly this and nothing after it:
 {block 2, starting with /goal}
 ```
 
-Then report the block 2 character count you measured in step 5 (e.g. `goal message: 3,100 chars — measured, under the 4000 cap`). This is a receipt for a check that already passed, not the moment you find out: if the number you are about to write is 4000 or higher, you are printing the wrong block — go back to step 5 and trim. **STOP.** Do not run anything, do not invoke another skill, do not touch the clipboard or any hook. The user copies and pastes these two blocks by hand — each one whole, exactly as printed.
+Then report the block 2 character count you measured in step 5 (e.g. `goal message: 3,100 chars — measured, under the 4000 cap`), and under it the decisions step 1b wrote (`KEY: question → answer`) and any question left for the gate. This is a receipt for a check that already passed, not the moment you find out: if the number you are about to write is 4000 or higher, you are printing the wrong block — go back to step 5 and trim. **STOP.** Do not run anything, do not invoke another skill, do not touch the clipboard or any hook. The user copies and pastes these two blocks by hand — each one whole, exactly as printed.

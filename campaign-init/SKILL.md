@@ -70,6 +70,7 @@ AskUserQuestion for each; all blank-allowed:
 - **Landing directory** — the marketing / SEO site's directory, if distinct from Frontend; e.g. `landing` or `marketing-site`
 - **Database** — free text naming every local database the project may use, e.g. `Supabase local at 127.0.0.1:54321`, or `Supabase local at 127.0.0.1:54321 (container supabase_db_abc); stack 2 at 127.0.0.1:54621 (container supabase_db_abc_2)` when a second build lane has its own stack
 - **Changelog path** — e.g. `CHANGELOG.md` or `backend/CHANGE_LOG.md`
+- **Reset command** — optional (v0.3): the command that resets the lane's own local database from empty, e.g. `bash .tld/lane-db.sh reset`; blank means `/tld-gate` uses the platform's reset under the lane prefix, and never on a shared stack
 
 ### 5. Collect the Commit format section
 
@@ -147,6 +148,7 @@ Write `{cwd}/.tld/campaign.md` with this exact content. Substitute each `{field}
 - Landing directory: {Landing directory}
 - Database: {Database}
 - Changelog path: {Changelog path}
+- Reset command: {Reset command}
 
 ## Commit format
 - Pattern: {Commit pattern}

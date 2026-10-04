@@ -172,7 +172,7 @@ that does not share it.
 Walk the tickets in the milestone's Order and look across their combined changes for consistency:
 
 **Database consistency (if any ticket in Order touched migrations):**
-- Run the stack's local-DB reset command (read `Stack.Database` from `.tld/campaign.md` to identify the database, then run the appropriate reset — for Supabase that's `supabase db reset`; for plain Postgres it might be `dropdb && createdb && psql -f schema.sql`; for SQLite it might be `rm db.sqlite && npm run migrate`) to verify all migrations apply cleanly in sequence.
+- Prove the migrations apply from empty, on the lane's own database only. If `Stack.Reset command` is set in `.tld/campaign.md`, run it from the repo root: it resets the database this worktree's lane prefix selects and refuses the shared one. If it is blank: a campaign whose `Stack.Database` names one database resets that database with the platform's reset (Supabase `supabase db reset --local`; plain Postgres `dropdb && createdb && psql -f schema.sql`; SQLite `rm db.sqlite && npm run migrate`), under the lane prefix the test commands carry when they carry one. A campaign that names several databases never resets the first one named, the shared stack: run the reset only when the prefix selects another database; otherwise skip this check, apply pending migrations forward instead (`supabase migration up` or the platform's equivalent), and say in the gate report that the from-empty check was skipped and why. Never a raw reset that lands on the shared stack.
 - Check that tables, columns, constraints, and indexes match what tickets specified.
 - Verify RLS policies are in place for any new tables.
 
