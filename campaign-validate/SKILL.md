@@ -64,6 +64,7 @@ Each check is independent — run all of them and report pass / fail for each, e
 - `Team` — print the configured value if present, or note it is blank.
 - `Stack.Database` — print the configured value if present, or note it is blank.
 - `Stack.Changelog path` — print the configured value if present, or note it is blank.
+- `Stack.Reset command` — optional (v0.3): print the configured value if present, or note it is absent; absent or blank means `/tld-gate` uses the platform's reset under the lane prefix, and never on a shared stack.
 - `Commit format.Co-author` — print the configured value if present, or note it is blank.
 
 ### 3. Output
@@ -97,6 +98,7 @@ Report a compact pass / fail table grouped by section. Use ✅ for pass, ❌ for
 | Team | {value or "(blank)"} |
 | Stack.Database | {value or "(blank)"} |
 | Stack.Changelog path | {value or "(blank)"} |
+| Stack.Reset command | {value or "(absent, v0.3 optional)"} |
 | Commit format.Co-author | {value or "(blank)"} |
 
 **Result: {PASS | FAIL — {N} required check(s) failed}**

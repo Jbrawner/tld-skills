@@ -52,6 +52,7 @@ Print every current value in a single table grouped by section so the user can s
 | Landing directory | {value or "(blank)"} |
 | Database | {value or "(blank)"} |
 | Changelog path | {value or "(blank)"} |
+| Reset command | {value or "(absent, v0.3 optional)"} |
 
 ### Commit format
 | Field | Current value |
@@ -66,7 +67,7 @@ Use AskUserQuestion: "Which category do you want to edit?" with these options:
 
 - **Project** — Issue tracker, Project name, Team, Ticket prefix
 - **Test Commands** — Backend, Frontend, Landing, Full
-- **Stack** — Backend directory, Frontend directory, Landing directory, Database, Changelog path
+- **Stack** — Backend directory, Frontend directory, Landing directory, Database, Changelog path, Reset command (optional, v0.3)
 - **Commit format** — Pattern, Co-author
 - **Pipelines / Allowed statuses (v0.2)** — the optional v0.2 sections; add, replace, or remove a whole section (see step 4b)
 
@@ -119,6 +120,8 @@ The only legal section headings are the six in the v0.2 schema. Do not create an
 Rewrite `{cwd}/.tld/campaign.md` preserving **every section currently present** — the four required sections plus any optional v0.2 sections (`## Pipelines`, `## Allowed statuses`) — and every field byte-for-byte, except the one line (or, for step 4b, the one whole section) you are changing. Keep the section headers and bullet labels exactly as they are in the schema. **Never drop a `## Pipelines` or `## Allowed statuses` block that was in the file just because this edit targeted a different field** — a field edit must round-trip the v0.2 sections untouched.
 
 If the user changed **Project name**, also update the `# Campaign: {Project name}` title line at the top of the file.
+
+If the user set **Reset command** and the file has no such line, add `- Reset command: {new}` as the last line of `## Stack`: it is the one optional v0.3 field (docs/CAMPAIGN_SCHEMA.md), and a file without it is still valid.
 
 Do NOT introduce sections outside the v0.2 allowlist (`Project`, `Test Commands`, `Stack`, `Commit format`, `Pipelines`, `Allowed statuses`), do NOT re-order the existing sections, and do NOT add fields that are not in the schema.
 
