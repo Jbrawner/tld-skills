@@ -33,7 +33,9 @@ output:
 
 Parse the **Project config** table. Every key is required: `App`, `Release ref`,
 `Version files`, `Roles`, `Surfaces`, `Database`, `Agent key`, `Money path`, `Writes`,
-`Known console noise`, `Tracker`, `Verdict`. If one is missing, stop and name it.
+`Known console noise`, `Tracker`, `Verdict`. If one is missing, stop and name it. One key is
+optional: `Seed`, the commands that prepare the data a walk needs, in the order they run
+(step 3b). A contract without it is valid; the walk then prepares nothing.
 
 `Agent key` names a secret the app needs but this skill must never print, and the thing
 that would destroy it. Read the restriction and obey it. If it forbids restarting the
@@ -80,6 +82,16 @@ the app reaches and what set it.
    release sha. If the checkout serving the app differs from the release ref on any file the
    `Surfaces` key names, stop and say so. A walk against the wrong code proves nothing.
 
+### 3b. Prepare the data
+
+Run the contract's `Seed` commands now, in order, from the checkout that serves the app,
+against the database step 2 named, before anyone signs in. Say what ran. Without a `Seed`
+key, write "Seed: none named" and continue.
+
+The order is the point. A seed that signs in as a role can end that role's sessions, so
+nothing that signs in as a role runs after the walk's first sign-in. If the walk later finds
+the data thin, it marks those rows ✗ with that reason; it does not seed mid-walk.
+
 ### 4. Drift check
 
 Enumerate the surfaces the contract names (for example every `path="..."` in the routes
@@ -122,10 +134,22 @@ the matrix is a working-tree change only; this skill never commits.
 
 ### 5. Walk the matrix
 
+Before the first sign-in, print the sign-ins the walk will perform, one row per role from
+the contract's `Roles` key:
+
+| Role | Account | Where its password comes from | Host | Who signs in |
+|---|---|---|---|---|
+
+On a local host (`localhost`, `127.0.0.1`) the accounts and password are the project's seed
+test values and the invocation of this skill is the go: the walk signs in itself and does
+not ask again at sign-in time. On any other host the user signs in, in the browser pane, once
+per role, when the walk reaches that role; this table is where they learn that before the
+walk starts. Never type a password into a host that is not local.
+
 For each role, in the order the matrix lists them:
 
-1. Sign in with that role's account from the contract's `Roles` key, through the real login
-   form. Confirm the app shows the role.
+1. Sign in with that role's account, through the real login form, as the table says. Confirm
+   the app shows the role.
 2. For every row whose cell for this role is not `n/a`, do what `How to prove` says and record
    one mark. A row that is `n/a` for every role but the first is run once, under the first role.
 3. After each area, read the console errors and the network log. Only the noise the contract's
@@ -175,8 +199,9 @@ where the version comes from the contract's `Version files`. The last segment na
 environment walked, and it is always `local` because step 2 refuses any other database; a
 staging or demo walk is written by that environment's own harness. Fill every section: one result
 row per matrix ID in matrix order, the money path block, the console and network block per
-role, and the drift outcome from step 4. Derive the run date now. The run file is never
-edited after the run ends.
+role, the drift outcome from step 4, and the seed commands step 3b ran, or `none`, in the
+header table (add a `Seed` row when the template has none). Derive the run date now. The run
+file is never edited after the run ends.
 
 The run file's What's next section lists every ⏸️ row, by matrix ID and role, with what would
 let it run, as work still to do. A paused row is never counted as a pass, there or in any total.
@@ -233,3 +258,5 @@ When you present the "What's next?" options, the user may answer with just a num
 - Commit anything. Matrix edits and the run file are working-tree changes for the user to
   commit
 - Decide the release. It reports; the runbook decides
+- Seed data after the first sign-in, or ask about a sign-in mid-walk. Both are settled before
+  the walk starts (steps 3b and 5)
