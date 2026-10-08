@@ -37,6 +37,7 @@ Print the reference card below, then determine the user's current position in th
 | `/tld-autoland` | **The only skill that merges.** Per ticket: fresh branch → `/tld-full-auto` → commit → push → PR → watch CI → squash-merge → back to main → next ticket. One PR per standalone ticket. Accepts a list of IDs; refuses a Story and its sub-tasks. Failures park (work committed + pushed, reason on the ticket) and the run continues | Small bug fixes you'd approve without reading the diff, especially a batch of them. Requires the `auto-land` label per ticket; refuses migrations/auth/RLS/secrets/seed/billing/CI-config outright; never merges on red or unknown |
 | `/npc-partial` | Build → STOP for manual QA on uncommitted diff → commit + tld-next on approval | Doc/content tickets where test command is `skip` and you want one QA pause. Refuses to run if the campaign has a real test command |
 | `/npc-full` | Build → commit → tld-next, no review pause | Doc/content tickets where test command is `skip` and you trust the build. Refuses to run if the campaign has a real test command |
+| `/tld-lane-watch` | Watches parallel lane sessions on a 30-minute loop, observe-only: liveness, blocking questions, stacks, PRs, Done-before-merge, method, safety and freeze; one report per tick with a lane table, new flags and your asks; stops when every lane has posted its wake-up report or at a deadline | Several lanes are running /goal blocks and you are stepping away |
 
 ### Recovery + Navigation
 
