@@ -92,7 +92,7 @@ Read `state.json`. For each lane, run `scan.py <transcript> <offset> <pattern>`,
 
 | # | Check | Flag when | Before flagging |
 |---|---|---|---|
-| 1 | Alive | Transcript bytes flat 45+ minutes = STALLED | Rule out a sleeping Mac (`pmset -g log`) and a background suite still running in the lane's worktree (`ps` for vitest, jest, playwright with that cwd). A slow suite is not a stall. |
+| 1 | Alive | The session is not running (`list_sessions` shows `isRunning` false) before its wake-up report, or its transcript bytes are flat 45+ minutes = STALLED | Run `list_sessions` every tick: a dead session can still have a suite running in its worktree, so transcript growth alone can miss it. For flat bytes, rule out a sleeping Mac (`pmset -g log`) and a background suite still running in the lane's worktree (`ps` for vitest, jest, playwright with that cwd). A slow suite is not a stall. |
 | 2 | Blocked | The last turn asks the user something, or the goal re-fires with no new tool calls (it bills every re-fire) | Read the lane's own user turns since the question: the user may already have answered in the lane. |
 | 3 | Stacks | Two lanes on one stack, a held lane on a stack, a claimed container down | Read the ledger rows and `docker ps`. |
 | 4 | PRs | A lane PR that is CONFLICTING (it runs no CI at all), has a red check, has `ci:run` on with more than 2 check runs, or sits open 3+ hours with no push | `gh pr list --state open --json number,headRefName,mergeable,labels,statusCheckRollup,updatedAt` |
@@ -144,24 +144,41 @@ Every tick is one post. It opens with a single horizontal rule and a time headin
 | Lane | Flag | Evidence | What you should do |
 |---|---|---|---|
 
-**Asks waiting for you** (one row per ticket, grouped by what the user does)
+**Asks waiting for you** (one row per ticket, one table per group, only the groups that have rows)
 
-**Close (n)** | Ticket with short title | Do | Why |
-**Rule (n)** | Ticket with short title | Do | Note |
-**Give input (n)** | Item | Do | Note |
-**Triage (n)** | Ticket with short title | Note |
-**Glance (n)** | Item | Note |
+**Close (n)**
 
-**Next**
+| Ticket | Do | Why |
+|---|---|---|
 
-1. {the one you recommend} (Recommended)
-2. ...
+**Rule (n)**
+
+| Ticket | Do | Note |
+|---|---|---|
+
+**Give input (n)**
+
+| Item | Do | Note |
+|---|---|---|
+
+**Triage (n)**
+
+| Ticket | Note |
+|---|---|
+
+**Glance (n)**
+
+| Item | Note |
+|---|---|
+
+{the What's next block at the end of this file}
 ```
 
 - The lane table appears in every post, every lane, every time; what changed since the last tick goes in the Now cell.
 - Never put several tickets in one cell. Every ticket key is a link that carries its title; fetch titles you do not have rather than printing a bare key.
 - A post with a new flag also sends one PushNotification, one line per flag, under 200 characters.
-- Numbered options are ones you can carry out yourself, one per line, the recommended one marked.
+- The post ends with the What's next block below and nothing after it. When the tick has its own step for the user (answer an ask here and get a one-line paste for a lane, look at a flag), put it first as option 1, marked Recommended, and renumber the standard options after it. Every option is one you can carry out yourself.
+- `questions.md` rows always have all six cells; an empty cell stays empty rather than being dropped.
 
 ---
 
