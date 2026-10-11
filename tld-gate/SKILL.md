@@ -138,6 +138,16 @@ Act on the result:
 
 Report every row in step 9 even when all of them are clean — print `All {N} resolved tickets confirmed on {default}.` A check that prints nothing when it passes is indistinguishable from a check that never ran.
 
+### 4.6. Settle the tree before any suite runs
+
+A full run costs about 45 minutes. Run it once, on the exact tree that will merge, in a ready environment. Do these in order. Do not start §5 until all pass.
+
+1. **Resolve every conflict first, in landing order.** List the open PRs that will merge before this branch (the order the goal, the user or the lane plan gives; ask if no one has said). Merge `origin/{default}` into this branch, then merge each PR ahead of it, in that order. Every PR bumps the same version and changelog lines, so a branch resolved against `{default}` alone conflicts again when the PR ahead lands, and the full run repeats. Then prove the result merges clean: `git merge-tree --write-tree origin/{default} HEAD` exits 0. A conflict here is fixed now, never after the suite.
+2. **Run every post-merge step before any test.** After any merge into this branch, run each step the goal or `.tld/goal-notes.md` names for a merge (relink env files, restart the lane's stack, and the like). A red result right after a merge is an environment problem until you prove otherwise: check your own post-merge steps before you name any other cause.
+3. **Record the tree.** `git rev-parse HEAD^{tree}` → `{tree}`. Results count only for this tree. After a PR ahead of this one merges, the branch's next merge of `origin/{default}` must give the same `{tree}`; if it does, the results stand and nothing reruns.
+4. **Read results already on disk.** Results live in `$(git rev-parse --git-dir)/tld-gate/{tree}/` (inside git, so never committed, and it survives a session restart). For each suite that has a `<suite>.exit` file holding `0`, the suite is done: do not run it again. Run only the suites with no file or a non-zero one.
+5. **Check load.** If the 1-minute load average is above 2 × `nproc`, other lanes are busy: wait (check every 5 minutes, at most 30), or run with fewer workers. Record the load in the report.
+
 ### 5. Full regression test
 
 Run the `Full` command from campaign Test Commands. This is the cumulative regression, not just the current milestone's tests.
@@ -146,6 +156,12 @@ If `Test Commands.Full` is empty, stop and output:
   "No Full test command defined in .tld/campaign.md Test Commands. Run /campaign-edit to set one."
 
 Capture full output.
+
+**Write each suite's result as it finishes.** When the command runs several suites (frontend, backend, mobile), run them one at a time and write each exit code to `$(git rev-parse --git-dir)/tld-gate/{tree}/<suite>.exit` the moment it ends, with its output beside it as `<suite>.log`. A run that dies part-way keeps every suite that finished. On resume, §4.6 step 4 reads these first.
+
+**A lone timeout under load is not yet a failure.** If one test fails by timeout and the load was above the §4.6 threshold, rerun that suite once when the load is down. A second failure is real.
+
+**Reporting while it runs:** one line when the run starts (tree, suites, load) and one when it ends. No updates in between.
 
 ### 5a. Browser suite (announced, never run here)
 
