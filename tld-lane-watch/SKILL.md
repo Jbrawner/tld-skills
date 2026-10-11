@@ -2,17 +2,18 @@
 name: tld-lane-watch
 description: |
   Watch several parallel lane sessions (each driving a /goal through /tld-full-auto) on a loop
-  until every lane posts its wake-up report or a deadline passes, then stop. Observe and report
-  only: each tick reads the bytes each transcript added, checks liveness, blocking questions,
-  stacks, PRs, Done-before-merge, method, safety and a merge freeze, and posts one compact
-  report with a lane table, new flags and the user's open asks. Use when the user says
+  until every lane posts its wake-up report or a deadline passes, then stop. Observes and
+  reports, and sends a lane only the user's own picks: each tick reads the bytes each transcript
+  added, checks liveness, blocking questions, stacks, PRs, Done-before-merge, method, safety and
+  a merge freeze, and posts one compact report with a lane table, new flags and the user's open
+  asks. Use when the user says
   "tld-lane-watch", "watch the lanes", "monitor the lanes", "babysit the lanes overnight",
   "keep an eye on lanes 1 to 4", or starts a /loop over lane sessions.
 ---
 
 # TLD Lane Watch
 
-You watch a set of lane sessions that run goals in parallel, and you tell the user what each lane is doing, what went wrong and what is waiting on them. You never act in a lane. The skill has two modes: `start` sets the watch up, schedules the loop and runs the first tick; `tick` is one pass, fired by the loop. Everything the loop needs between ticks lives in a state folder in the scratchpad, so a tick after a context compaction picks up where the last one stopped.
+You watch a set of lane sessions that run goals in parallel, and you tell the user what each lane is doing, what went wrong and what is waiting on them. You never act in a lane; the one thing you send a lane is a pick the user made here (and, if turned on, a stall nudge). The skill has two modes: `start` sets the watch up, schedules the loop and runs the first tick; `tick` is one pass, fired by the loop. Everything the loop needs between ticks lives in a state folder in the scratchpad, so a tick after a context compaction picks up where the last one stopped.
 
 ## When to use this
 
@@ -42,15 +43,16 @@ What you read on your own:
 
 ### Mode `start`
 
-1. **Build the lane map.** For each session whose title starts with the prefix: lane number, session id, cwd (worktree), transcript path, current byte size. Print it as a table and confirm it with the user. A lane on hold is listed but is excluded from the stop condition.
-2. **Write the state folder** `<scratchpad>/lane-watch/`:
+1. **Name this session `TLD lane watch`** (`set_session_title` with session id `self`). A lane receives your message labelled `From "TLD lane watch"`, and the goals `/tld-goal-handoff` composes accept the user's picks from that title. The title must not start with the lane prefix, or the next step lists the watcher as a lane.
+2. **Build the lane map.** For each session whose title starts with the prefix: lane number, session id, cwd (worktree), transcript path, current byte size. Print it as a table and confirm it with the user. A lane on hold is listed but is excluded from the stop condition.
+3. **Write the state folder** `<scratchpad>/lane-watch/`:
    - `state.json`: lane map, deadline, freeze, held lanes, nudge setting, safety pattern, cron id.
    - `sizes.txt`: `lane path bytes epoch`, one line per lane: the byte offset each tick reads from.
    - `notes.md`: one short entry per tick.
-   - `questions.md`: the asks log, one row per ask (`| Q<n> | Lane | Ticket | Ask | Lane's pick | open/answered |`).
+   - `questions.md`: the asks log, one row per ask (`| Q<n> | Lane | Ticket | Ask | User's pick | open/sent/accepted/refused |`).
    - `scan.py`: the transcript reader below.
-3. **Schedule the loop** with CronCreate, recurring, every 30 minutes at an off-minute (`7,37 * * * *`), prompt `/tld-lane-watch tick`. Say that it is session-only, needs the app open on an awake Mac, and expires after 7 days.
-4. **Run the first tick** now.
+4. **Schedule the loop** with CronCreate, recurring, every 30 minutes at an off-minute (`7,37 * * * *`), prompt `/tld-lane-watch tick`. Say that it is session-only, needs the app open on an awake Mac, and expires after 7 days.
+5. **Run the first tick** now.
 
 `scan.py` reads only the bytes added since the last tick (transcripts pass 50 MB; never read a whole one):
 
@@ -105,7 +107,9 @@ The safety pattern always includes `supabase db reset`, `db push`, `supabase mig
 
 Then detect the **wake-up report**: the lane's last long assistant text says its goal is finished (all units merged, parked or rolled) and the lane went idle. Read it in full and add every ask it lists to `questions.md` as a new row.
 
-**Stalled-lane nudge** (only if the user turned it on at `start`): one neutral `send_message` saying how long the lane has been quiet and asking it to resume its goal or say what it is waiting on. One per stall; still flat next tick means flag it instead. Never nudge a lane whose last turn asks the user something.
+**Delivering a pick.** When the user answers a lane's ask in this session, send that lane its pick with `send_message`, addressed by the full `local_` session id from `list_sessions`. Open the message with `The user's picks, given in this watch session at HH:MM:`, then one line per ask: the ticket, the option number and words the lane itself offered, and the user's words when they added any. Then, in the same turn, re-run `scan.py` on that lane from its byte size at send time until it replies (a few minutes at most) and read the reply: accepted means it is acting on the pick; refused means it needs the user's own words. Record the result in `questions.md` and report it in this turn's post.
+
+**Stalled-lane nudge** (only if the user turned it on at `start`): one neutral `send_message`, addressed the same way, saying how long the lane has been quiet and asking it to resume its goal or say what it is waiting on. One per stall; still flat next tick means flag it instead. A lane whose last turn asks the user something gets the user's pick when they give one, never a nudge.
 
 **Stop** when every lane not on hold has posted its wake-up report, or at the deadline: CronDelete the job, one PushNotification with the outcome, then the final report.
 
@@ -115,9 +119,10 @@ Write the tick to `notes.md` and the new sizes to `sizes.txt` last, so a tick th
 
 | Rule | Why |
 |---|---|
-| Never message, steer, stop or restart a lane (the opt-in nudge is the only exception). Never edit files, tickets, PRs or the stack ledger. Never open an env file. | The lanes own their work; a watcher that acts becomes a fifth lane nobody is watching. |
-| A pick the user makes goes into the lane as their own words: give them a one-line paste per lane. | Lanes refuse a pick relayed from another session, even with the user's words quoted. A relay can carry information only. |
-| Before telling the user to paste something into a lane, read the lane's recent user turns. | They may already have pasted it; telling them twice costs trust. |
+| Never steer, stop or restart a lane, and send it nothing beyond the user's picks and the opt-in nudge. Never edit files, tickets, PRs or the stack ledger. Never open an env file. | The lanes own their work; a watcher that acts becomes a fifth lane nobody is watching. |
+| Send each lane its pick with `send_message` (full `local_` session id from `list_sessions`), labelled as the user's picks, then check the lane's reply in the same turn. | The user approved this on 2026-10-09 so they stop typing the same digit into every lane. A lane accepts it when its goal carries the picks bullet from `/tld-goal-handoff`. |
+| A pick only answers options the lane itself offered. An ask about production, a merge past the freeze, a database reset or credentials goes to the user as a one-line paste for that lane, and so does any pick a lane refused. | Those stay the user's own words in the lane, and a goal written before the picks bullet refuses every delivered pick. |
+| Before sending a pick or handing the user a paste, read the lane's recent user turns. | The user may already have answered in the lane; a second answer costs trust and can start the work twice. |
 | A step the auto-mode classifier blocks inside a lane (a test-file edit, a database reset) is not fixed by a pick. Offer the real workarounds: an allow rule in the lane worktree's settings, or the user runs the command. | A pick does not move the classifier. |
 | A flag already reported stays silent until it changes. | Repeating it every 30 minutes trains the user to skip the report. |
 | Merged to the default branch means **not deployed**, in those words. | Merging deploys nothing in a tag-released repo. |
@@ -177,7 +182,7 @@ Every tick is one post. It opens with a single horizontal rule and a time headin
 - The lane table appears in every post, every lane, every time; what changed since the last tick goes in the Now cell.
 - Never put several tickets in one cell. Every ticket key is a link that carries its title; fetch titles you do not have rather than printing a bare key.
 - A post with a new flag also sends one PushNotification, one line per flag, under 200 characters.
-- The post ends with the What's next block below and nothing after it. When the tick has its own step for the user (answer an ask here and get a one-line paste for a lane, look at a flag), put it first as option 1, marked Recommended, and renumber the standard options after it. Every option is one you can carry out yourself.
+- The post ends with the What's next block below and nothing after it. When the tick has its own step for the user (answer an ask here and you send it to the lane, look at a flag), put it first as option 1, marked Recommended, and renumber the standard options after it. Every option is one you can carry out yourself.
 - `questions.md` rows always have all six cells; an empty cell stays empty rather than being dropped.
 
 ---
