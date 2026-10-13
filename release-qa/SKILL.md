@@ -1,24 +1,31 @@
 ---
 name: release-qa
 description: |
-  Walk every user-facing flow of a product, happy and failure paths, per role, in the built-in
-  browser against the code a release tag will point at, per the repo's `docs/release-qa/` contract.
-  Records a run file, files tickets for real defects, ends with a verdict. Never pushes a tag. Use
-  when the user says "release qa", "run the release walk", "qa the release", or before cutting a
-  production tag.
+  Walk every user-facing flow of a product, happy and failure paths, per role, on the server you
+  name (local, staging, demo, prod, as the repo's `docs/release-qa/` contract lists them) against
+  the code a release tag will point at: the repo's automated walk first, then Claude in the
+  browser for the rows it leaves. Records a run file and the walk mark the next tag needs, files
+  tickets for real defects, ends with a verdict. Never pushes a tag. Use when the user says
+  "release qa", "run the release walk", "qa the release", "walk staging", or before cutting a
+  release tag.
 ---
 
 # Release QA
 
-You are proving a release by hand. Nothing here is a unit test. You sign in as each role the
-product defines, click every row of the flow matrix, and write down what you saw. The matrix
-is the specification; the run file is the evidence; the verdict is one line at the end.
+You are proving a release on one server. Nothing here is a unit test: unit tests need a local
+database and run before a release, not inside it. On the server the user names, the repo's
+automated walk runs first, then you sign in as each role the product defines, walk every row
+the automated walk left, and write down what you saw. The matrix is the specification; the
+run file is the evidence; the verdict is one line at the end.
 
 This skill is project-agnostic. It knows nothing about the product except what the contract
 in `docs/release-qa/` tells it.
 
 ## Inputs
 
+- A server: a `Server` value from the contract's `## Servers` table (step 1). Without one, ask
+  which server to walk; never default to a server other than `local`. A contract with no
+  `## Servers` table has one server, `local`.
 - Optional: a release ref (a branch, tag, or sha). Defaults to the contract's `Release ref`.
 
 ## Process
@@ -46,7 +53,36 @@ Read `docs/release-qa/FLOW_MATRIX.md`. The role columns are the columns between 
 `How to prove`; they must match `Roles` in the contract, in order. If they do not, stop and
 say which side is wrong.
 
+Then read the contract's optional `## Servers` table, one row per server:
+
+| Column | Holds |
+|---|---|
+| Server | The name the user passes: for example `local`, `staging`, `demo`, `prod` |
+| App | The URL the walk opens |
+| Walk command | The automated walk to run first, or `none` |
+| Hand walk | How you reach the app for the rows the automated walk leaves, or `built-in browser` |
+| Build proof | What proves the server runs the release commit, for example a footer version and a version endpoint |
+| Rows | `every row`, or `smoke`: only the matrix rows whose flow name carries `(smoke)`, first role only |
+| Render command | The command that writes the run record from the walk's marks and sets the walk mark, or `none` |
+| Run record | The run file name's last segment, for example `local`, `staging`, `prod-smoke` |
+| Walk mark | The commit status the render command sets, or `none` |
+
+Without the table, say in one line "No `## Servers` table: walking local only", and the run
+is today's local walk: the Project config's `App`, every row, the built-in browser, run record
+`local`, no walk mark. With the table, the server the user named must be one of its rows; a
+server the table does not name is refused, and so is a missing column. Every per-server value
+below comes from that row. Never write a product URL, command or status name into the walk
+yourself.
+
+On every server but `local`, say in one line that unit tests are not part of this walk: they
+need a local database, and the scheduled run for this commit is their evidence.
+
 ### 2. Local database safety check
+
+**On `local` only.** On any other server this skill touches no database: it reaches the app
+only as a signed-in user of the product, through the browser or the walk the contract names,
+never through a CLI, a service key or a dashboard. Write "Database: none touched (remote
+server, reached through the product only)" and go to step 3.
 
 This mirrors STANDARDS.md § Local DB safety check, with the contract's `Database` key as the
 source of truth instead of `.tld/campaign.md`.
@@ -77,12 +113,21 @@ the app reaches and what set it.
 ### 3. Prove the code under test
 
 1. `git fetch` and resolve the release ref to a sha.
-2. Start the app the way the contract's `App` key says. Never start a server with Bash.
-3. Read the app's version string and the contract's `Version files`. They must describe the
-   release sha. If the checkout serving the app differs from the release ref on any file the
-   `Surfaces` key names, stop and say so. A walk against the wrong code proves nothing.
+2. On `local`: start the app the way the contract's `App` key says. Never start a server with
+   Bash. Read the app's version string and the contract's `Version files`. They must describe
+   the release sha. If the checkout serving the app differs from the release ref on any file
+   the `Surfaces` key names, stop and say so.
+3. On any other server: start nothing. Do what the row's `Build proof` says against its `App`
+   and record what each check returned. Every check must name the release sha (and the
+   version the `Version files` hold at that sha); a check that names another commit, or that
+   cannot be read, stops the run.
+
+A walk against the wrong code proves nothing.
 
 ### 3b. Prepare the data
+
+**On `local` only.** On any other server write "Seed: none, remote server" and continue; the
+data a remote walk needs comes from its own walk command.
 
 Run the contract's `Seed` commands now, in order, from the checkout that serves the app,
 against the database step 2 named, before anyone signs in. Say what ran. Without a `Seed`
@@ -134,24 +179,46 @@ the matrix is a working-tree change only; this skill never commits.
 
 ### 5. Walk the matrix
 
-Before the first sign-in, print the sign-ins the walk will perform, one row per role from
-the contract's `Roles` key:
+**Which rows.** With `Rows: every row`, every matrix row for every role. With `Rows: smoke`,
+only the rows whose flow name carries `(smoke)`, under the first role in `Roles`; the other
+roles are not walked and the run file says so. If no row carries `(smoke)`, stop: "The
+contract has no `(smoke)` rows, so this server has no walk to run. Mark them in
+`FLOW_MATRIX.md` first."
+
+**5a. The automated walk.** When the row's `Walk command` is not `none`, run it now, exactly as
+the contract writes it, before anyone signs in by hand. Long runs go to a log file. Read what
+it marked for each row. A row it marked is walked; you do not walk it again. A row it left
+unmarked, or marked as needing a hand walk, is yours in 5b, and the run file names each one.
+If the command fails before it marks anything, stop and show the failure; a walk that did not
+run is not replaced by a hand walk of every row. Never open a file the contract names as
+holding a password or key: the walk reads it, you do not.
+
+**5b. The AI walk.** Walk the rows the automated walk left, or every selected row when there
+is no walk command, through the row's `Hand walk`: the command it names, or the built-in
+browser.
+
+Before the first sign-in, print the sign-ins the walk will perform, one row per role being
+walked:
 
 | Role | Account | Where its password comes from | Host | Who signs in |
 |---|---|---|---|---|
 
 On a local host (`localhost`, `127.0.0.1`) the accounts and password are the project's seed
 test values and the invocation of this skill is the go: the walk signs in itself and does
-not ask again at sign-in time. On any other host the user signs in, in the browser pane, once
-per role, when the walk reaches that role; this table is where they learn that before the
-walk starts. Never type a password into a host that is not local.
+not ask again at sign-in time. A `Hand walk` command that signs in for you (it reads the
+contract's password file itself) counts the same way on the hosts the contract allows it. On
+any other host, in the built-in browser: if the browser is already signed in as the role, run
+with that session; if not, stop and ask the user to sign in, once per role, when the walk
+reaches that role. This table is where they learn that before the walk starts. Never type a
+password into a host that is not local, and never change an account setting on one.
 
-For each role, in the order the matrix lists them:
+For each role being walked, in the order the matrix lists them:
 
 1. Sign in with that role's account, through the real login form, as the table says. Confirm
    the app shows the role.
-2. For every row whose cell for this role is not `n/a`, do what `How to prove` says and record
-   one mark. A row that is `n/a` for every role but the first is run once, under the first role.
+2. For every row left to you whose cell for this role is not `n/a`, do what `How to prove` says
+   and record one mark. A row that is `n/a` for every role but the first is run once, under the
+   first role.
 3. After each area, read the console errors and the network log. Only the noise the contract's
    `Known console noise` key excuses is excused. Anything else is a finding.
 
@@ -183,7 +250,8 @@ Rules that do not bend:
 - Save real data only on rows marked `(write)`. Open every other dialog to prove it renders
   and binds, then close it. Note or undo what a `(write)` row saved.
 - The money path stops at the payment page. Confirm the test-mode badge. Never enter a card.
-  Never live mode. If you are unsure which mode the page is in, stop and ask.
+  Never live mode. If you are unsure which mode the page is in, stop and ask. On a server whose
+  payments are live, the money path is look-only: read the billing page and click nothing.
 - Never edit a test, a fixture, a baseline, or product code. This skill produces a run file
   and tickets, nothing else.
 - A row that fails once and passes on retry is flaky, not passing. Run it three times, record
@@ -194,14 +262,22 @@ Rules that do not bend:
 
 ### 6. Write the run file
 
-Copy `docs/release-qa/runs/TEMPLATE.md` to `docs/release-qa/runs/<version>-<short sha>-local.md`,
-where the version comes from the contract's `Version files`. The last segment names the
-environment walked, and it is always `local` because step 2 refuses any other database; a
-staging or demo walk is written by that environment's own harness. Fill every section: one result
-row per matrix ID in matrix order, the money path block, the console and network block per
-role, the drift outcome from step 4, and the seed commands step 3b ran, or `none`, in the
-header table (add a `Seed` row when the template has none). Derive the run date now. The run
-file is never edited after the run ends.
+The run file is `docs/release-qa/runs/<version>-<short sha>-<Run record>.md`, where the version
+comes from the contract's `Version files` at the release sha and the last segment is the row's
+`Run record` (`local` without a `## Servers` table).
+
+When the row's `Render command` is not `none`, run it with the marks from 5a and 5b; it writes
+the run file and sets the row's `Walk mark` on the walked commit. Never set that mark any other
+way: no hand-made status call, no mark for a walk that did not finish. Confirm the mark landed
+and quote its description. When the render command is `none`, copy
+`docs/release-qa/runs/TEMPLATE.md` to that path yourself; no walk mark is set.
+
+Either way the run file has every section: one result row per walked matrix ID in matrix order
+(and a line naming the rows a smoke walk skipped by design), which rows the automated walk
+marked and which the AI walk marked, the build proof from step 3, the money path block, the
+console and network block per role, the drift outcome from step 4, and the seed commands step
+3b ran, or `none`, in the header table (add a `Seed` row when the template has none). Derive the
+run date now. The run file is never edited after the run ends.
 
 The run file's What's next section lists every ⏸️ row, by matrix ID and role, with what would
 let it run, as work still to do. A paused row is never counted as a pass, there or in any total.
@@ -224,7 +300,9 @@ Print, in this order:
    ⏸️ or known row without a High ticket (step 5).
 2. The money path line: HTTP status, session id, what the payment page showed.
 3. The release-readiness line: "No blockers" or "Blocked by <tickets>".
-4. The words "Tag not pushed."
+4. The walk mark line: the server, the mark and the commit it was set on, or "No walk mark
+   for this server".
+5. The words "Tag not pushed."
 
 Then:
 
@@ -253,6 +331,11 @@ When you present the "What's next?" options, the user may answer with just a num
 ## What this skill does NOT do
 
 - Push, create, or move a tag
+- Run unit tests. They need a local database; the scheduled run for the commit is their
+  evidence
+- Touch a database on any server but `local`, type a password into a host that is not local,
+  or open a file the contract names as holding a password or key
+- Set a walk mark by hand. Only the contract's render command sets it
 - Change product code, tests, fixtures, or eval baselines
 - Complete a payment, in any mode
 - Commit anything. Matrix edits and the run file are working-tree changes for the user to
