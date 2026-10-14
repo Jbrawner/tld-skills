@@ -26,10 +26,10 @@ exceptions. Those are the entire precision of a sweep, they cannot be derived fr
 directory listing, and a baseline full of plausible-looking generic defaults is worse than an empty
 one because it looks finished. Step 6 hands those back as explicit homework and says so in the report.
 
-**Write-scoped.** This skill writes a baseline, wrapper files, and review folders. It never edits
-application code, never runs a migration, never writes to a database, never commits, never pushes,
-never opens a pull request, and never files a ticket. Scheduling happens only after the user approves
-the proposed slots.
+**Write-scoped.** This skill writes a baseline, wrapper files, review folders, and a sweep calendar
+entry when the project sweeps less often than every weekend. It never edits application code, never
+runs a migration, never writes to a database, never commits, never pushes, never opens a pull
+request, and never files a ticket. Scheduling happens only after the user approves the proposed slots.
 
 ## Layout
 
@@ -39,6 +39,7 @@ the proposed slots.
 | Baseline templates | `baseline.example.*` inside each of those folders | The starting point copied into the target repo |
 | Baseline | in the target repo | That project's config, exceptions, and known-open findings |
 | Wrappers | `~/.claude/scheduled-tasks/<task-id>/SKILL.md` | One per audit and per lens. Thin: names the project, invokes the shared skill |
+| Sweep calendar | `~/.claude/sweep-weekends.json` | Only for a project that sweeps less often than every weekend: how many weeks apart, and the first sweep Saturday |
 | Run records | in the target repo | One folder per lens or audit, one dated document per run |
 
 A wrapper carries the project, the tracker, the guardrails, and the baseline path. Nothing else. The
@@ -278,6 +279,20 @@ Build the proposal, print it as a table, and **do not register anything until th
 - Keep the whole family inside a window the user is not working in, and keep any review or reporting
   routine on a different day from the sweeps it reads, so it reads a finished weekend.
 - Cron is evaluated in local time.
+- **Ask how often: every weekend, or every other weekend.** The scheduler only repeats weekly, so the
+  slots stay weekly either way. A slower rhythm is one entry in `~/.claude/sweep-weekends.json`, which
+  every run checks first (RUN_PROTOCOL.md section 0):
+
+  ```json
+  { "<Project>": { "every_weeks": 2, "first_weekend": "<the Saturday of the first sweep weekend>" } }
+  ```
+
+  Ask which Saturday starts it, add the entry beside any other project's, and put the output of
+  `node <skills dir>/quality-sweep/sweep-weekend.mjs <Project> --next 4` in the proposal. That date is
+  the point the rhythm counts from, not a lookup, so it never goes stale, and it lives in the calendar
+  rather than in a wrapper. Any routine that reads the sweeps' output (a collector, a goal prompt, a
+  review) starts with the same check and stops on `OFF`, so an off weekend is quiet end to end. Every
+  weekend needs no entry.
 
 On approval, register each wrapper. Then list the scheduled tasks back and confirm every one appears
 with a sane next run. A wrapper written to disk but never registered is the failure this skill exists
