@@ -7,6 +7,27 @@ fourteen places and never did.
 Substitute for `<lens>` the lens slug your task names, and for `<date>` the **real current date** in
 `YYYY-MM-DD`, read at run time. Never hard-code a date, a month or a year anywhere.
 
+## 0. Is this a sweep weekend?
+
+A project can sweep every other weekend instead of every weekend. The scheduler only repeats weekly,
+so your slot fires every week and the first thing you do is ask:
+
+    node $ENGINE_ROOT/quality-sweep/sweep-weekend.mjs <Project>
+
+`<Project>` is the name on your task's `Project:` line, the word before the parentheses, and
+`$ENGINE_ROOT` is the skills folder section 1 describes (`~/.claude/skills` on the desktop). The script
+reads `~/.claude/sweep-weekends.json` and prints one line that starts with `ON` or `OFF`.
+
+| It prints | You do |
+|---|---|
+| `ON ...` | Carry on with section 1 |
+| `OFF ...` | Stop. That line is your whole report. Write no files, commit and push nothing, send no notification |
+| An error, or the script is missing | Carry on as `ON`, and put the error first in your report |
+
+An `OFF` weekend is not a skipped run, so section 7 does not apply to it: nothing went wrong, and a
+skip record every off weekend would bury the real ones. An error runs the sweep anyway because an
+extra sweep costs one run, while a sweep that quietly stops costs every weekend after it.
+
 ## 1. Everything you read and write is in your own worktree
 
 Your task runs in a fresh git worktree cut from `main`. That worktree is yours alone for this run.
@@ -28,7 +49,7 @@ automatically. Point it at your worktree and it resolves both:
 
 `$ENGINE_ROOT` is the folder that holds the `quality-sweep/` skill. On the desktop it is
 `~/.claude/skills`; on a cloud machine it is wherever the `tld-skills` repository was checked
-out, and your task says where. It appears three times in this document and means the same folder
+out, and your task says where. It appears four times in this document and means the same folder
 each time. On a machine with no tracker CLI, ask the tracker yourself which suppressed tickets are
 closed and hand the engine the list with `--closed-keys <file>`; SKILL.md Step 2a says how.
 
@@ -325,7 +346,7 @@ another way to send a message.
 
 Write a skip record for every stopping condition in this document: a missing baseline, an unclean
 worktree, a failed git command, an unavailable target, a findings file that already exists, a failed
-push, an unreachable tracker.
+push, an unreachable tracker. An `OFF` weekend from section 0 is not one of them.
 
 Do **not** write one for a normal completed run, and do not send a notification for one either. A
 run that worked is not news, and an alert for every routine every night is how the ones that matter
