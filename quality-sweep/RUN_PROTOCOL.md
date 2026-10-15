@@ -274,8 +274,9 @@ report that and stop, which is the same outcome as before and no worse.
 ## 5. Guardrails that apply to every lens
 
 - **Read-only against the product.** No application code edits, no migrations, no database writes,
-  no `db reset`, nothing moved to Done. The only writes are the tracker tickets and the two files
-  in section 3.
+  no `db reset`, nothing moved to Done. The only writes are the tracker tickets and the files
+  sections 3 and 4 name: the findings file, the run record, and a row in your lens's own README. A
+  run that stopped early writes its skip record from section 7 instead.
 - **If the thing this lens inspects is unavailable, that is a SKIPPED RUN, not a clean pass.**
   Never report a green result from a check that did not execute. A missed week costs nothing; a
   false all-clear costs everything the check is for.
