@@ -7,8 +7,9 @@
 --   2. accepted    — deviations a human reviewed and deliberately accepted
 --   3. known_open  — deviations already tracked by an open ticket
 --
--- It is loaded BEFORE the engine, in the same psql session:
---   psql "$CONN" -f <this file> -f <skill>/rls-audit.sql
+-- It is loaded BEFORE the engine, in the same psql session, with the SQL rls-findings.mjs makes from
+-- the repo's findings files in between (see the skill's Step 2):
+--   psql "$CONN" -f <this file> -f "$FINDINGS_SQL" -f <skill>/rls-audit.sql
 --
 -- Commit it. It is the audit's memory: without it every known finding reads as new every week, and a
 -- report that cries wolf every week is a report nobody reads.

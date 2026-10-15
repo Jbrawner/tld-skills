@@ -3,8 +3,10 @@
 -- READ-ONLY. Creates temp tables in its own session and reads system catalogs. It never touches
 -- application data, and it holds no locks beyond catalog reads.
 --
--- Usage (baseline optional, but always list it FIRST so its config wins):
---   psql "$CONN" -f <project>/quality-sweep/rls-audit-baseline.sql -f rls-audit.sql
+-- Usage (baseline optional, but always list it FIRST so its config wins; the findings SQL from
+-- rls-findings.mjs goes between it and this engine, so each recorded row replaces the baseline's):
+--   node rls-findings.mjs --root <project> > "$FINDINGS_SQL" &&
+--   psql "$CONN" -f <project>/quality-sweep/rls-audit-baseline.sql -f "$FINDINGS_SQL" -f rls-audit.sql
 --   psql "$CONN" -f rls-audit.sql                      # no baseline: pure defaults, everything is NEW
 --
 -- Emits ONE result set. Zero rows = clean. Each row: severity | check_name | object | status | detail
