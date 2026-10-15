@@ -51,7 +51,7 @@ Print the reference card below, then determine the user's current position in th
 | `/tld-recenter` | Cuts a fresh branch off the latest default branch (detects via `origin/HEAD` → `main` → `master`); refuses if working tree is dirty | After a PR merges, before starting the next ticket |
 | `/tld-save-point` | Recovers your position from milestone + tracker | Start of a new conversation |
 | `/tld-dashboard` | Shows progress across all milestones and tickets | When you want the big picture |
-| `/close-out` | Asks this session "can I archive you, or is anything lingering?": checks uncommitted files, unpushed commits, background work, dev servers, side sessions, the PR, unanswered questions, unfinished steps, tickets left mid-way and uncaptured follow-ups. Archives at once when all clear; otherwise one table of what lingers and what clears it | A session looks finished and you want it out of the sidebar |
+| `/close-out` | Asks this session "can I archive you, or is anything lingering?": checks uncommitted files, unpushed commits, background work, dev servers, side sessions, the PR, unanswered questions, unfinished steps, tickets left mid-way and uncaptured follow-ups. Archives at once when all clear; otherwise one table of what lingers and what clears it. `/close-out all` sweeps every other session from this one: one row per session with what lingers and a recommendation, then archives only the rows you pick | A session looks finished and you want it out of the sidebar; `all` when many do |
 
 ### Planning
 
