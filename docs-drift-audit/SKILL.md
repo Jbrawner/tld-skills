@@ -276,12 +276,25 @@ all. Those belong in the baseline's `known_open` instead, which is why they neve
   run onward. Doc drift recurs, so a fix without a guard will come back; if a finding genuinely
   cannot be expressed as a baseline entry, say so in the ticket and say why.
 
-### 4d — Record it in the baseline
+### 4d — Record it in this run's findings file
 
-Add each filed object to `known_open` with its new ticket key, so the next run reports it as tracked
-instead of re-triaging it from scratch. Where the ticket named a regression guard, add that anchor,
-term or watch at the same time. Leave the edit uncommitted and say so. The tracker search in 4b is
-the real de-dup guard, so a dirty file is never a reason to skip filing.
+Write `quality-sweep/findings/docs-drift/<date>.json`, one new file, with a `known_open` row for
+every object you filed, carrying its new ticket key, and for every object you resolved by hand to an
+existing ticket, and an `accepted` row with its reason for every object you accepted in Step 3. Each
+row's object is the OBJECT column with `docs-drift::` in front and its ` :: ` written as `::`, the
+form the engine translates back. Never edit `docs-drift-baseline.toml` and never edit an earlier
+run's file: the engine unions every file under `findings/docs-drift/` on the next run, so a row
+recorded here counts from then on without anyone folding it into the baseline. Unlike `/test-audit`,
+it keeps the **first** row it reads for an object, the baseline's and then the oldest file's, so a
+row here cannot re-point an object an earlier row already names; if a run needed that, say so in the
+report. Interactively, leave the file uncommitted and say so; on a schedule, commit and push it per
+the run protocol, `RUN_PROTOCOL.md` beside the `/quality-sweep` skill.
+
+The anchor, retired term or watch a ticket names as its regression guard (4c) stays in the ticket: a
+findings file carries only `known_open` and `accepted` rows, and the baseline is edited by a human on
+`main`, so the guard reaches the baseline when someone adds it there. The tracker search in 4b is the
+real de-dup guard, so a file you could not write is never a reason to skip filing, only a reason to
+say so in the report.
 
 ## Step 5 — Report
 

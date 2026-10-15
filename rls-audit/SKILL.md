@@ -21,7 +21,8 @@ this reads the database. Run both.
 
 **Read-only.** Do NOT edit application code, write or apply a migration, run any database write, reset
 the database, commit, push, open a PR, or move a ticket to Done. The only writes are (a) tracker tickets
-for confirmed new findings and (b) the project's baseline file, which is this skill's own bookkeeping.
+for confirmed new findings and (b) this run's findings file (Step 4d), which is this skill's own
+bookkeeping.
 
 ## Layout
 
@@ -107,9 +108,9 @@ psql "$CONN" -c "select pg_get_functiondef('public.<fn>(<argtypes>)'::regprocedu
 ```
 
 - Returns data or writes, no guard of its own, does not delegate to a guarded function → **real finding**, go to Step 4.
-- Delegating wrapper or foundational helper → **false positive.** Add it to `rls_audit_accepted` in the
-  project's baseline with a one-line reason naming what it delegates to, then re-run to confirm it is quiet.
-  Adding a row there is a security sign-off: only do it after actually reading the function.
+- Delegating wrapper or foundational helper → **false positive.** Record it as an `accepted` row in this
+  run's findings file (Step 4d) with a one-line reason naming what it delegates to. Accepting it is a
+  security sign-off: only do it after actually reading the function.
 
 A project's own permission helpers will show up here, and each one belongs on `rls_audit_accepted`
 individually, with the reason. There is deliberately **no** config regex for "treat these helper names as
@@ -203,11 +204,24 @@ Those belong in the baseline's `rls_audit_known_open` instead, which is why they
   fix, and a **regression guard** — a test asserting the grant or policy stays closed. This class of bug
   reverts silently, so a fix without a guard will come back.
 
-### 4d — Record it in the baseline
+### 4d — Record it in this run's findings file
 
-Add each filed object to `rls_audit_known_open` with its new ticket key, so the next run reports it as
-tracked instead of re-triaging it from scratch. Leave the edit uncommitted and say so. The tracker search
-in 4b is the real de-dup guard, so a dirty file is never a reason to skip filing.
+Write `quality-sweep/findings/rls-audit/<date>.json`, one new file, with a `known_open` row for every
+object you filed, carrying its new ticket key, and for every object you resolved by hand to an existing
+ticket, and an `accepted` row with its reason for every function you accepted in Step 3. Each row's
+object is `rls-audit::` followed by the name the baseline matches on: the function name, or
+`table :: policy`. Never edit `rls-audit-baseline.sql` and never edit an earlier run's file.
+Interactively, leave the file uncommitted and say so; on a schedule, commit and push it per the run
+protocol, `RUN_PROTOCOL.md` beside the `/quality-sweep` skill.
+
+**This engine does not read findings files back.** It is plain psql and loads the baseline SQL and
+nothing else, so a row counts only once it is folded into the baseline on `main`: by the project's
+collector routine where it has one (it adds each `accepted` row to `rls_audit_accepted` and each
+`known_open` row to `rls_audit_known_open` in the pull request that gathers the weekend's runs), or by
+a person. Until then a filed object comes back `NEW` and the tracker search in 4b finds its open
+ticket, and an accepted function comes back `NEW` and is triaged again. That makes the tracker search
+in 4b the real de-dup guard, so a file you could not write is never a reason to skip filing, only a
+reason to say so in the report.
 
 ## Step 5 — Report
 
