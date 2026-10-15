@@ -5,7 +5,8 @@ description: |
   for work archiving would lose (uncommitted files, unpushed commits), stop (background work,
   dev servers, side sessions still running) or leave hanging (an open PR, an unanswered
   question, an unfinished step, a ticket left In Progress, a follow-up with no ticket). Nothing
-  lingering: it archives the session at once. Something lingering: one table of what lingers
+  lingering: it archives the session at once. Every archive first frees the local stack (lane)
+  the session's worktree holds. Something lingering: one table of what lingers
   and what clears it, then numbered options. `/close-out all` sweeps every other session from
   this one instead: one row per session with what lingers and a recommendation, then it
   archives only the sessions the user's pick names. Use when the user says "close-out", "close
@@ -32,7 +33,7 @@ Plain `/close-out` closes the session it runs in, and only that one. `/close-out
 
 ## Step 1: Where this session stands
 
-Call `get_session` with `self` for the working directory, worktree path, branch, source branch and whether the session is pinned. The repos to check are the working directory's repo plus every other repo this session changed files in, taken from the conversation. A folder that is not a git repo gets `n/a` in rows 1 to 3 and 7.
+Call `get_session` with `self` for the working directory, worktree path, branch, source branch and whether the session is pinned. The worktree's folder name, the last part of its path, is the name a lane stack is claimed under. The repos to check are the working directory's repo plus every other repo this session changed files in, taken from the conversation. A folder that is not a git repo gets `n/a` in rows 1 to 3 and 7.
 
 ## Step 2: Run the checks
 
@@ -49,8 +50,9 @@ Read every row from evidence: a command, a tool result, or this conversation. Ru
 | 7 | Pull request | `gh pr list --head <branch> --state all --json number,title,state,url`, then `gh pr checks <number>` for an open one | A PR that is open. Merged, closed, or no PR with nothing to push is clear |
 | 8 | Questions waiting on the user | This conversation | A question or a set of numbered options the user has not answered |
 | 9 | Unfinished or unverified steps | The task list and this conversation | A step the user asked for that is not done, or was reported skipped or not verified, and no ticket carries it |
-| 10 | Tickets and claims left mid-way | This conversation; `.tld/stacks.md` when the repo has one | A ticket this session moved to In Progress and never moved on, or a stack or lane this session claimed and never released |
+| 10 | Tickets left mid-way | This conversation | A ticket this session moved to In Progress and never moved on |
 | 11 | Follow-ups not captured | This conversation | Work this session called a follow-up, "for later" or a separate PR, with no ticket key and no session card |
+| 12 | Lane stack | `.tld/stacks.md` in the main checkout, when the repo has one: the row whose Claimed by is this worktree's folder | Never: archiving frees it first ([Free the lane](#free-the-lane-before-archiving)) |
 
 How to read them:
 
@@ -70,26 +72,37 @@ One table, every row:
 - **Unfinished work in rows 1 and 2** clears by parking it: commit it to this branch as work in progress, push the branch, and file a ticket naming the branch and what is left. Finished work clears by a plain commit and push. A commit follows the repo's own commit format and hooks.
 - **A side session that would go along unfinished** (row 6) clears by `detach_session` on it, so it stays when this session is archived. When it is waiting on something only this session knows, message it with `SendMessage` after the detach.
 - **Tickets go to the campaign's tracker** (`.tld/campaign.md`). With no campaign file, the action reads "say where the ticket goes".
+- **Row 12** names the stack in State ("stack 2, claimed 2026-10-14") and reads "freed before archiving" in What clears it. With no registry, or no row claimed by this folder, it reads "none" and `—`.
+
+### Free the lane before archiving
+
+Archiving removes the worktree, and a stack claimed by a folder that is gone stays claimed until someone frees it by hand. So every path in this skill that archives frees the stack first, in the same turn, right before the `archive_session` call:
+
+- Run the release command the Rules in `.tld/stacks.md` name, from this worktree. In lab-inventory that is `bash .tld/lane-release.sh`. It frees the registry row only: the stack keeps running and keeps its data until the next claim resets it, the same as when a goal ends.
+- A side session that goes along with this one (row 6) and holds a stack in its own worktree is freed the same way, by its folder name (`bash .tld/lane-release.sh <folder>`).
+- A session that stays open in this worktree, such as a detached side session, keeps the claim: skip the release.
+- When the release fails, archive nothing: print its error in one line and stop. The session stays open with its claim.
+- When the archive call comes back refused after the release, the line that gives the reason also says the stack was freed, and that `bash .tld/lane-claim.sh` claims one again if this session keeps working.
 
 ### Nothing lingers
 
-Print the table, then one line: `Nothing lingering. Archiving this session.` Then call `archive_session` with `session_id: "self"` and `reason: "close-out: nothing lingering"`. The conversation ends with that call, so write nothing after it.
+Print the table, then one line: `Nothing lingering. Archiving this session.`, or when row 12 names a stack, `Nothing lingering. Freeing stack 2 and archiving this session.` Then [free the lane](#free-the-lane-before-archiving) and call `archive_session` with `session_id: "self"` and `reason: "close-out: nothing lingering"`. The conversation ends with that call, so write nothing after it.
 
-A pinned session is not archived by the app. When `get_session` says pinned, skip the call and offer:
+A pinned session is not archived by the app. When `get_session` says pinned, skip the release and the call and offer:
 
 1. Unpin it and archive (Recommended)
 2. Keep it
 
 On 1, call `set_pinned` with `self` and `false`, then archive as above.
 
-When the archive call comes back refused (the approval card was declined, the app keeps sessions that are open on screen, or work is still running), print the reason the call gave in one line. For work still running: wait for it, then run `/close-out` again. Otherwise the user archives it from the sidebar. In a client with no `archive_session` tool, print the table and say the user ends the session themselves.
+When the archive call comes back refused (the approval card was declined, the app keeps sessions that are open on screen, or work is still running), print the reason the call gave in one line. For work still running: wait for it, then run `/close-out` again. Otherwise the user archives it from the sidebar. In a client with no `archive_session` tool, print the table and say the user ends the session themselves; when row 12 names a stack, free it first and say so.
 
 ### Something lingers
 
 Print the table, one line saying what archiving now would lose or stop, then these options:
 
 1. **Clear it, then archive.** Do every action in the What clears it column, run Step 2 again, and archive if it comes back clear. The option's text names the actions: "Commit and push the 3 files, stop the dev server, file the 1 ticket, then archive."
-2. **Archive anyway.** Archive now; name what is lost or stopped in the option's text.
+2. **Archive anyway.** Free the lane and archive now; name what is lost or stopped in the option's text.
 3. **Keep it open.** Change nothing.
 
 Offer option 1 only when the session can do every action itself. A question only the user can answer (row 8) or a PR that needs a merge (row 7) keeps option 1 off the list.
@@ -110,9 +123,9 @@ Picking option 1 is the go for every action it names, the commit and push includ
 
 ## Step 4: After the pick
 
-- **1:** do the actions in table order, then run Step 2 again. All clear: archive as on the clean path, with `reason: "close-out: cleared, then archived"`. Anything still lingering: print the new table and stop, without archiving.
-- **2:** call `archive_session` with `self` and `reason: "close-out: archived with <n> rows lingering"`.
-- **3:** stop.
+- **1:** do the actions in table order, except row 12's, which waits for the archive. Then run Step 2 again. All clear: archive as on the clean path, lane first, with `reason: "close-out: cleared, then archived"`. Anything still lingering: print the new table and stop, without archiving; the stack stays claimed.
+- **2:** [free the lane](#free-the-lane-before-archiving), then call `archive_session` with `self` and `reason: "close-out: archived with <n> rows lingering"`.
+- **3:** stop. The stack stays claimed while the session stays open.
 
 ## Sweep mode: `/close-out all`
 
@@ -145,6 +158,8 @@ gh pr list -R <repo> --state all --limit 1000 --json number,state,headRefName,he
 ```
 
 Match each session by `git.branch` to `headRefName`, newest PR first. A session on `main` or `master` has no PR of its own. A session whose folder is gone uses the listing's `prState`.
+
+Then the lane stacks: read `.tld/stacks.md` once in each main checkout that has one (the part of a worktree `cwd` before `/.claude/worktrees/`). A row whose Claimed by is a session's worktree folder, the last part of its `cwd`, is the stack that session holds. It is not a check: step 4 frees it when the session is archived.
 
 | # | Check | Read from | Lingers when |
 |---|---|---|---|
@@ -185,7 +200,7 @@ One table, one row per session. Archive rows come first, then Your call, Check i
 
 - **Session** is the title as a link, `[title](#<sessionId>)`.
 - **Lingers** is the evidence in a few words, `—` on a clear row: "2 uncommitted files, 3 task-list steps open", "asks: Merge PR 1011 once CI is green?", "running". A row that takes side sessions with it names them by row number: "takes rows 31 and 32 with it".
-- **Recommendation** is one of the four. Check inside adds "run `/close-out` there".
+- **Recommendation** is one of the four. Check inside adds "run `/close-out` there". An Archive or Your call row whose session holds a stack adds "frees stack 2".
 
 Under the table: one line per plain checkout that has uncommitted files, stashes or local-only commits, saying they stay on disk. Then one line with the count for each recommendation. With two or more Archive rows whose PR merged, read `get_settings`: when `auto_archive_on_pr_close` is off, add one line saying that with it on (Settings → Claude Code), the app archives sessions like these when their PR merges.
 
@@ -201,13 +216,14 @@ Then one line: "Or reply `archive` with row numbers (`archive 3, 7, 12`) to pick
 
 - Archive exactly the rows the pick covers, one `archive_session` call per session id, with `reason: "close-out all: <recommendation>"`. Never pass `self` or the hub's id.
 - Archive a side session before the session that started it, so each call reports for itself.
-- The pick is the agreement for every row it names: go down the list without asking again, even when the app shows an approval card for each call.
-- When the last call returns, run `list_sessions` again and print one table, `| # | Session | Result |`, where Result is "Archived" or the reason the call gave (open on screen, still working, pinned, card declined). One line under it: how many were archived and how many were left. Then stop.
+- Free each session's stack right before its archive call: the release command the registry's Rules name, with the session's folder (lab-inventory: `bash .tld/lane-release.sh <folder>`). Two rows that share a folder share one claim, freed before the first of them. A release that fails skips that session's archive.
+- The pick is the agreement for every row it names, its stack included: go down the list without asking again, even when the app shows an approval card for each call.
+- When the last call returns, run `list_sessions` again and print one table, `| # | Session | Result |`, where Result is "Archived" (with "freed stack 2" when one was freed) or the reason the call or the release gave (open on screen, still working, pinned, card declined). A session the app refused after its stack was freed says so: "open on screen; stack 2 freed". One line under it: how many were archived and how many were left. Then stop.
 
 ## Boundaries
 
 - **Archive only what the user agreed to.** Plain `/close-out` archives only its own session. `/close-out all` archives only the sessions the user's pick names, by session id, and never the hub.
-- **The sweep only reads other sessions.** It changes nothing in another session's folder and sends no message to another session. Work that needs a commit, a push or a ticket in another session is Check inside: that session clears it with its own `/close-out`.
+- **The sweep only reads other sessions.** It changes nothing in another session's folder and sends no message to another session. Its one write besides the archive calls is freeing the stack of each session it archives, in the registry the main checkout keeps. Work that needs a commit, a push or a ticket in another session is Check inside: that session clears it with its own `/close-out`.
 - **Keep the work.** A row clears by saving work: a commit, a push, a ticket. Every file, stash and branch stays where it is.
 - **Stop at the push.** Merging stays with the user and the landing skills. The push goes to this session's own branch with the repo's hooks running; a hook that fails stops option 1 and is reported.
 - **Ask nothing on the clean path of plain `/close-out`.** The user's `/close-out` was the agreement. In the sweep, the pick is.
