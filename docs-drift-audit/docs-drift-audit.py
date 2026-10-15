@@ -256,14 +256,21 @@ def findings_object_to_objkey(obj: str) -> str:
 def merge_findings(baseline: Baseline, findings_dir: Path) -> dict:
     """Union every findings file into the baseline. Returns counts for the report.
 
+    THE NEWEST ROW FOR AN OBJECT WINS, whichever list it is in, the same rule quality-sweep.mjs and
+    test-audit.mjs apply. A row is a decision made on a date, and the latest one stands, so a later
+    run can re-point an object at the open ticket that took the work over. The baseline is the
+    oldest layer: an object a file decides loses its baseline rows, and an object no file mentions
+    keeps exactly the rows the baseline gave it. Two rows for one object on the same date: the one
+    read later wins, and known_open is read after accepted.
+
     A missing directory is fine (nothing to merge). A malformed file is fatal: it must never be
     read as an empty one, or every finding it records re-files as a new ticket."""
     stat = {"files": 0, "accepted": 0, "known_open": 0}
     if not findings_dir.is_dir():
         return stat
 
-    seen_accepted = {row.get("objkey") for row in baseline.accepted}
-    seen_open = {row.get("objkey") for row in baseline.known_open}
+    # objkey -> (list, row, date) for the row that currently stands for it.
+    standing: dict[str, tuple[str, dict, str]] = {}
 
     for path in sorted(findings_dir.glob("*.json")):
         try:
@@ -274,6 +281,7 @@ def merge_findings(baseline: Baseline, findings_dir: Path) -> dict:
         if not isinstance(doc, dict):
             raise ValueError(f"findings file must be a JSON object: {path}")
         stat["files"] += 1
+        date = doc["date"] if isinstance(doc.get("date"), str) else path.stem
 
         for key in ("accepted", "known_open"):
             rows = doc.get(key)
@@ -286,22 +294,23 @@ def merge_findings(baseline: Baseline, findings_dir: Path) -> dict:
                     raise ValueError(f'findings row is missing a string "object" identity: {path}')
                 objkey = findings_object_to_objkey(row["object"])
                 if key == "accepted":
-                    if objkey in seen_accepted:
-                        continue
-                    seen_accepted.add(objkey)
-                    baseline.accepted.append(
-                        {
-                            "check": row.get("check", "*"),
-                            "objkey": objkey,
-                            "reason": row.get("reason", "(no reason recorded)"),
-                        }
-                    )
+                    entry = {
+                        "check": row.get("check", "*"),
+                        "objkey": objkey,
+                        "reason": row.get("reason", "(no reason recorded)"),
+                    }
                 else:
-                    if objkey in seen_open:
-                        continue
-                    seen_open.add(objkey)
-                    baseline.known_open.append({"objkey": objkey, "ticket": row.get("ticket")})
-                stat[key] += 1
+                    entry = {"objkey": objkey, "ticket": row.get("ticket")}
+                prev = standing.get(objkey)
+                if prev is not None and date < prev[2]:
+                    continue
+                standing[objkey] = (key, entry, date)
+
+    baseline.accepted = [r for r in baseline.accepted if r.get("objkey") not in standing]
+    baseline.known_open = [r for r in baseline.known_open if r.get("objkey") not in standing]
+    for key, entry, _date in standing.values():
+        (baseline.accepted if key == "accepted" else baseline.known_open).append(entry)
+        stat[key] += 1
     return stat
 
 
