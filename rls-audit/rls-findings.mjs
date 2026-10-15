@@ -54,8 +54,9 @@ function objkeyOf(object) {
   let key = object.startsWith(FINDINGS_PREFIX) ? object.slice(FINDINGS_PREFIX.length) : object;
   // The schema is one word straight before "::". A policy's " :: " has spaces, so it never matches.
   key = key.replace(/^[^\s:]+::/, '');
-  // The OBJECT column prints a function as name(args); the engine matches the name alone. The
-  // column is cut at 63 bytes, so a long signature arrives without its closing parenthesis.
+  // The OBJECT column prints a function as name(args); the engine matches the name alone.
+  // Everything from the first "(" goes, closed or not: rows recorded while the engine still cut
+  // that column at 63 bytes hold a long signature with no closing parenthesis.
   key = key.replace(/^([A-Za-z_][A-Za-z0-9_$]*)\(.*$/s, '$1');
   return key.trim();
 }

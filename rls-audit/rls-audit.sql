@@ -73,7 +73,7 @@ audited_ns AS (
 definers AS (
   SELECT
     p.oid,
-    p.proname,
+    p.proname::text                                             AS proname,
     p.proname || '(' || pg_get_function_arguments(p.oid) || ')' AS signature,
     pg_get_function_result(p.oid)                               AS result_type,
     pg_get_functiondef(p.oid)                                   AS def,
@@ -106,7 +106,7 @@ definers_guarded AS (
 -- I1: every base table in scope must have row-level security enabled.
 i1 AS (
   SELECT 'HIGH' AS severity, 'rls-disabled' AS check_name,
-         c.relname AS objkey, c.relname AS object,
+         c.relname::text AS objkey, c.relname::text AS object,
          'Base table has RLS disabled; add ENABLE ROW LEVEL SECURITY and policies' AS detail
   FROM pg_class c JOIN audited_ns n ON n.oid = c.relnamespace
   WHERE c.relkind = 'r' AND c.relrowsecurity = false
@@ -187,6 +187,10 @@ r4 AS (
     AND (d.anon_executable OR NOT d.has_auth_guard)
 ),
 
+-- Every branch's objkey and object must be text. Catalog names (relname, proname) are type name, and
+-- when the first branch of a union is name, Postgres types the whole column as name, which cuts every
+-- value at 63 bytes: a long "table :: policy" key then never equals its accepted or known_open row and
+-- comes back NEW every run. That is why i1 and definers cast to text, whatever order the branches take.
 findings AS (
   SELECT * FROM i1 UNION ALL SELECT * FROM i2 UNION ALL SELECT * FROM i3
   UNION ALL SELECT * FROM r1 UNION ALL SELECT * FROM r2
