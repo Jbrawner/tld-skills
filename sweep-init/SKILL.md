@@ -36,15 +36,17 @@ request, and never files a ticket. Scheduling happens only after the user approv
 | Piece | Where | What it is |
 | --- | --- | --- |
 | The four skills | `quality-sweep/`, `rls-audit/`, `test-audit/`, `docs-drift-audit/`, next to this file | Project-neutral. This skill never copies or forks them |
+| Run protocol | `quality-sweep/RUN_PROTOCOL.md`, next to this file | The one rulebook every scheduled run follows: where it reads, what it writes, what it pushes |
 | Baseline templates | `baseline.example.*` inside each of those folders | The starting point copied into the target repo |
-| Baseline | in the target repo | That project's config, exceptions, and known-open findings |
-| Wrappers | `~/.claude/scheduled-tasks/<task-id>/SKILL.md` | One per audit and per lens. Thin: names the project, invokes the shared skill |
+| Baselines | `quality-sweep/` in the target repo | That project's config and reviewed exceptions, curated by a human on `main` |
+| Findings files | `quality-sweep/findings/<lens>/` in the target repo | One new file per run: what it filed and what it accepted. The engines read them all back |
+| Wrappers | `~/.claude/scheduled-tasks/<task-id>/SKILL.md` | One per audit and per lens. Thin: names the project, the lens and the review folder, points at the run protocol |
 | Sweep calendar | `~/.claude/sweep-weekends.json` | Only for a project that sweeps less often than every weekend: how many weeks apart, and the first sweep Saturday |
-| Run records | in the target repo | One folder per lens or audit, one dated document per run |
+| Run records | `docs/auto_reviews/<review_folder>/` in the target repo | One folder per lens or audit, one dated document per run, listed in the folder's `README.md` |
 
-A wrapper carries the project, the tracker, the guardrails, and the baseline path. Nothing else. The
-moment a wrapper starts explaining how to sweep, the skill has been forked into it and improving the
-skill stops improving that project.
+A wrapper carries the project, the lens, the review folder, the tracker, and the ticket rules, and
+points at RUN_PROTOCOL.md for everything else. The moment a wrapper starts explaining how to sweep,
+the skill has been forked into it and improving the skill stops improving that project.
 
 ## Step 1: Resolve the target repo
 
@@ -93,35 +95,31 @@ forgets. The audits read the same tree on the same nights and file into the same
 search scoped only to its own label reports a sibling's ticket as new and files a duplicate hours after
 the original. Two audits selected means each names the other. Four means each names the other three.
 
-## Step 4: Choose where the baselines live
+## Step 4: Confirm `quality-sweep/` is tracked
 
-`/quality-sweep` has one fixed home: `quality-sweep/baseline.json` at the repo root, with each run's
-findings beside it under `quality-sweep/findings/` and its skip records under `quality-sweep/skips/`.
-It is not under `.claude/` because Claude Code stops for a human before writing anything there, and a
-scheduled run has nobody to ask. Confirm the folder will be tracked:
+Every baseline lives in one folder, `quality-sweep/` at the repo root, and the scheduled runs write
+beside them: each run's findings file under `quality-sweep/findings/<lens>/`, and the skip record of
+a run that stopped early under `quality-sweep/skips/`. RUN_PROTOCOL.md section 1 sends every run
+there, and each of the three standalone audits looks there first in its own Step 1. Their later
+fallbacks (`.tld/`, `.claude/`, the repo root) serve repos set up before the move; this skill writes
+to `quality-sweep/` only. It is not under `.claude/` because Claude Code stops for a human before
+writing anything there, and a scheduled run has nobody to ask.
+
+The folder has to be tracked. Each scheduled run works in a fresh worktree cut from `main`, so a
+baseline git ignores never reaches a run, and git refuses to stage the findings file the run has to
+push. Ask the repo rather than assuming:
 
 ```bash
 git -C <repo-root> check-ignore -q quality-sweep && echo "gitignored" || echo "tracked"
 ```
 
-The other three audits still look in `.tld/`, then `.claude/`, then the repo root. `.tld/` is the
-natural home, but many repos gitignore it, and a baseline that is not committed forgets everything
-between runs, which defeats the whole point. Decide by asking the repo, not by assuming:
-
-```bash
-git -C <repo-root> check-ignore -q .tld && echo "gitignored" || echo "tracked"
-```
-
-Prefer `.tld/` when the repo tracks it, `.claude/` when it does not, and the repo root only when the
-repo ignores both. This is the resolution order each of those three skills documents in its own Step
-1, and it has to agree with them or the audit will not find what this skill wrote.
-
-State the chosen paths and the reasons in the report. A baseline in a gitignored directory is the
-failure mode that looks like success for about three weeks.
+If it prints `gitignored`, stop and say so: un-ignoring the folder is the user's change to make.
+Another location is no workaround, because the runs read and push `quality-sweep/` and nothing
+else. An ignored folder fails quietly: every run skips, and its skip record cannot be pushed either.
 
 ## Step 5: Write the baselines
 
-Copy each selected audit's `baseline.example.*` into the chosen location, renamed to the file that
+Copy each selected audit's `baseline.example.*` into `quality-sweep/`, renamed to the file that
 audit looks for:
 
 | Audit | Template | Becomes |
@@ -134,16 +132,35 @@ audit looks for:
 Then fill in only what can be established by reading the repo, and leave the rest for Step 6:
 
 - The tracker fields and the sibling labels from Step 3.
-- `review_folder` per lens or audit, under the project's existing docs convention if it has one.
+- Each lens's `review_folder`, as `docs/auto_reviews/<folder>`. RUN_PROTOCOL.md fixes that parent:
+  the run record, its index row, and the wrapper's `<review_folder>` substitution all sit under it.
+  The standalone audits name their folder in the wrapper instead (Step 7).
 - Preflight commands that can be derived: the local database identity check from the repo's Supabase
   or Postgres config, the test command from `.tld/campaign.md` or the package manifest.
+- The two blocks RUN_PROTOCOL.md reads from `quality-sweep/baseline.json` for every audit. That makes
+  the file necessary even when `/quality-sweep` itself was not selected; then copy the template and
+  keep only its `config` block.
+  - `config.local_database`, whenever a selected audit or lens reads a database: the project ref, the
+    loopback host and port, and the command that confirms them (section 5). Without it, every run
+    that needs a database is a skipped run.
+  - `config.ticket_routing`: the ready and review statuses with their transition ids, the ready
+    priority, the review label, and the maintainer's name (section 8). Ask the user for these;
+    they belong to the tracker's workflow, not to the repo.
 - Delete the template's underscore comment keys and its example rows. An example `accepted` entry left
   in place is a sign-off nobody gave.
-- Leave `known_open` empty and every `last_completed` null. The first run of each audit establishes the
-  baseline, and the skills already say to treat that run as establishing rather than as a list of
-  emergencies.
+- Leave `known_open` empty and write no `last_completed` anywhere. From the first run on, what a run
+  files goes into its own findings file, never into a baseline, and the engines derive each lens's
+  last completed run from those files. The first run of each audit establishes the baseline, and the
+  skills already say to treat that run as establishing rather than as a list of emergencies.
+- Start `config.approval_list` empty and say so in the report: RUN_PROTOCOL.md section 8 treats an
+  empty list as "no decisions written down yet", which leaves every routing call to the run.
 
-Create the review folders, and a `README.md` for them if the project has no such convention yet.
+Create each review folder, `docs/auto_reviews/<review_folder>/`, with a `README.md` whose `## Runs`
+section reads "No runs yet". RUN_PROTOCOL.md section 4 has every run add its row to that table, and
+a run record its own index never lists is a report nobody finds.
+
+None of this reaches a scheduled run until it is on `main`, because every run works in a fresh
+worktree cut from `main`. This skill does not commit, so Step 9 hands that landing to the user.
 
 ## Step 6: Declare the lenses, and be honest about what is still missing
 
@@ -174,99 +191,230 @@ of the codebase, and burn the slot. Say so.
 One wrapper per selected audit, plus one per declared quality-sweep lens. Task id convention:
 `<audit>-<lens>-<project>` for lenses, `<audit>-<project>` for the standalone audits.
 
-Every wrapper follows this shape. It names the project and passes the baseline. It does not restate how
-to sweep:
+A wrapper names the project, the lens, and the review folder, points at RUN_PROTOCOL.md, and
+carries the ticket rules. It restates neither how to sweep nor the run protocol: the protocol once
+lived in fourteen wrapper copies, and a correction to one never reached the other thirteen.
+
+### Where each run reads and writes
+
+Each routine runs in a fresh git worktree cut from `main`, and RUN_PROTOCOL.md section 1 keeps it
+there. It reads its baseline from that worktree, writes one new findings file and one run record,
+adds its row to its own review folder's `README.md`, and pushes a `sweep/<lens>-<date>` branch. The
+Monday collector routine gathers those branches into one pull request. No run edits a baseline, and
+no two runs write the same file.
+
+So a wrapper passes no `--baseline`, names no bookkeeping worktree, and runs no sync step. Until
+August 2026 every routine read and wrote one shared bookkeeping worktree, and one half-finished merge
+in it silenced every routine for two weekends. Both templates say so, with that reason, so a later
+reader does not put the shared copy back.
+
+Every run starts with RUN_PROTOCOL.md section 0, the sweep-weekend check, which takes the project
+name from the wrapper's `Project:` line, the word before the parentheses. So keep that line's shape,
+and write nothing about cadence into a wrapper: a slower rhythm lives in the sweep calendar (Step 8).
+
+Both templates state that the task runs in a fresh git worktree cut from `main`. That is a promise
+about how Step 8 registers the routine, and it has to hold: a routine registered against the main
+checkout writes into a tree somebody works in.
+
+### Placeholders
+
+In the templates below, `{…}` is what this skill fills in. `<lens>`, `<review_folder>`, and `<date>`
+are written into the wrapper exactly as shown: RUN_PROTOCOL.md defines them, and the run substitutes
+them, `<date>` from the real clock. `{skills root}` is the absolute path of the folder that holds this
+skill and its siblings.
+
+### The lens wrapper
 
 ```markdown
-Run the weekly **<Lens title>** quality sweep against **<Project>**.
+---
+name: {task id}
+description: {Project}: {Lens title} Sweep. {One sentence: what this lens reads, and that it files {tracker project} tickets for confirmed new findings.}
+---
 
-Project: <Project> (<repo-basename>)
-Repo: <absolute repo root>
-Lens: `<lens>` (rank N of M)
-Review folder: `<review_folder>`
+Run the **{Lens title}** quality sweep against **{Project}**.
+
+Project: {Project} ({repo basename})
+Repo: {absolute repo root}
+Lens: `{lens}`
+Review folder: `docs/auto_reviews/{review folder}`
+
+This task runs in a fresh git worktree cut from `main`, so the working directory is NOT the path
+above. Use absolute paths for everything that must survive the worktree, and never assume the
+working directory.
 
 ## What to do
 
-Invoke the `<skill>` skill and follow its SKILL.md exactly. It is a user-level skill at
-<absolute skill dir>, so it is available from any directory. The skill is project-neutral:
-everything specific to <Project>, including this lens's focus areas, its evidence bar, the benign
+Invoke the `quality-sweep` skill and follow its SKILL.md exactly. It is a user-level skill at
+{skills root}/quality-sweep/, so it is available from any directory. The skill is project-neutral:
+everything specific to {Project}, including this lens's focus areas, its evidence bar, the benign
 patterns that trip it on purpose and the findings already on a ticket, lives in the baseline at
 
-  <absolute baseline path>
+  quality-sweep/baseline.json
 
-Pass it explicitly:
+read from **this run's own worktree**, which is a fresh checkout of `main` and already has it.
+Beside it, `quality-sweep/findings/` holds what previous runs found and ticketed, one file per lens
+per run. The engine unions them for you, so pass no `--baseline`:
 
-  <the exact engine invocation, with --baseline>
+  node {skills root}/quality-sweep/quality-sweep.mjs --lens {lens}
 
-Run exactly one lens, `<lens>`. Do not run the others; each has its own scheduled slot.
+## Run protocol
+
+Follow **{skills root}/quality-sweep/RUN_PROTOCOL.md** exactly. It is the one shared copy of the
+rules every sweep obeys: where the baseline and previous findings live, why you must never repair
+git, the single new findings file you write, and the branch you commit and push before this
+worktree is thrown away. There is no shared bookkeeping worktree any more and you must not look for
+one: until August 2026 every routine merged and edited one shared copy, and a single half-finished
+merge in it silenced every routine for two consecutive weekends.
+
+For this task, substitute:
+
+    <lens>           {lens}
+    <review_folder>  {review folder}
+
+so your two output files are:
+
+    quality-sweep/findings/{lens}/<date>.json
+    docs/auto_reviews/{review folder}/<date>.md
+
+Where this file and RUN_PROTOCOL.md ever disagree, RUN_PROTOCOL.md wins. Report the disagreement
+so it gets fixed once rather than in every wrapper.
+
+Run exactly one lens, `{lens}`. Do not run the others; each has its own scheduled slot.
+
+## Tickets
+{the ticket rules below, with `quality-sweep` as the family label}
+
+## Report
+{the report rules below}
+```
+
+### The audit wrapper
+
+For `/rls-audit`, `/test-audit`, and `/docs-drift-audit`. Same shape, with two additions. First, it
+says the rows a run records go to the run's findings file and never into the baseline. That agrees
+with each audit's own Step 4d, and the wrapper says it anyway because the baseline is the one file
+two runs' branches could both change, which RUN_PROTOCOL.md section 3 rules out. Second, it carries
+the guardrails below, because each audit's own SKILL.md says to run on without a baseline.
+
+```markdown
+---
+name: {task id}
+description: {Project}: {Audit title}. {One sentence: what it reads, and that it files {tracker project} tickets for confirmed new findings.}
+---
+
+Run the {audit purpose, for example "RLS security regression sweep"} against **{Project}**.
+
+Project: {Project} ({repo basename})
+Repo: {absolute repo root}
+
+This task runs in a fresh git worktree cut from `main`, so the working directory is NOT the path
+above. Use absolute paths for everything that must survive the worktree, and never assume the
+working directory.
+
+## What to do
+
+Invoke the `{audit}` skill and follow its SKILL.md exactly. It is a user-level skill at
+{skills root}/{audit}/, so it is available from any directory. The skill itself is
+project-neutral; {Project}'s own config, reviewed exceptions and known-open findings live in
+quality-sweep/{baseline file}, which the skill loads before the engine.
+
+That path is relative to **this run's own worktree**, which is a fresh checkout of `main` and
+already contains it. There is no shared bookkeeping worktree any more and you must not look for one:
+until August 2026 every routine merged and edited one shared copy, and a single half-finished merge
+in it silenced every routine for two consecutive weekends.
+
+**Follow {skills root}/quality-sweep/RUN_PROTOCOL.md exactly.**
+It is the shared copy of the rules every sweep obeys. Two of them matter most here: you never run a
+git command to repair a state git is complaining about (you stop and report instead), and you commit
+and push your own work before this worktree is thrown away.
+
+For this task, substitute `<lens>` = `{lens}` and `<review_folder>` = `{review folder}`, so your
+two output files are:
+
+    quality-sweep/findings/{lens}/<date>.json
+    docs/auto_reviews/{review folder}/<date>.md
+
+Record in that findings file what the skill's Step 4d asks for: what you filed, and anything you
+reviewed and accepted with its reason. Do **not** edit `{baseline file}` itself. {How the next run sees these rows, in one sentence taken from this audit's Step 4d.}
 
 Everything below is a summary so the run fails safe, not a replacement for reading SKILL.md.
 
 ## Guardrails
-<baseline-missing rule, preflight rule, read-only rule, local-database rule, repo-scope rule>
+{the guardrails below, with this project's database identity}
 
 ## Tickets
-<file automatically, de-dup on own label AND sibling labels, never cap, nothing dated in a lookup>
+{the ticket rules below, with this audit's family label}
 
 ## Report
-<counts table, name the project, then state what did not make it>
+{the report rules below}
 ```
 
-The four guardrails every wrapper carries, worded to fail safe:
+The audit values are fixed. Earlier runs are found by the `quality-sweep/findings/<lens>/` folder
+name, so a different `{lens}` spelling is a run that forgets every one before it.
+
+| Audit | `{lens}` | `{baseline file}` | Family label |
+| --- | --- | --- | --- |
+| `/rls-audit` | `rls-audit` | `rls-audit-baseline.sql` | `rls-audit` |
+| `/test-audit` | `test-audit` | `test-audit-baseline.json` | `test-audit` |
+| `/docs-drift-audit` | `docs-drift` | `docs-drift-baseline.toml` | `docs-drift` |
+
+How the next run sees a run's rows differs by engine, and each audit's Step 4d says how. Take that
+sentence from there when you write the wrapper rather than restating it here, so the wrapper follows
+the engine when the engine changes.
+
+### The guardrails every audit wrapper carries
+
+A lens wrapper takes these from RUN_PROTOCOL.md section 5 and does not repeat them. Word them to
+fail safe:
 
 - **A missing baseline is a SKIPPED RUN, not a first run.** Running without it reports every already
-  tracked finding as new and duplicates every open ticket the project has.
-- **An unavailable dependency is a SKIPPED RUN, not a clean pass.** Report what was unreachable and
-  stop. Never report a green result from a check that did not execute. A missed week costs nothing; a
-  false all-clear costs everything the check is for.
-- **Read-only.** No code edits, no migrations, no database writes, no commits, no pushes, no pull
-  requests, nothing moved to Done. The only writes are the tickets, the dated run record, and the
-  baseline's own bookkeeping.
-- **Local database only**, where the audit reads one. Pin the expected instance identity from the
-  repo's own config and refuse any host that is not loopback.
+  tracked finding as new and duplicates every open ticket the project has. Write the skip record
+  RUN_PROTOCOL.md section 7 describes, push it, and stop.
+- **An unavailable dependency is a SKIPPED RUN, not a clean pass.** A database that is not running,
+  an engine that exits 2. Report what was unreachable and stop, with a skip record as above. Never
+  report a green result from a check that did not execute. A missed week costs nothing; a false
+  all-clear costs everything the check is for.
+- **Read-only against the product.** No code edits, no migrations, no database writes, no `db reset`,
+  nothing moved to Done, no pull request, no merge. The only writes are the tickets and the run's own
+  files from RUN_PROTOCOL.md sections 3 and 4, committed and pushed on its own `sweep/<lens>-<date>`
+  branch.
+- **Local database only**, where the audit reads one. Name the expected instance from the repo's own
+  config (project ref, loopback host and port) and the command that confirms it, name any other local
+  stack on the machine as one never to touch, and refuse any host that is not loopback.
 
-**Write no date, month, year, or expected finding count into any wrapper.** A schedule's prompt is
-written once and runs for years. Anything dated is derived from the real clock at run time. A stale
-constant does not raise an error, it quietly stops matching, and here that inverts the feature: the
-de-dup finds nothing, everything looks new, and the run duplicates every open ticket every week. A
-dated label on ticket output is fine, because it is built at run time. A date inside a lookup is not.
+### The ticket rules every wrapper carries
 
-**Point every wrapper's baseline at a persistent bookkeeping worktree, never at the main checkout and
-never at the run's own throwaway worktree.** Both of those alternatives fail, in opposite directions:
+- **Every ticket gets an explicit landing status**, per RUN_PROTOCOL.md section 8, using the two
+  statuses `config.ticket_routing` names. When the run cannot decide, it is the review status. The
+  report gives the split and names every review-status ticket with its reason.
+- **File automatically, without asking**: nobody is awake to confirm. Never file a refuted candidate
+  or a row the engine marked KNOWN-OPEN.
+- **De-dup in two searches**: open tickets carrying the wrapper's family label, then open tickets
+  carrying each sibling label from Step 3. Match on the affected object identity, never the title. An
+  object found only on a closed ticket is filed as a regression of that key. The sibling search is
+  the one a run skips, and skipping it files a duplicate of a ticket a sibling audit opened the night
+  before.
+- **Labels exactly as the skill says**: what the quality-sweep engine prints under `LABELS for
+  anything filed`, or the audit baseline's `ticket_labels`. The wrapper adds none of its own. A label
+  written into a wrapper is a second copy of the label rules, and the two drift.
+- **Never cap how many tickets get filed.** Fold findings that share one root cause into one ticket;
+  never truncate to the most severe few. A capped report is indistinguishable from a complete one.
 
-| Where the baseline lives | How it fails |
-| --- | --- |
-| The run's throwaway worktree | Bookkeeping is deleted with the worktree, so the de-dup forgets every ticket it filed and the next run duplicates all of them |
-| The user's main checkout | The sweep leaves uncommitted edits in a tree somebody works in. A `git stash`, a `git checkout -- .`, or a branch switch silently discards them, and the loss is invisible until the duplicate tickets arrive |
+### The report every wrapper asks for
 
-So create one persistent worktree per project, outside the repository, pinned to a branch nobody
-works in by hand:
+The skill's own counts table, with every confirmed finding, its severity and its ticket key. Then the
+closing lines RUN_PROTOCOL.md section 6 asks for: `RAN` or `SKIPPED`, the tickets filed, the branch
+pushed, and the absolute path of the run record. Name the project, so a result is never mistaken for
+another repo's. Then state anything that did not make it, each with why: "here are the findings"
+must never quietly mean "here are some of the findings".
 
-```bash
-git -C <repo-root> branch chore/sweep-bookkeeping main
-git -C <repo-root> worktree add ~/.claude/sweep-bookkeeping/<repo-basename> chore/sweep-bookkeeping
-```
-
-Put the baselines there and have every wrapper read and write that copy, leaving its edits
-uncommitted exactly as before. Nothing stashes or resets that tree, so the bookkeeping is durable,
-and a human merges the branch when they want to review what accumulated. Keep it outside the
-repository: a worktree parked under a gitignored directory inside the repo tends to get treated as
-disposable and swept up with the ephemeral ones.
-
-**Then give each wrapper a sync step**, or the sweeps drift from the curated config:
-
-```bash
-git -C ~/.claude/sweep-bookkeeping/<repo-basename> fetch origin main
-git -C ~/.claude/sweep-bookkeeping/<repo-basename> merge --no-edit origin/main
-```
-
-A baseline has two halves with two different authors. The curated half (config, lenses, focus areas,
-benign patterns, accepted exceptions) is edited by a human on `main`. The bookkeeping half
-(`known_open`, `last_completed`) is written by the sweeps on the branch. Without the sync, a lens
-runs against focus areas the human already corrected and looks in the wrong place. The two halves
-occupy different regions of the file, so a clean merge is the normal case, and **a conflict is a
-SKIPPED RUN** rather than something for the run to resolve by guessing. Say all of this in the
-wrapper, with the reason, or a later reader will "fix" it back to the main checkout.
+**Write no date, month, year, lens rank, or expected finding count into any wrapper.** A schedule's
+prompt is written once and runs for years. Anything dated is derived from the real clock at run
+time, which is why `<date>` stays a placeholder. A stale constant does not raise an error, it quietly
+stops matching, and here that inverts the feature: the de-dup finds nothing, everything looks new,
+and the run duplicates every open ticket every week. No label carries a date either (RUN_PROTOCOL.md
+section 5). The one place a date belongs is the run's own file names and run record heading, which
+carry the full `YYYY-MM-DD` read at run time.
 
 ## Step 8: Propose a schedule, then ask
 
@@ -301,9 +449,11 @@ partly to prevent, and it is invisible from the file listing.
 ## Step 9: Report
 
 A table of what was created: each baseline with its path, each wrapper with its task id and slot, each
-review folder. Then, separately and prominently, **what the user still has to do by hand**: the focus
-areas per lens, the evidence bars, anything in the baseline left as a template default, and the fact
-that the first run of each audit establishes rather than diagnoses.
+review folder. Then, separately and prominently, **what the user still has to do by hand**: landing
+`quality-sweep/` and the review folders on `main` through a pull request before the first slot fires,
+since every run reads from a fresh worktree of `main` and finds nothing until then; the focus areas per
+lens; the evidence bars; anything in the baseline left as a template default; and the fact that the
+first run of each audit establishes rather than diagnoses.
 
 Then state anything that did not make it: an audit skipped because a dependency is absent, a wrapper
 that failed to register, a baseline location that had to fall back to the repo root. "Here is your
@@ -320,6 +470,9 @@ Say so rather than letting it be assumed:
   of each audit is an establishing run by design.
 - It does not tune anything after the fact. A lens that over-flags is fixed by adding benign patterns
   from a real run, not by anything decided here.
+- It does not set up the Monday collector routine that RUN_PROTOCOL.md section 4 hands every run's
+  branch to. Until the project has one, the `sweep/*` branches pile up on `origin` and nothing the
+  runs wrote reaches `main`, so each run reads the same findings as the run before it.
 
 ## Canonical blocks this skill does not embed
 
