@@ -284,11 +284,13 @@ existing ticket, and an `accepted` row with its reason for every object you acce
 row's object is the OBJECT column with `docs-drift::` in front and its ` :: ` written as `::`, the
 form the engine translates back. Never edit `docs-drift-baseline.toml` and never edit an earlier
 run's file: the engine unions every file under `findings/docs-drift/` on the next run, so a row
-recorded here counts from then on without anyone folding it into the baseline. Unlike `/test-audit`,
-it keeps the **first** row it reads for an object, the baseline's and then the oldest file's, so a
-row here cannot re-point an object an earlier row already names; if a run needed that, say so in the
-report. Interactively, leave the file uncommitted and say so; on a schedule, commit and push it per
-the run protocol, `RUN_PROTOCOL.md` beside the `/quality-sweep` skill.
+recorded here counts from then on without anyone folding it into the baseline. **The newest row for
+an object wins**, the same rule `/quality-sweep` and `/test-audit` apply: a row here can re-point an
+object at the open ticket that took the work over, or accept one an earlier run filed, and any file's
+row replaces what the baseline says about that object. To change your mind about an object a run has
+already recorded, write a new row; editing the baseline for it changes nothing. Interactively, leave
+the file uncommitted and say so; on a schedule, commit and push it per the run protocol,
+`RUN_PROTOCOL.md` beside the `/quality-sweep` skill.
 
 The anchor, retired term or watch a ticket names as its regression guard (4c) stays in the ticket: a
 findings file carries only `known_open` and `accepted` rows, and the baseline is edited by a human on

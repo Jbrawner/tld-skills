@@ -29,6 +29,7 @@ bookkeeping.
 | File | Where | What |
 | --- | --- | --- |
 | `rls-audit.sql` | next to this skill | the engine, identical for every project |
+| `rls-findings.mjs` | next to this skill | turns the repo's findings files into SQL the engine reads, run between the baseline and the engine |
 | `rls-audit-baseline.sql` | in the audited repo | that project's config, accepted exceptions, and known-open findings |
 | `baseline.example.sql` | next to this skill | template to copy when a repo has no baseline yet |
 
@@ -64,16 +65,25 @@ confident, entirely fictional report.
 
 ## Step 2 — Run the sweep
 
-Load the baseline first so its config wins, in one psql session:
+Turn the repo's findings files into SQL first, then load the baseline, that SQL and the engine in one
+psql session, in that order, so the baseline's config wins and each recorded row replaces the
+baseline's rows for its object:
 
 ```bash
+FINDINGS_SQL="$(mktemp)" &&
+node <path to this skill>/rls-findings.mjs --root <repo root> > "$FINDINGS_SQL" &&
 PGPASSWORD=postgres psql -h 127.0.0.1 -p <port> -U postgres -d postgres -q \
   -f <the baseline resolved in Step 1> \
+  -f "$FINDINGS_SQL" \
   -f <path to this skill>/rls-audit.sql
 ```
 
-Omit the first `-f` when the repo has no baseline. Confirm both files exist first: psql against a missing
-file is an error, and an error must never be read as zero findings.
+Omit the baseline's `-f` when the repo has none. Confirm each file exists first: psql against a missing
+file is an error, and an error must never be read as zero findings. For the same reason the loader
+writes to a file and the command is chained with `&&`, never piped: a loader that stopped on a malformed
+findings file (exit 2) would otherwise hand psql nothing, and the engine would run as if no run had ever
+recorded anything. The loader prints to stderr how many rows it loaded and every row it skipped, with
+why; put the skipped rows in the report.
 
 **Zero rows is a clean pass.** Each row is `severity | check_name | object | status | detail`.
 
@@ -109,8 +119,8 @@ psql "$CONN" -c "select pg_get_functiondef('public.<fn>(<argtypes>)'::regprocedu
 
 - Returns data or writes, no guard of its own, does not delegate to a guarded function → **real finding**, go to Step 4.
 - Delegating wrapper or foundational helper → **false positive.** Record it as an `accepted` row in this
-  run's findings file (Step 4d) with a one-line reason naming what it delegates to. Accepting it is a
-  security sign-off: only do it after actually reading the function.
+  run's findings file (Step 4d) with the check it came up under and a one-line reason naming what it
+  delegates to. Accepting it is a security sign-off: only do it after actually reading the function.
 
 A project's own permission helpers will show up here, and each one belongs on `rls_audit_accepted`
 individually, with the reason. There is deliberately **no** config regex for "treat these helper names as
@@ -208,20 +218,26 @@ Those belong in the baseline's `rls_audit_known_open` instead, which is why they
 
 Write `quality-sweep/findings/rls-audit/<date>.json`, one new file, with a `known_open` row for every
 object you filed, carrying its new ticket key, and for every object you resolved by hand to an existing
-ticket, and an `accepted` row with its reason for every function you accepted in Step 3. Each row's
-object is `rls-audit::` followed by the name the baseline matches on: the function name, or
-`table :: policy`. Never edit `rls-audit-baseline.sql` and never edit an earlier run's file.
-Interactively, leave the file uncommitted and say so; on a schedule, commit and push it per the run
-protocol, `RUN_PROTOCOL.md` beside the `/quality-sweep` skill.
+ticket, and an `accepted` row for every object you accepted in Step 3, carrying its reason and its
+`check`: the check_name it came up under, or `*` only when you mean every check, the same sign-off as in
+the baseline. Each row's object is `rls-audit::<schema>::<name>`, where the name is what the engine
+matches on: the function name, or `table :: policy` with its spaces. Copying the OBJECT column after the
+schema is fine, since a function's argument list is dropped when the file is read. Never edit
+`rls-audit-baseline.sql` and never edit an earlier run's file. Interactively, leave the file uncommitted
+and say so; on a schedule, commit and push it per the run protocol, `RUN_PROTOCOL.md` beside the
+`/quality-sweep` skill.
 
-**This engine does not read findings files back.** It is plain psql and loads the baseline SQL and
-nothing else, so a row counts only once it is folded into the baseline on `main`: by the project's
-collector routine where it has one (it adds each `accepted` row to `rls_audit_accepted` and each
-`known_open` row to `rls_audit_known_open` in the pull request that gathers the weekend's runs), or by
-a person. Until then a filed object comes back `NEW` and the tracker search in 4b finds its open
-ticket, and an accepted function comes back `NEW` and is triaged again. That makes the tracker search
-in 4b the real de-dup guard, so a file you could not write is never a reason to skip filing, only a
-reason to say so in the report.
+The next run reads every file in that folder back through `rls-findings.mjs` (Step 2), so a row counts
+from the next run on without anyone folding it into the baseline. The engine owns this, as the
+docs-drift and test-audit engines own theirs. A collector routine that still copies these rows into
+`rls-audit-baseline.sql` is redundant but harmless: it never rewrites a row, so it cannot re-point one,
+and the loader's newest row replaces whatever it copied. **The newest row for an object wins**,
+the same rule `/quality-sweep` and `/test-audit` apply: a later file can re-point an object at another
+ticket or file one an earlier run accepted, and any file's row replaces what the baseline says about
+that object. An `accepted` row with no `check` is skipped and reported rather than read as `*`, because a
+missing field must never silence the HIGH invariants for that object; the object comes back `NEW` until a
+run records it again with its check. The tracker search in 4b stays the de-dup guard, so a file you
+could not write is never a reason to skip filing, only a reason to say so in the report.
 
 ## Step 5 — Report
 
@@ -256,6 +272,8 @@ catch.
 - `rls_audit_known_open` pairs an object with the ticket that will fix it. When the fix lands the row stops
   matching anyway, so prune it then.
 - `rls_audit_accepted` holds reviewed exceptions. Grow it only via Step 3, always with the reason.
+- A row in any findings file outranks the baseline for its object (Step 4d). To change your mind about an
+  object a run has already recorded, write a new findings file; editing the baseline for it changes nothing.
 - Both match on the object **name**, so a brand-new overload reusing an accepted name is not flagged. If a
   review ever adds an overload to an accepted name, re-read every overload.
 
