@@ -115,6 +115,59 @@
         "topic": "example: adding a default value to the location picker",
         "reason": "deliberate product decision, the prompt is the feature"
       }
+    ],
+    "_comment_local_database": [
+      "The local database a lens or a sibling audit reads (RUN_PROTOCOL.md section 5).",
+      "Before reading anything a run executes confirm_command and matches project_ref in",
+      "what it prints, and it refuses any host that is not loopback. Two products on one",
+      "machine can share a port, so the ref, not the port, is what proves the target.",
+      "Leave the block out when nothing this project sweeps reads a database. A lens that",
+      "needs one and finds no block here is a SKIPPED RUN, never a guess at a connection."
+    ],
+    "local_database": {
+      "project_ref": "abcdefghijklmnopqrst",
+      "host": "127.0.0.1",
+      "port": 54322,
+      "confirm_command": "docker ps --filter publish=54322 --format '{{.Names}}'"
+    },
+    "_comment_ticket_routing": [
+      "Where each filed ticket lands (RUN_PROTOCOL.md section 8), for this sweep and for",
+      "every sibling audit, whose own TOML or SQL baselines cannot carry it. ready is the",
+      "queue a developer picks from; review holds a ticket until a person rules on it.",
+      "Each names the tracker status and the id of the workflow transition that reaches it.",
+      "ready.priority goes on every ready ticket, raised to the finding's severity floor.",
+      "review.label goes on every review ticket beside the status. maintainer is the person",
+      "the review queue and every regression are for. These belong to the tracker's",
+      "workflow, not to the repo: ask whoever runs the tracker, never copy them from here."
+    ],
+    "ticket_routing": {
+      "ready": {
+        "status": "Ready for Dev",
+        "transition_id": "",
+        "priority": "Medium"
+      },
+      "review": {
+        "status": "Needs Triage",
+        "transition_id": "",
+        "label": "needs-triage"
+      },
+      "maintainer": ""
+    },
+    "_comment_approval_list": [
+      "Decisions the maintainer already made on purpose (RUN_PROTOCOL.md section 8). A",
+      "finding that touches an entry lands in review however confident the run is, and",
+      "the ticket quotes the entry's reason, because a 'fix' to a settled decision is a",
+      "proposal, not a bug fix. Unlike do_not_raise, which stops a topic being raised at",
+      "all, an entry here still gets filed; it only decides where the ticket lands.",
+      "area names the code or behaviour in words a run can match a finding against; reason",
+      "says why it is settled, for someone who was not there. Start it empty rather than",
+      "with a guess: an empty list tells every run that no decisions are written down yet."
+    ],
+    "approval_list": [
+      {
+        "area": "example: anything under billing or checkout",
+        "reason": "the money path; every change to it is reviewed by the maintainer before it is built"
+      }
     ]
   },
   "_comment_lenses": [
