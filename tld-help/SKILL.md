@@ -51,6 +51,7 @@ Print the reference card below, then determine the user's current position in th
 | `/tld-recenter` | Cuts a fresh branch off the latest default branch (detects via `origin/HEAD` → `main` → `master`); refuses if working tree is dirty | After a PR merges, before starting the next ticket |
 | `/tld-save-point` | Recovers your position from milestone + tracker | Start of a new conversation |
 | `/tld-dashboard` | Shows progress across all milestones and tickets | When you want the big picture |
+| `/lane-map` | Republishes the Lane Map page: every local Supabase stack on this Mac across every product, who holds it, what it is doing, what dev servers and test runs point at it, Docker memory against the limit, ports in use, with a filter per product. Read-only | Several sessions and stacks are running and you've lost track of which is doing what |
 | `/close-out` | Asks this session "can I archive you, or is anything lingering?": checks uncommitted files, unpushed commits, background work, dev servers, side sessions, the PR, unanswered questions, unfinished steps, tickets left mid-way and uncaptured follow-ups. Archives at once when all clear; otherwise one table of what lingers and what clears it. `/close-out all` sweeps every other session from this one: one row per session with what lingers and a recommendation, then archives only the rows you pick | A session looks finished and you want it out of the sidebar; `all` when many do |
 
 ### Planning
