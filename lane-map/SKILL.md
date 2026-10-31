@@ -7,9 +7,11 @@ description: |
   `supabase/config.toml`, or a stack running in Docker that no repo defines. Per lane: who
   holds it, what it is doing, what dev servers and test runs point at it. Also Docker memory
   against the limit across every product, ports in use, servers outside any lane, the sessions
-  active today that hold none, and a filter per product. Use when the user says "lane-map",
-  "lane map", "what is each lane doing", "which lane is doing what", "what's running where",
-  "refresh the lane map". Read-only: it never claims, frees, stops or resets a stack.
+  active today that hold none, and a filter per product. The page's Refresh button re-reads the
+  Mac through the skill's local MCP server when the page is open in the Claude desktop app. Use
+  when the user says "lane-map", "lane map", "what is each lane doing", "which lane is doing
+  what", "what's running where", "refresh the lane map". Read-only: it never claims, frees,
+  stops or resets a stack.
 ---
 
 # Lane Map
@@ -22,7 +24,7 @@ Run from any session. Each run is a new snapshot; the page says when it was take
 
 | Rule | Why |
 |---|---|
-| Read only. Run nothing that claims, frees, stops, starts or resets a stack (`lane-claim.sh`, `lane-release.sh`, `lane-db.sh`, `supabase`, `docker stop`) | The map is for looking. A lane belongs to the session that holds it |
+| Read only. Run nothing that claims, frees, stops, starts or resets a stack (`lane-claim.sh`, `lane-release.sh`, `lane-db.sh`, `supabase`, `docker stop`). The page's server reads only too | The map is for looking. A lane belongs to the session that holds it |
 | Open no env file: `.env*`, `stack-N.env`, `.env.walk.local` | They hold keys and the walk password. The script reads a stack's number from the file name in a command line, never the file |
 | Put no command line, key or environment value in the notes | The script describes every process by a fixed label and keeps only the local port from its environment; the notes must not undo that |
 | Notes say what the evidence shows, in plain sentences | The page is read in ten seconds. An inference says so ("looks finished", "most likely a reset") |
@@ -30,18 +32,18 @@ Run from any session. Each run is a new snapshot; the page says when it was take
 
 ## Step 1: Read the sessions
 
-Call `list_sessions` with `limit: 60`. Write the array to `<scratchpad>/lane-map/sessions.json`, keeping only these fields of each entry: `sessionId`, `title`, `cwd`, `isRunning`, `isArchived`, `lastActivityAt`, `link`, `startedBy`.
+Call `list_sessions` with `limit: 60`. Write the array to `~/.claude/lane-map/sessions.json`, keeping only these fields of each entry: `sessionId`, `title`, `cwd`, `isRunning`, `isArchived`, `lastActivityAt`, `link`, `startedBy`. The page's Refresh button reuses this file to name sessions, because the server cannot list them.
 
 ## Step 2: Gather the facts
 
 ```bash
-node ~/.claude/skills/lane-map/lane-map.mjs gather --sessions <scratchpad>/lane-map/sessions.json > <scratchpad>/lane-map/facts.json
+node ~/.claude/skills/lane-map/lane-map.mjs gather > <scratchpad>/lane-map/facts.json
 node ~/.claude/skills/lane-map/lane-map.mjs summary --facts <scratchpad>/lane-map/facts.json
 ```
 
-`gather` reads every git repo directly under `~/Code` (`--code-dir <dir>` changes that; `--repo <dir>` adds one elsewhere). For each repo it takes the lane registry's rows when the repo has `.tld/stacks.md`, else one lane per `supabase/config.toml` (at the root or one folder down). Then it reads Docker, git worktrees, running processes, listening ports and portless routes, and matches each claim and each process to a session. It takes about five seconds.
+`gather` reads every git repo directly under `~/Code` (`--code-dir <dir>` changes that; `--repo <dir>` adds one elsewhere), and the session list from Step 1 (`--sessions <file>` reads another). For each repo it takes the lane registry's rows when the repo has `.tld/stacks.md`, else one lane per `supabase/config.toml` (at the root or one folder down). Then it reads Docker, git worktrees, running processes, listening ports and portless routes, and matches each claim and each process to a session. It takes about five seconds.
 
-A product the user has stopped working on goes in `~/.claude/lane-map.json` as `{"retired": ["<repo folder>"]}` (`--config <file>` reads another). Its lanes leave the map while its stack is stopped, so its port range stops being flagged as shared; the moment any of its containers runs, the lane comes back flagged, because it takes memory and ports like any other. When the user says a product is retired or back in play, edit that list.
+A product the user has stopped working on goes in `~/.claude/lane-map/config.json` as `{"retired": ["<repo folder>"]}` (`--config <file>` reads another). Its lanes leave the map while its stack is stopped, so its port range stops being flagged as shared; the moment any of its containers runs, the lane comes back flagged, because it takes memory and ports like any other. When the user says a product is retired or back in play, edit that list.
 
 `summary` prints one line per lane (its key, port range, state, holder, session, uptime, memory, branch and today's commits), the processes that point at it indented under it, then processes that point at no lane, then today's sessions that hold none. Read that rather than the JSON.
 
@@ -82,6 +84,24 @@ Publish to the page the user already has:
 1. Published from this conversation already: publish the same file path again.
 2. Otherwise `Artifact` `action: "list"`, and take the artifact titled `Lane Map`. `read` it, confirm it carries `<meta name="lane-map"`, then publish `page.html` with its `url`.
 3. None found: publish `page.html` as a new artifact with `icon: "map"` and the description "What every local lane on this Mac is doing: who holds each stack, what runs against it, and what is free."
+
+The page needs one capability for its Refresh button: `capabilities: {"mcp": {"servers": [{"server": "host:lane-map", "tools": ["lane_facts"]}]}}`. Pass it on a new artifact. On an existing one, omit `capabilities` to keep what it has, unless its `read` shows it never got the declaration; then pass it once.
+
+## The Refresh button
+
+The page carries its own drawing code (`page.js`) and a Refresh button. A click asks the `lane-map` MCP server on this Mac (`lane-map.mjs serve`, one read-only tool, `lane_facts`) for fresh facts and redraws the page in place, in about four seconds. Nothing is republished; the next `/lane-map` run does that.
+
+| What | How it works |
+|---|---|
+| Where it works | Only with the page open in the Claude desktop app, by the artifact's owner, with the server added. Anywhere else the button says to run `/lane-map` |
+| What a click updates | Every fact: lanes, claims, running or stopped, memory, ports, dev servers and test runs. Session names and states come from the list Step 1 last saved |
+| What it keeps | The notes, each only while its lane is unchanged. A lane that changed hands, started or stopped since the notes loses its Doing line, and the page names it at the top |
+
+Setting up the server is the user's step, once per Mac. Give them this, with the full path of their `node` (`command -v node`), since the app starts servers with a short `PATH`:
+
+```bash
+claude mcp add --scope user lane-map -- <full path of node> ~/.claude/skills/lane-map/lane-map.mjs serve
+```
 
 ## Step 6: Report
 

@@ -5,6 +5,7 @@
 //   node lane-map.mjs gather [--code-dir <dir>] [--repo <dir>]... [--sessions <file>] > facts.json
 //   node lane-map.mjs summary --facts <file>
 //   node lane-map.mjs render --facts <file> --notes <file> > page.html
+//   node lane-map.mjs serve        (an MCP server on stdio with one tool, lane_facts)
 //
 // A lane is one local Supabase stack, named by its port range (546xx). gather finds them in each
 // product repo under --code-dir (default ~/Code) plus any --repo: a repo with a lane registry
@@ -19,13 +20,24 @@
 //
 // render draws one self-contained HTML page from those facts and notes.json, the words Claude
 // writes for each run (SKILL.md § Notes). Every note is escaped; [text](https://…) and `code`
-// are the only markup it turns into HTML.
+// are the only markup it turns into HTML. The page body comes from page.js, which the page also
+// carries, so its Refresh button can ask `serve` for fresh facts and redraw in place.
+//
+// State lives in ~/.claude/lane-map/: config.json ({"retired": [...]}) and sessions.json, the
+// session list the last /lane-map run saved, which `serve` reuses because it cannot list
+// sessions itself.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
+import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
+import { clock, duration, esc, filterCss, notesBasis, portPrefix, renderBody } from "./page.js";
+
+export { rich, portRun, duration, renderBody } from "./page.js";
+
+const STATE = join(homedir(), ".claude", "lane-map");
 
 // --- where lanes are defined ------------------------------------------------------
 
@@ -74,8 +86,6 @@ export function parseConfigToml(text) {
   }
   return projectId && apiPort ? { projectId, ports: String(apiPort).slice(0, 3) + "xx" } : null;
 }
-
-const portPrefix = (ports) => ports.replace(/x+$/i, "");
 
 // supabase_db_lab_inventory_2 -> lab_inventory_2, the suffix every container of that stack ends in
 export const projectOf = (dbContainer) => dbContainer.replace(/^supabase_db_/, "");
@@ -376,6 +386,7 @@ export function buildFacts(raw) {
     portless: (raw.portlessRoutes ?? []).map((r) => ({ hostname: r.hostname, port: r.port, live: (raw.listeningPorts ?? []).includes(r.port) })),
     portlessProxy: raw.portlessProxy ?? null,
     sessionsKnown: Boolean(raw.sessions),
+    sessionsAt: raw.sessions ? raw.sessionsAt ?? raw.takenAt : null,
     sessions: sessions
       .filter((s) => !s.isArchived && s.lastActivityAt && sameLocalDay(s.lastActivityAt, raw.takenAt))
       .map((s) => ({ ...trimSession(s, products), holdsLane: laneSessions.has(s.sessionId) })),
@@ -451,11 +462,66 @@ function gather({ codeDir, repos, sessionsFile, configFile }) {
     }
   }
 
-  const sessions = sessionsFile ? JSON.parse(readFileSync(sessionsFile, "utf8")) : null;
+  // With no --sessions, the list the last /lane-map run saved, dated by when it was saved.
+  const saved = join(STATE, "sessions.json");
+  const sessionsPath = sessionsFile ?? (existsSync(saved) ? saved : null);
+  const sessions = sessionsPath ? JSON.parse(readFileSync(sessionsPath, "utf8")) : null;
   return buildFacts({
     takenAt: new Date().toISOString(), products, dockerPs, dockerStats, dockerMemTotal, processes,
     envPorts: envPortsByPid, listeningPorts, portlessRoutes, portlessProxy, git, sessions,
+    sessionsAt: sessionsPath ? statSync(sessionsPath).mtime.toISOString() : null,
     retired: Array.isArray(config.retired) ? config.retired : [],
+  });
+}
+
+// --- serve: the MCP server the page's Refresh button calls ---------------------------
+
+const LANE_FACTS_TOOL = {
+  name: "lane_facts",
+  title: "Lane facts",
+  description: "Read every local Supabase stack on this Mac across every product, who holds it, what runs against it, Docker memory and ports in use, as the Lane Map's facts. Reads only.",
+  inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+};
+
+// One JSON-RPC message in, its reply out (null for a notification). provideFacts runs gather.
+export function handleMessage(msg, provideFacts) {
+  const ok = (result) => ({ jsonrpc: "2.0", id: msg.id, result });
+  const fail = (code, message) => ({ jsonrpc: "2.0", id: msg.id ?? null, error: { code, message } });
+  const isRequest = msg && msg.id !== undefined && msg.id !== null;
+  if (!msg || msg.jsonrpc !== "2.0" || typeof msg.method !== "string") return isRequest ? fail(-32600, "Invalid request") : null;
+  if (msg.method === "initialize") {
+    return ok({
+      protocolVersion: msg.params?.protocolVersion ?? "2025-06-18",
+      capabilities: { tools: { listChanged: false } },
+      serverInfo: { name: "lane-map", version: "1.0.0" },
+    });
+  }
+  if (msg.method === "ping") return ok({});
+  if (msg.method === "tools/list") return ok({ tools: [LANE_FACTS_TOOL] });
+  if (msg.method === "tools/call") {
+    if (msg.params?.name !== LANE_FACTS_TOOL.name) return fail(-32602, `Unknown tool: ${msg.params?.name}`);
+    try {
+      const facts = provideFacts();
+      return ok({ content: [{ type: "text", text: JSON.stringify(facts) }], structuredContent: facts });
+    } catch (e) {
+      return ok({ content: [{ type: "text", text: e.message }], isError: true });
+    }
+  }
+  return isRequest ? fail(-32601, `Method not found: ${msg.method}`) : null;
+}
+
+function serve(options) {
+  // The app starts servers with a short PATH; docker, git and lsof live in these.
+  const extra = ["/usr/local/bin", "/opt/homebrew/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"];
+  process.env.PATH = [...new Set([...(process.env.PATH ?? "").split(":"), ...extra].filter(Boolean))].join(":");
+  const send = (reply) => process.stdout.write(JSON.stringify(reply) + "\n");
+  createInterface({ input: process.stdin }).on("line", (line) => {
+    if (!line.trim()) return;
+    let msg;
+    try { msg = JSON.parse(line); } catch { send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }); return; }
+    const reply = handleMessage(msg, () => gather(options));
+    if (reply) send(reply);
   });
 }
 
@@ -483,273 +549,105 @@ export function summary(facts) {
   return lines.join("\n") + "\n";
 }
 
-// --- render -------------------------------------------------------------------
+// --- render: the page document around page.js's body ------------------------------
 
-const esc =(s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const PAGE_JS = readFileSync(new URL("./page.js", import.meta.url), "utf8");
 
-// Escape, then turn [text](https://…) into a link and `x` into code.
-export function rich(s) {
-  return esc(s)
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, text, href) => `<a href="${href}">${text}</a>`)
-    .replace(/`([^`]+)`/g, "<code>$1</code>");
+// page.js as a classic script: the same functions, without the module's export keywords.
+export const browserSource = (source) => source.replace(/^export /gm, "");
+
+// The page's own script: the product filter, and the Refresh button, which asks the lane-map
+// server on this Mac for fresh facts and redraws with page.js. It calls only on a click, and
+// says what to do for each way the call can fail.
+const CONTROLLER = `
+const SERVER = "host:lane-map";
+const TOOL = "lane_facts";
+const data = JSON.parse(document.getElementById("lane-data").textContent);
+const wrap = document.querySelector(".wrap");
+const filterStyle = document.getElementById("lane-filter-css");
+let current = "all";
+try { current = localStorage.getItem("lane-map-filter") || "all"; } catch (e) {}
+const pick = (value) => {
+  const buttons = [...wrap.querySelectorAll(".filter")];
+  if (!buttons.some((b) => b.dataset.pick === value)) value = "all";
+  current = value;
+  wrap.dataset.filter = value;
+  for (const b of buttons) b.setAttribute("aria-pressed", String(b.dataset.pick === value));
+  try { localStorage.setItem("lane-map-filter", value); } catch (e) {}
+};
+const say = (text) => {
+  const el = document.getElementById("lane-refresh-status");
+  if (el) el.textContent = text;
+};
+const NO_HOST = "Refresh reads this Mac through the lane-map server, so it works when this page is open in the Claude desktop app with that server added. Elsewhere, run /lane-map in any session.";
+const WHY = {
+  server_not_connected: NO_HOST,
+  not_granted: NO_HOST,
+  capability_disabled: NO_HOST,
+  capability_removed: NO_HOST,
+  not_in_manifest: "This page is not allowed to use the lane-map server. Allow it in the page's Permissions menu, then click Refresh.",
+  approval_required: "Refresh needs your OK in the Claude app. Click Refresh again and allow it.",
+  cancelled: "Refresh was declined, so nothing was read.",
+  server_unavailable: "The lane-map server did not answer. Click Refresh to try again.",
+};
+let mcp = null;
+const ready = (window.claude && window.claude.use ? window.claude.use("mcp") : Promise.resolve(null))
+  .then((m) => { mcp = m; })
+  .catch(() => {});
+let busy = false;
+async function refresh() {
+  if (busy) return;
+  busy = true;
+  const button = document.getElementById("lane-refresh");
+  if (button) button.disabled = true;
+  say("Reading this Mac…");
+  try {
+    await ready;
+    if (!mcp) { say(NO_HOST); return; }
+    const result = await mcp.callTool(SERVER, TOOL, {}, { cache: false });
+    const facts = result && result.payload;
+    if (!facts || !Array.isArray(facts.lanes)) throw { code: "tool_error", message: "it answered without lane facts" };
+    wrap.innerHTML = renderBody(facts, data.notes, data.ctx);
+    filterStyle.textContent = filterCss(facts);
+    pick(current);
+    say("Refreshed at " + clock(facts.takenAt) + ".");
+  } catch (e) {
+    const code = e && e.code;
+    if (code === "tool_error") say("The lane-map server could not read this Mac: " + (e.message || "no reason given") + ".");
+    else say(WHY[code] || "Refresh did not work this time. Run /lane-map in any session for a new snapshot.");
+  } finally {
+    busy = false;
+    const again = document.getElementById("lane-refresh");
+    if (again) again.disabled = false;
+  }
 }
-
-const clock = (t) => new Date(t).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).toLowerCase().replace(/\s/g, " ");
-const day = (t) => new Date(t).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-const dayOnly = (ymd) => /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? new Date(ymd + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ymd;
-export function duration(seconds) {
-  if (seconds === null || seconds === undefined) return "";
-  if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))} min`;
-  if (seconds < 172800) return `${Math.round(seconds / 3600)} h`;
-  return `${Math.round(seconds / 86400)} days`;
-}
-const gb = (mib) => `${(mib / 1024).toFixed(1)} GB`;
-const sessionLink = (s) => s ? (s.link ? `<a href="${esc(s.link)}">${esc(s.title)}</a>` : esc(s.title)) : "";
-const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "x";
-
-const ROLE = { kong: "API", db: "database", inbucket: "test inbox", mailpit: "test inbox", studio: "Studio", analytics: "logs" };
-
-// 54521, 54522, 54524 -> "54521 / 22 / 24"
-export function portRun(ports) {
-  const sorted = [...new Set(ports)].sort((a, b) => a - b);
-  return sorted.map((p, i) => (i && String(p).slice(0, 3) === String(sorted[0]).slice(0, 3) ? String(p).slice(3) : String(p))).join(" / ");
-}
+wrap.addEventListener("click", (e) => {
+  const filter = e.target.closest(".filter");
+  if (filter) pick(filter.dataset.pick);
+  if (e.target.closest("#lane-refresh")) refresh();
+});
+pick(current);
+`;
 
 export function render(facts, notes) {
-  const names = notes.productNames ?? {};
-  const pname = (p) => names[p] ?? (p === "unknown" ? "Not in any repo" : p);
-  const lanesByKey = new Map(facts.lanes.map((l) => [l.key, l]));
-  const jobs = (notes.jobs ?? []).map((j, i) => ({ ...j, lanes: (j.lanes ?? []).filter((k) => lanesByKey.has(k)), index: (i % 4) + 1 }));
-  const jobOf = (key) => jobs.find((j) => j.lanes.includes(key)) ?? null;
-  const byId = new Map(facts.allSessions.map((s) => [s.id, s]));
-  const laneNotes = notes.lanes ?? {};
-  const short = (l) => portPrefix(l.ports) || l.label;
-  const procsFor = (key) => facts.processes.filter((p) => p.lanes.includes(key));
-  const laneProcs = new Set(facts.lanes.flatMap((l) => procsFor(l.key)));
-  const looseProcs = facts.processes.filter((p) => !laneProcs.has(p) && (p.ports.length || p.label !== "Process"));
-
-  // Products worth a filter button: a lane in use, a process, or a session today.
-  const productsShown = [...new Set([
-    ...facts.lanes.filter((l) => l.docker || l.state === "claimed").map((l) => l.product),
-    ...facts.processes.map((p) => p.product),
-    ...facts.sessions.map((s) => s.product).filter(Boolean),
-    ...facts.lanes.map((l) => l.product),
-  ])].filter((p) => p !== "unknown" || facts.lanes.some((l) => l.product === "unknown"));
-  const runningIn = (p) => facts.lanes.filter((l) => l.product === p && l.docker?.running).length;
-
-  const badge = (l) => {
-    const j = jobOf(l.key);
-    return `<span class="badge${j ? ` job-${j.index}` : ""}" title="${esc(`${pname(l.product)} · ${l.label}`)}">${esc(short(l))}</span>`;
-  };
-
-  // Jobs.
-  const jobCards = jobs.map((j) => {
-    const s = byId.get(j.session);
-    const parent = s?.startedBy ? byId.get(s.startedBy) : null;
-    const product = lanesByKey.get(j.lanes[0])?.product ?? s?.product ?? "";
-    return `<article class="job" data-product="${esc(slug(product))}">
-        <div class="job-head"><span class="job-name">${esc(j.name)}</span><span class="job-lanes">${j.lanes.map((k) => badge(lanesByKey.get(k))).join("")}</span></div>
-        <p class="eyebrow">${esc(pname(product))}</p>
-        <p>${rich(j.summary)}</p>
-        ${s ? `<p class="muted">Session: ${sessionLink(s)}${s.running ? " (working now)" : ""}${parent ? `, started from ${sessionLink(parent)}` : ""}</p>` : ""}
-      </article>`;
-  });
-  const idle = facts.lanes.filter((l) => !jobOf(l.key) && !l.docker?.running && l.state !== "claimed");
-  if (idle.length) {
-    const nextFree = [...new Set(idle.filter((l) => l.registry).map((l) => l.product))].map((p) => {
-      const pick = idle.filter((l) => l.product === p && l.state === "free" && l.stack >= 2).sort((a, b) => a.stack - b.stack)[0];
-      return pick ? esc(`${pname(p)}'s next claim takes ${pick.ports}.`) : "";
-    }).filter(Boolean);
-    jobCards.push(`<article class="job free">
-        <div class="job-head"><span class="job-name">Free and stopped</span><span class="job-lanes">${idle.map(badge).join("")}</span></div>
-        <p>${notes.free ? rich(notes.free) : nextFree.join(" ") || "Nothing runs on these ranges."}</p>
-      </article>`);
-  }
-
-  // Lane rows.
-  const laneRows = facts.lanes.map((l) => {
-    const j = jobOf(l.key);
-    const n = laneNotes[l.key] ?? {};
-    const d = l.docker;
-    const pill = d?.running
-      ? `<span class="pill"><span class="dot on"></span>Running</span>`
-      : d?.containers ? `<span class="pill"><span class="dot part"></span>Partly up</span>` : `<span class="pill"><span class="dot hollow"></span>Stopped</span>`;
-    const procs = procsFor(l.key);
-    const held = [];
-    if (l.state === "claimed") {
-      held.push(`<p class="session">${l.session ? sessionLink(l.session) : "No session found"}</p>`);
-      held.push(`<p><code>${esc(l.claimedBy)}</code>${l.worktree && !l.worktree.exists ? ` <span class="chip">folder is gone</span>` : ""}</p>`);
-    } else if (l.state === "unmanaged") {
-      const users = [...new Set(procs.map((p) => p.session).filter(Boolean))].map((id) => byId.get(id)).filter(Boolean);
-      held.push(users.length
-        ? users.map((s) => `<p class="session">${sessionLink(s)}</p>`).join("")
-        : `<p class="session">${d?.running ? "Nobody it can name" : "Nobody"}</p>`);
-      held.push(`<p class="muted">No lane registry: ${l.product === "unknown" ? "no repo defines this stack" : "the repo's own stack"}.</p>`);
-    } else {
-      held.push(`<p class="session">${l.state === "review" ? "You (review)" : "Nobody (free)"}</p>`);
-    }
-    if (n.held) held.push(`<p>${rich(n.held)}</p>`);
-    const meta = [l.state === "claimed" && l.since ? `Claimed ${esc(dayOnly(l.since))}` : "", d?.running ? `up ${duration(d.upSeconds)}` : "", d?.running ? gb(d.memMiB) : ""].filter(Boolean);
-    if (meta.length) held.push(`<p class="muted">${meta.join(" · ")}</p>`);
-    if (l.worktree?.branch) {
-      const g = l.worktree.git;
-      held.push(`<p class="muted">Branch <code>${esc(l.worktree.branch)}</code>${g ? ` · ${g.commitsToday} commit${g.commitsToday === 1 ? "" : "s"} today` : ""}</p>`);
-    }
-    for (const key of l.sharesPortsWith) {
-      const o = lanesByKey.get(key);
-      held.push(`<p><span class="chip">Shares ${esc(l.ports)} with ${esc(pname(o.product))}</span></p>`);
-    }
-    if (l.retired) held.push(`<p><span class="chip">Retired product, but its stack is up</span></p>`);
-
-    const doing = [`<p>${n.doing ? rich(n.doing) : l.state === "claimed" ? "No notes for this run." : d?.running ? "Up, with no notes for this run." : "Nothing."}</p>`];
-    if (n.chip) doing.push(`<p><span class="chip">${esc(n.chip)}</span></p>`);
-    if (d?.running && d.dbUpSeconds !== null && d.upSeconds - d.dbUpSeconds > 600) {
-      doing.push(`<p class="muted">Database restarted at ${clock(Date.parse(facts.takenAt) - d.dbUpSeconds * 1000)}, most likely a reset.</p>`);
-    }
-    if (n.note) doing.push(`<p class="muted">${rich(n.note)}</p>`);
-
-    const folders = [...new Set(procs.map((p) => p.folder).filter(Boolean))];
-    const against = procs.length
-      ? `<ul>${procs.map((p) => `<li>${esc(p.label)}${p.ports.length ? ` on <code>:${p.ports.join(", :")}</code>` : ""}</li>`).join("")}</ul>` +
-        (folders.length ? `<p class="muted">From <code>${folders.map(esc).join("</code>, <code>")}</code></p>` : "")
-      : `<p>${d?.running ? "No dev server or test run." : "Nothing."}</p>`;
-
-    return `<div class="lane ${j ? `job-${j.index}` : d?.running ? "loose" : "idle"}" data-product="${esc(slug(l.product))}">
-        <div class="lane-id"><span class="lane-num">${esc(portPrefix(l.ports) || "?")}<span class="xx">xx</span></span><span class="lane-name">${esc(pname(l.product))}</span><span class="ports">${esc(l.label)}</span>${pill}</div>
-        <div class="col"><span class="col-label">Held by</span>${held.join("")}</div>
-        <div class="col"><span class="col-label">Doing</span>${doing.join("")}</div>
-        <div class="col"><span class="col-label">Running against it</span>${against}</div>
-      </div>`;
-  });
-
-  // Docker memory, drawn to the limit's scale, every product counted.
-  const running = facts.lanes.filter((l) => l.docker?.running);
-  const usedMiB = running.reduce((s, l) => s + l.docker.memMiB, 0) + facts.otherContainersMiB;
-  const limit = facts.dockerLimitMiB || Math.max(usedMiB, 1);
-  const seg = (mib, cls, label, product, tip) => `<div class="seg ${cls}"${product ? ` data-product="${esc(slug(product))}"` : ""} style="width: ${((mib / limit) * 100).toFixed(1)}%" title="${esc(tip)}">${esc(label)}</div>`;
-  const segments = [
-    ...running.map((l) => seg(l.docker.memMiB, jobOf(l.key) ? `job-${jobOf(l.key).index}` : "plain", short(l), l.product, `${pname(l.product)} · ${l.label}: ${gb(l.docker.memMiB)}`)),
-    ...(facts.otherContainersMiB ? [seg(facts.otherContainersMiB, "plain", "", null, `Other containers: ${gb(facts.otherContainersMiB)}`)] : []),
-  ];
-  const perProduct = [...new Set(running.map((l) => l.product))].map((p) => `${pname(p)} ${running.filter((l) => l.product === p).length}`);
-  const dockerBlock = !facts.dockerRunning
-    ? `<div class="budget"><p>Docker is not running, so no lane is up.</p></div>`
-    : `<div class="budget">
-        <p><strong class="num">${gb(usedMiB)}</strong>${facts.dockerLimitMiB ? ` of the <span class="num">${gb(limit)}</span> limit` : ""} in use by ${running.length} running lane${running.length === 1 ? "" : "s"}${perProduct.length ? ` (${esc(perProduct.join(", "))})` : ""}${facts.otherContainersMiB ? " and other containers" : ""}. Every product counts toward the one limit.</p>
-        <div class="bar" role="img" aria-label="${esc(running.map((l) => `${pname(l.product)} ${l.label} ${gb(l.docker.memMiB)}`).join(", "))}${facts.dockerLimitMiB ? `, out of ${gb(limit)}` : ""}">${segments.join("")}</div>
-        <div class="scale num"><span>0</span><span>${(limit / 2048).toFixed(1)}</span><span>${gb(limit)}</span></div>
-        <div class="legend">${jobs.map((j) => `<span><span class="chip job-${j.index}">${esc(j.name)}</span></span>`).join("")}${running.some((l) => !jobOf(l.key)) ? `<span><span class="chip plain">Grey</span> running, no job named</span>` : ""}</div>
-      </div>`;
-
-  // Ports in use.
-  const ownerOf = (key) => {
-    const l = lanesByKey.get(key);
-    return jobOf(key)?.name ?? (l?.state === "claimed" ? l.claimedBy : pname(l?.product));
-  };
-  const portRows = [];
-  for (const p of facts.processes.filter((p) => p.ports.length)) {
-    const where = p.lanes.map((k) => short(lanesByKey.get(k)) + "xx");
-    portRows.push({ product: p.product, cells: [p.ports.join(", "), `${p.label}${where.length ? `, pointed at ${where.join(" and ")}` : ""}`, p.lanes.length ? ownerOf(p.lanes[0]) : `${pname(p.product)} · ${p.folder}`] });
-  }
-  for (const l of running) {
-    const roles = [...new Set(l.docker.ports.map((p) => ROLE[p.role] ?? p.role))];
-    portRows.push({ product: l.product, cells: [portRun(l.docker.ports.map((p) => p.port)), `${pname(l.product)} ${l.label}: ${roles.join(", ")}`, ownerOf(l.key)] });
-  }
-  if (facts.portlessProxy) portRows.push({ product: null, cells: [facts.portlessProxy.port ?? "1355", `portless proxy, up ${duration(facts.portlessProxy.seconds)}`, "Shared"] });
-  const stoppedRanges = [...new Set(facts.lanes.filter((l) => !l.docker?.running && !running.some((r) => r.ports === l.ports)).map((l) => l.ports))];
-  const dead = facts.portless.filter((r) => !r.live);
-  const portsNote = [
-    stoppedRanges.length ? `Free ranges: ${stoppedRanges.map(esc).join(", ")}.` : "",
-    notes.portsNote ? rich(notes.portsNote) : "",
-    dead.length ? `${dead.length === 1 ? "The portless name" : `The ${dead.length} portless names`} ${dead.map((r) => `<code>${esc(r.hostname)}</code>`).join(" and ")} ${dead.length === 1 ? "has" : "have"} no live server behind ${dead.length === 1 ? "it" : "them"}.` : "",
-  ].filter(Boolean).join(" ");
-  const row = (r) => `<tr${r.product ? ` data-product="${esc(slug(r.product))}"` : ""}>${r.cells.map((c, i) => `<td${i === 0 ? ` class="mono"` : ""}>${esc(c)}</td>`).join("")}</tr>`;
-
-  // Servers and runs that point at no lane (a dev server on staging, a script).
-  const looseBlock = looseProcs.length
-    ? `<section aria-labelledby="loose-h"><h2 id="loose-h">Running outside any lane</h2>
-      <div class="table-wrap"><table><thead><tr><th>What</th><th>Product</th><th>Where</th><th>For</th></tr></thead><tbody>${looseProcs.map((p) => `<tr data-product="${esc(slug(p.product))}"><td>${esc(p.label)}${p.ports.length ? ` on <code>:${p.ports.join(", :")}</code>` : ""}</td><td>${esc(pname(p.product))}</td><td><code>${esc(p.folder)}</code></td><td>${p.session ? sessionLink(byId.get(p.session)) : `up ${duration(p.seconds)}`}</td></tr>`).join("")}</tbody></table></div></section>`
-    : "";
-
-  // Sessions active today that hold no lane.
-  const jobBySession = new Map(jobs.filter((j) => j.session).map((j) => [j.session, j.name]));
-  const others = facts.sessions.filter((s) => !s.holdsLane).sort((a, b) => String(b.lastActivityAt).localeCompare(String(a.lastActivityAt)));
-  const sessionRows = others.map((s) => {
-    const started = facts.allSessions.filter((x) => x.startedBy === s.id && jobBySession.has(x.id)).map((x) => `Started ${jobBySession.get(x.id)}`);
-    const sub = [pname(s.product), ...started].filter(Boolean);
-    return `<tr${s.product ? ` data-product="${esc(slug(s.product))}"` : ""}><td>${sessionLink(s)}${s.running ? ` <span class="chip">working</span>` : ""}<br><span class="muted">${esc(sub.join(" · "))}</span></td><td class="mono">${clock(s.lastActivityAt)}</td></tr>`;
-  });
-  const sessionsBlock = !facts.sessionsKnown
-    ? `<p class="muted">The session list was not read this run.</p>`
-    : sessionRows.length
-      ? `<div class="table-wrap"><table><thead><tr><th>Session</th><th>Last active</th></tr></thead><tbody>${sessionRows.join("")}</tbody></table></div>
-      <p class="muted">${others.some((s) => s.running) ? "Sessions marked working are mid-turn." : "All idle."} None of them holds a lane.</p>`
-      : `<p class="muted">No other session was active today.</p>`;
-
-  // Filter: one button per product, hiding the others' rows and dimming their memory.
-  const filterCss = productsShown.map((p) => {
-    const s = slug(p);
-    return `.wrap[data-filter="${s}"] .job[data-product]:not([data-product="${s}"]), .wrap[data-filter="${s}"] .lane:not([data-product="${s}"]), .wrap[data-filter="${s}"] tr[data-product]:not([data-product="${s}"]) { display: none; }
-.wrap[data-filter="${s}"] .seg:not([data-product="${s}"]) { opacity: 0.22; }`;
-  }).join("\n");
-  const filterBar = productsShown.length > 1
-    ? `<div class="filters" role="group" aria-label="Show one product">
-      <button type="button" class="filter" id="filter-all" data-pick="all" aria-pressed="true">All products</button>
-      ${productsShown.map((p) => `<button type="button" class="filter" id="filter-${esc(slug(p))}" data-pick="${esc(slug(p))}" aria-pressed="false">${esc(pname(p))} <span class="count">${runningIn(p)}</span></button>`).join("")}
-    </div>`
-    : "";
-
-  const busy = new Set([...facts.lanes.filter((l) => l.state === "claimed").map((l) => `${l.product}/${l.claimedBy}`), ...facts.processes.map((p) => `${p.product}/${p.folder}`)]);
-  const worktreeLine = facts.products.filter((p) => p.worktreeCount > 1 && !p.retired).map((p) => `${pname(p.name)} ${p.worktreeCount}`).join(", ");
-  const hidden = facts.hiddenRetired ?? [];
   const title = notes.title ?? "Lane Map";
-
+  const ctx = { notesAt: facts.takenAt, basis: notesBasis(facts) };
+  // Inside a script element "<" must not open a tag, so the data's every "<" is escaped.
+  const data = JSON.stringify({ notes, ctx }).replace(/</g, "\\u003c");
   return `<title>${esc(title)}</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="lane-map" content="all-products">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-<style>${CSS}
-${filterCss}</style>
-<div class="wrap" data-filter="all">
-  <header>
-    <span class="stamp">This Mac · snapshot ${esc(day(facts.takenAt))}, ${clock(facts.takenAt)}</span>
-    <h1>${esc(title)}</h1>
-    ${notes.lede ? `<p class="lede">${rich(notes.lede)}</p>` : ""}
-    ${filterBar}
-  </header>
-  <section aria-labelledby="jobs-h"><h2 id="jobs-h">Jobs</h2><div class="jobs">${jobCards.join("") || `<p class="muted">No job holds a lane.</p>`}</div></section>
-  <section aria-labelledby="lanes-h"><h2 id="lanes-h">Lanes</h2><div class="board">${laneRows.join("")}</div></section>
-  ${looseBlock}
-  <section aria-labelledby="docker-h"><h2 id="docker-h">Docker memory</h2>${dockerBlock}</section>
-  <div class="two">
-    <section aria-labelledby="ports-h"><h2 id="ports-h">Ports in use</h2>
-      ${portRows.length ? `<div class="table-wrap"><table><thead><tr><th>Port</th><th>What</th><th>For</th></tr></thead><tbody>${portRows.map(row).join("")}</tbody></table></div>` : `<p class="muted">No lane port is in use.</p>`}
-      ${portsNote ? `<p class="muted">${portsNote}</p>` : ""}
-    </section>
-    <section aria-labelledby="sessions-h"><h2 id="sessions-h">Active today, no lane</h2>${sessionsBlock}</section>
-  </div>
-  <footer>
-    <p>A lane is one local Supabase stack, named by its port range. Read from each repo's <code>.tld/stacks.md</code> or <code>supabase/config.toml</code>, Docker, git worktrees, running processes and the app's session list. A snapshot: run <code>/lane-map</code> for a new one.</p>
-    ${worktreeLine ? `<p>Worktrees on disk: ${esc(worktreeLine)}. ${busy.size} ${busy.size === 1 ? "is" : "are"} in a lane or running something right now.</p>` : ""}
-    ${hidden.length ? `<p>Left out while stopped: ${esc(hidden.map(pname).join(", "))}, retired in <code>~/.claude/lane-map.json</code>. A retired product's stack shows up here again if it starts.</p>` : ""}
-  </footer>
-</div>
+<style>${CSS}</style>
+<style id="lane-filter-css">${filterCss(facts)}</style>
+<div class="wrap" data-filter="all">${renderBody(facts, notes, ctx)}</div>
+<script type="application/json" id="lane-data">${data}</script>
 <script>
 (() => {
-  const wrap = document.querySelector(".wrap");
-  const buttons = [...document.querySelectorAll(".filter")];
-  const pick = (value) => {
-    if (!buttons.some((b) => b.dataset.pick === value)) value = "all";
-    wrap.dataset.filter = value;
-    for (const b of buttons) b.setAttribute("aria-pressed", String(b.dataset.pick === value));
-    try { localStorage.setItem("lane-map-filter", value); } catch (e) {}
-  };
-  for (const b of buttons) b.addEventListener("click", () => pick(b.dataset.pick));
-  let saved = "all";
-  try { saved = localStorage.getItem("lane-map-filter") || "all"; } catch (e) {}
-  pick(saved);
+${browserSource(PAGE_JS)}
+${CONTROLLER}
 })();
 </script>
 `;
@@ -802,6 +700,14 @@ header { display: flex; flex-direction: column; gap: 10px; }
 .filter:hover { border-color: var(--muted); }
 .filter[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 .filter .count { font-family: var(--font-mono); font-size: 0.78rem; opacity: 0.7; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.toolbar .filters { margin-top: 0; }
+.refresh-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.refresh { font: 600 0.86rem/1 var(--font-body); color: var(--panel); background: var(--job-1); border: 1px solid var(--job-1); border-radius: 8px; padding: 9px 16px; cursor: pointer; }
+.refresh:hover { filter: brightness(1.08); }
+.refresh:disabled { opacity: 0.6; cursor: progress; }
+.refresh:focus-visible { outline: 2px solid var(--job-1); outline-offset: 2px; }
+.refresh-status { font-size: 0.84rem; color: var(--muted); max-width: 52ch; }
 .jobs { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
 .job { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .job-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -886,7 +792,7 @@ footer { font-size: 0.86rem; color: var(--muted); display: flex; flex-direction:
 
 function main(argv) {
   const [command, ...rest] = argv;
-  const args = { repos: [], codeDir: join(homedir(), "Code"), config: join(homedir(), ".claude", "lane-map.json") };
+  const args = { repos: [], codeDir: join(homedir(), "Code"), config: join(STATE, "config.json") };
   for (let i = 0; i < rest.length; i++) {
     const flag = rest[i];
     const value = rest[++i];
@@ -898,8 +804,11 @@ function main(argv) {
     else if (flag === "--notes") args.notes = value;
     else throw new Error(`unknown argument: ${flag}`);
   }
+  const options = { codeDir: args.codeDir, repos: args.repos, sessionsFile: args.sessions, configFile: args.config };
   if (command === "gather") {
-    process.stdout.write(JSON.stringify(gather({ codeDir: args.codeDir, repos: args.repos, sessionsFile: args.sessions, configFile: args.config }), null, 1) + "\n");
+    process.stdout.write(JSON.stringify(gather(options), null, 1) + "\n");
+  } else if (command === "serve") {
+    serve(options);
   } else if (command === "summary") {
     if (!args.facts) throw new Error("summary needs --facts <file>");
     process.stdout.write(summary(JSON.parse(readFileSync(args.facts, "utf8"))));
@@ -907,7 +816,7 @@ function main(argv) {
     if (!args.facts || !args.notes) throw new Error("render needs --facts <file> --notes <file>");
     process.stdout.write(render(JSON.parse(readFileSync(args.facts, "utf8")), JSON.parse(readFileSync(args.notes, "utf8"))));
   } else {
-    throw new Error("usage: lane-map.mjs gather [--code-dir <dir>] [--repo <dir>]... [--sessions <file>] | summary --facts <file> | render --facts <file> --notes <file>");
+    throw new Error("usage: lane-map.mjs gather [--code-dir <dir>] [--repo <dir>]... [--sessions <file>] [--config <file>] | serve [same flags] | summary --facts <file> | render --facts <file> --notes <file>");
   }
 }
 

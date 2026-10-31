@@ -5,7 +5,13 @@ import {
   parseStacks, parseConfigToml, productLanes, upSeconds, toMiB, hostPorts, parseDockerPs, groupContainers,
   parseDockerStats, parseWorktrees, etimeSeconds, parsePs, parseLsof, labelOf, placeOf, productProcesses,
   envPorts, laneOfPort, sessionFor, buildFacts, summary, render, rich, portRun, duration,
+  renderBody, handleMessage,
 } from "./lane-map.mjs";
+import { spawn } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "lane-map.mjs");
 
 // --- recorded inputs, shaped like the real files and command output -------------------
 
@@ -310,7 +316,7 @@ test("a retired product's stopped lane leaves the map, and the range it shared i
   const html = render(f, NOTES);
   assert.ok(!html.includes('id="filter-maincharacter"'));
   assert.ok(!html.includes("Shares 543xx"));
-  assert.ok(html.includes("Left out while stopped: mAInCharacter, retired in <code>~/.claude/lane-map.json</code>."));
+  assert.ok(html.includes("Left out while stopped: mAInCharacter, retired in <code>~/.claude/lane-map/config.json</code>."));
 });
 
 test("a retired product whose stack is up stays on the map, flagged", () => {
@@ -392,6 +398,144 @@ test("summary: one line per lane, its processes under it, then the rest", () => 
   assert.match(text, /^no lane:\n {4}Stripe forwarder \[lab-inventory\/walk-35fb9a session local_walk\]$/m);
   assert.match(text, /^ {4}local_bug "Import box collision bug" \[lab-inventory\]$/m);
   assert.ok(!text.includes("sk_test"));
+});
+
+// --- refresh: notes kept only while their lane is unchanged --------------------------
+
+test("a redraw from later facts drops the notes of a lane that changed, and its job when no lane is left", () => {
+  const before = buildFacts(rawFixture());
+  const ctx = { notesAt: before.takenAt, basis: Object.fromEntries(before.lanes.map((l) => [l.key, `${l.state}|${l.claimedBy}|${l.docker?.running ? "up" : "down"}`])) };
+  const stacksMd = STACKS_MD.replace("| 4 | 545xx | supabase_db_lab_inventory_4 | claimed | epic-a630c7 | 2026-10-29 |", "| 4 | 545xx | supabase_db_lab_inventory_4 | free |  |  |");
+  const raw = rawFixture({ takenAt: "2026-10-30T23:40:00Z" });
+  raw.products[1].stacksMd = stacksMd;
+  const after = buildFacts(raw);
+  const html = renderBody(after, NOTES, ctx);
+  assert.ok(!html.includes("Building &lt;b&gt;tickets"));
+  assert.ok(!html.includes('<span class="job-name">Import Epic build</span>'));
+  assert.ok(html.includes('<span class="job-name">Local release walk</span>'));
+  assert.match(html, /local_epic">Import Epic build<\/a> <span class="chip">working<\/span><br><span class="muted">lab-inventory</);
+  assert.match(html, /Since Claude's notes at [^,]+, 545xx changed, so its notes are left out\./);
+  assert.match(html, /Changed since Claude's notes at /);
+  assert.match(html, /· notes from /);
+  const same = renderBody(before, NOTES, ctx);
+  assert.ok(same.includes("Two jobs hold three lanes."));
+  assert.ok(!same.includes("notes from"));
+});
+
+// --- the page: its data, its script, its Refresh button ---------------------------------
+
+const pageParts = (html) => {
+  const data = /<script type="application\/json" id="lane-data">([\s\S]*?)<\/script>/.exec(html)[1];
+  const script = /<script>\n([\s\S]*?)<\/script>/.exec(html)[1];
+  return { data, script };
+};
+
+test("the page carries its notes as escaped data and a script that compiles", () => {
+  const html = render(buildFacts(rawFixture()), { ...NOTES, lede: "a </script><script>alert(1)</script> b" });
+  const { data, script } = pageParts(html);
+  assert.ok(!data.includes("<"));
+  assert.equal(JSON.parse(data).notes.lede, "a </script><script>alert(1)</script> b");
+  assert.equal(html.match(/<\/script>/g).length, 2);
+  assert.ok(!/^export /m.test(script));
+  assert.doesNotThrow(() => new Function(script));
+});
+
+// A page script run against a fake document and a fake app: enough to press Refresh.
+function runPage(html, { mcp, storage = "throws" } = {}) {
+  const { data, script } = pageParts(html);
+  const els = {
+    "lane-data": { textContent: data },
+    "lane-filter-css": { textContent: "" },
+    "lane-refresh": { disabled: false },
+    "lane-refresh-status": { textContent: "" },
+  };
+  const listeners = {};
+  const wrap = { dataset: {}, innerHTML: "", querySelectorAll: () => [], addEventListener: (type, fn) => { listeners[type] = fn; } };
+  const document = { getElementById: (id) => els[id] ?? null, querySelector: (sel) => (sel === ".wrap" ? wrap : null) };
+  const localStorage = storage === "throws" ? { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } } : storage;
+  const window = { claude: { use: (name) => Promise.resolve(name === "mcp" ? mcp : null) } };
+  new Function("window", "document", "localStorage", script)(window, document, localStorage);
+  const press = async () => {
+    listeners.click({ target: { closest: (sel) => (sel === "#lane-refresh" ? {} : null) } });
+    for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r));
+  };
+  return { els, wrap, press };
+}
+
+test("Refresh asks the lane-map server once and redraws the page from its facts", async () => {
+  const fresh = buildFacts(rawFixture({ takenAt: "2026-10-30T23:50:00Z" }));
+  const calls = [];
+  const mcp = { callTool: async (...args) => { calls.push(args); return { payload: fresh }; } };
+  const page = runPage(render(buildFacts(rawFixture()), NOTES), { mcp });
+  assert.equal(calls.length, 0);
+  await page.press();
+  assert.deepEqual(calls, [["host:lane-map", "lane_facts", {}, { cache: false }]]);
+  assert.ok(page.wrap.innerHTML.includes("<h1>Lane Map</h1>"));
+  assert.ok(page.wrap.innerHTML.includes("· notes from "));
+  assert.ok(page.els["lane-filter-css"].textContent.includes('[data-filter="footballtactics-ai"]'));
+  assert.match(page.els["lane-refresh-status"].textContent, /^Refreshed at /);
+  assert.equal(page.els["lane-refresh"].disabled, false);
+});
+
+test("Refresh says what to do when the page cannot reach the server", async () => {
+  const html = render(buildFacts(rawFixture()), NOTES);
+  const outside = runPage(html, { mcp: null });
+  await outside.press();
+  assert.match(outside.els["lane-refresh-status"].textContent, /works when this page is open in the Claude desktop app/);
+  for (const [code, words] of [
+    ["server_not_connected", /with that server added/],
+    ["approval_required", /needs your OK/],
+    ["cancelled", /declined/],
+    ["tool_error", /could not read this Mac: docker said no\./],
+    ["something_new", /Run \/lane-map in any session/],
+  ]) {
+    const page = runPage(html, { mcp: { callTool: async () => { throw { code, message: "docker said no" }; } } });
+    await page.press();
+    assert.match(page.els["lane-refresh-status"].textContent, words, code);
+    assert.equal(page.wrap.innerHTML, "");
+  }
+});
+
+// --- serve: the MCP server --------------------------------------------------------------
+
+test("the server answers initialize, lists one read-only tool and returns the facts", () => {
+  const init = handleMessage({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t" } } }, () => ({}));
+  assert.equal(init.result.protocolVersion, "2025-06-18");
+  assert.deepEqual(init.result.capabilities, { tools: { listChanged: false } });
+  assert.equal(handleMessage({ jsonrpc: "2.0", method: "notifications/initialized" }, () => ({})), null);
+  const list = handleMessage({ jsonrpc: "2.0", id: 2, method: "tools/list" }, () => ({}));
+  assert.deepEqual(list.result.tools.map((t) => [t.name, t.annotations.readOnlyHint]), [["lane_facts", true]]);
+  const facts = { lanes: [], takenAt: "x" };
+  const call = handleMessage({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "lane_facts", arguments: {} } }, () => facts);
+  assert.deepEqual(call.result.structuredContent, facts);
+  assert.equal(JSON.parse(call.result.content[0].text).takenAt, "x");
+  const broken = handleMessage({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "lane_facts" } }, () => { throw new Error("docker is not running"); });
+  assert.deepEqual(broken.result, { content: [{ type: "text", text: "docker is not running" }], isError: true });
+  assert.equal(handleMessage({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "rm_rf" } }, () => facts).error.code, -32602);
+  assert.equal(handleMessage({ jsonrpc: "2.0", id: 6, method: "resources/list" }, () => facts).error.code, -32601);
+});
+
+test("node lane-map.mjs serve speaks newline-delimited JSON-RPC on stdio", async () => {
+  const child = spawn(process.execPath, [SCRIPT, "serve"], { stdio: ["pipe", "pipe", "pipe"] });
+  const lines = [];
+  let buffer = "";
+  const twoLines = new Promise((resolve) => child.stdout.on("data", (chunk) => {
+    buffer += chunk;
+    const parts = buffer.split("\n");
+    buffer = parts.pop();
+    lines.push(...parts.filter(Boolean));
+    if (lines.length >= 3) resolve();
+  }));
+  child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t" } } }) + "\n");
+  child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
+  child.stdin.write("not json\n");
+  child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n");
+  await twoLines;
+  child.kill();
+  const [init, parseError, list] = lines.map((l) => JSON.parse(l));
+  assert.equal(init.result.serverInfo.name, "lane-map");
+  assert.equal(parseError.error.code, -32700);
+  assert.equal(list.result.tools[0].name, "lane_facts");
 });
 
 test("small formatters", () => {
