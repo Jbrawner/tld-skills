@@ -579,9 +579,10 @@ const say = (text) => {
   const el = document.getElementById("lane-refresh-status");
   if (el) el.textContent = text;
 };
-const NO_HOST = "Refresh reads this Mac through the lane-map server, so it works when this page is open in the Claude desktop app with that server added. Elsewhere, run /lane-map in any session.";
+const NO_HOST = "Refresh only works with this page open in the Claude desktop app. Anywhere else, run /lane-map in any session.";
+const NOT_ADDED = "Can't reach the lane-map server. It has to be in the Claude app's claude_desktop_config.json, with the app restarted after. For now, run /lane-map in any session.";
 const WHY = {
-  server_not_connected: NO_HOST,
+  server_not_connected: NOT_ADDED,
   not_granted: NO_HOST,
   capability_disabled: NO_HOST,
   capability_removed: NO_HOST,
@@ -614,7 +615,7 @@ async function refresh() {
   } catch (e) {
     const code = e && e.code;
     if (code === "tool_error") say("The lane-map server could not read this Mac: " + (e.message || "no reason given") + ".");
-    else say(WHY[code] || "Refresh did not work this time. Run /lane-map in any session for a new snapshot.");
+    else say(WHY[code] || "Refresh did not work (" + (code || "unknown") + "). Run /lane-map in any session for a new snapshot.");
   } finally {
     busy = false;
     const again = document.getElementById("lane-refresh");

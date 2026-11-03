@@ -481,13 +481,13 @@ test("Refresh says what to do when the page cannot reach the server", async () =
   const html = render(buildFacts(rawFixture()), NOTES);
   const outside = runPage(html, { mcp: null });
   await outside.press();
-  assert.match(outside.els["lane-refresh-status"].textContent, /works when this page is open in the Claude desktop app/);
+  assert.match(outside.els["lane-refresh-status"].textContent, /only works with this page open in the Claude desktop app/);
   for (const [code, words] of [
-    ["server_not_connected", /with that server added/],
+    ["server_not_connected", /claude_desktop_config\.json/],
     ["approval_required", /needs your OK/],
     ["cancelled", /declined/],
     ["tool_error", /could not read this Mac: docker said no\./],
-    ["something_new", /Run \/lane-map in any session/],
+    ["something_new", /Refresh did not work \(something_new\)\. Run \/lane-map in any session/],
   ]) {
     const page = runPage(html, { mcp: { callTool: async () => { throw { code, message: "docker said no" }; } } });
     await page.press();

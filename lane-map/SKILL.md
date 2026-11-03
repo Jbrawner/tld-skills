@@ -93,15 +93,17 @@ The page carries its own drawing code (`page.js`) and a Refresh button. A click 
 
 | What | How it works |
 |---|---|
-| Where it works | Only with the page open in the Claude desktop app, by the artifact's owner, with the server added. Anywhere else the button says to run `/lane-map` |
+| Where it works | Only with the page open in the Claude desktop app, by the artifact's owner, with the server in the app's config. Anywhere else the button says to run `/lane-map` |
 | What a click updates | Every fact: lanes, claims, running or stopped, memory, ports, dev servers and test runs. Session names and states come from the list Step 1 last saved |
 | What it keeps | The notes, each only while its lane is unchanged. A lane that changed hands, started or stopped since the notes loses its Doing line, and the page names it at the top |
 
-Setting up the server is the user's step, once per Mac. Give them this, with the full path of their `node` (`command -v node`), since the app starts servers with a short `PATH`:
+Setting up the server is the user's step, once per Mac, because auto mode refuses Claude's edits to the app's config. It goes in the Claude app's own `claude_desktop_config.json`, the only list a page can reach: `claude mcp add` writes Claude Code's list, which gives sessions the tool but leaves the page saying it can't reach the server. Give them this, with the full path of their `node` (`command -v node`) and the script's full path, since the app starts servers with a short `PATH` and expands no `~`:
 
 ```bash
-claude mcp add --scope user lane-map -- <full path of node> ~/.claude/skills/lane-map/lane-map.mjs serve
+f="$HOME/Library/Application Support/Claude/claude_desktop_config.json"; cp "$f" "$f.bak"; jq '.mcpServers["lane-map"] = {command: "<full path of node>", args: ["<full path of lane-map.mjs>", "serve"]}' "$f" > "$f.new" && chmod 600 "$f.new" && mv "$f.new" "$f"
 ```
+
+Then quit and reopen the app, which reads this file only at launch. To check a click, read `~/Library/Logs/Claude/main.log`: `[ArtifactHostTools] bridge offered` means the page reached the app, and `[ArtifactHostTools] call` gives each call's outcome. No `call` line after a click means the app has no such server, so the page refused without asking it.
 
 ## Step 6: Report
 
