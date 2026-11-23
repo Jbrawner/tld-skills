@@ -278,7 +278,7 @@ Only after explicit user approval, in this order:
 5. **Push the feature branch** to its remote (`git push -u origin {branch}`). Never force-push.
 6. **Open the PR ready for review** with `gh pr create --base {default} --head {branch}`, title `[TICKET-ID] — [title]` (at a Story's end `[STORY-KEY] — [story title]`, and the body lists every ticket on the branch), and a body that summarizes what changed, lists the test results, links the ticket, and notes "TLD verified." Capture the PR URL. If the repo gates CI on a label (lab-inventory's `ci:run`), add it now: the branch is verified locally and this is the last push, so CI runs once. **Draft is only for work that is not finished**, and this skill runs on finished work. `ci:run` is a switch, not a one-shot: while it is on, every push re-runs the full suite. So if a fix has to follow (a red CI job, a review change), remove the label before that push (`gh pr edit <N> --remove-label ci:run`) and re-add it once the branch is done.
 
-**Do NOT merge the PR.** Merging stays with the user — this skill always stops at an open PR. "Merge" is the user's word for that step; `/tld-autoland` is the only skill that merges.
+**Do NOT merge the PR.** Merging stays with the user — this skill always stops at an open PR. "Merge" is the user's word for that step; only `/tld-autoland`, and `/tld-hub` for lane PRs, merge.
 
 ### 10. Determine what's next
 

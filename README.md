@@ -52,7 +52,7 @@ The three routes above decide how a ticket gets *verified*. A separate axis deci
 
 **A Story lands as one PR, whatever lane builds it.** Its tickets are built one at a time and committed onto one branch (`/tld-commit` per ticket), and one PR opens after the last: `/tld-pr` at the Story's end, or the Story mark of a goal composed by `/tld-goal-handoff`. Only a standalone ticket, a Bug or Task with no parent Story, gets a PR of its own. `/tld-pr` refuses mid-Story, and `/tld-autoland` refuses a Story's tickets.
 
-**Every skill in this framework stops before merge except one.** `/tld-autoland` exists for the category of work where a review gate costs more than it protects: small, obvious bug fixes you'd approve without reading. It runs the same `/tld-full-auto` pipeline, then commits, pushes, opens a PR, waits for CI, and squash-merges — one branch and one PR per standalone ticket, so a batch can be handed over in a single command and one bad fix never blocks the rest.
+**Every skill in this framework stops before merge except two.** `/tld-hub` merges a lane's PR on green, only with the user's merge words on record and only after checking every ticket in it went through `/tld-full-auto`. `/tld-autoland` exists for the category of work where a review gate costs more than it protects: small, obvious bug fixes you'd approve without reading. It runs the same `/tld-full-auto` pipeline, then commits, pushes, opens a PR, waits for CI, and squash-merges — one branch and one PR per standalone ticket, so a batch can be handed over in a single command and one bad fix never blocks the rest.
 
 It is gated hard on the way in, because the merge gate is gone:
 
