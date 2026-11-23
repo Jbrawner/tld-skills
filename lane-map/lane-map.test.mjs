@@ -5,9 +5,11 @@ import {
   parseStacks, parseConfigToml, productLanes, upSeconds, toMiB, hostPorts, parseDockerPs, groupContainers,
   parseDockerStats, parseWorktrees, etimeSeconds, parsePs, parseLsof, labelOf, placeOf, productProcesses,
   envPorts, laneOfPort, sessionFor, buildFacts, summary, render, rich, portRun, duration,
-  renderBody, handleMessage,
+  renderBody, liveDoing, handleMessage, sessionLink, appSessionRow, readAppSessions,
 } from "./lane-map.mjs";
 import { spawn } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -270,6 +272,142 @@ test("a claim finds its session by worktree, a shard worktree by its parent's na
   assert.equal(sessionFor("footballtactics-ai", "walk-35fb9a", SESSIONS, PRODUCTS), null);
 });
 
+test("a side session sharing its parent's folder never holds the lane; one in its own folder does", () => {
+  const list = [
+    { sessionId: "local_main", title: "Organization", cwd: WT("org-0f9368"), isArchived: false, lastActivityAt: "2026-10-30T23:00:00Z" },
+    { sessionId: "local_btw", title: "btw: how hard?", cwd: WT("org-0f9368"), isArchived: false, isRunning: true, lastActivityAt: "2026-10-30T23:10:00Z", startedBy: "local_main" },
+    { sessionId: "local_child", title: "Own task", cwd: WT("child-111111"), isArchived: false, lastActivityAt: "2026-10-30T22:00:00Z", startedBy: "local_main" },
+  ];
+  assert.equal(sessionFor("lab-inventory", "org-0f9368", list, PRODUCTS).sessionId, "local_main");
+  assert.equal(sessionFor("lab-inventory", "child-111111", list, PRODUCTS).sessionId, "local_child");
+});
+
+// --- the app's own session files ---------------------------------------------------
+
+const APP_FILE = {
+  sessionId: "local_walk-c", cliSessionId: "cli-c", cwd: WT("hopeful-044721"), title: "Release Walk C", isArchived: false,
+  lastActivityAt: Date.parse("2026-11-04T18:00:00Z"), spawnedFrom: { sessionId: "local_parent", taskId: "t1" },
+  remoteMcpServersConfig: { secret: "connector-token" }, promptAppendSnapshot: "a long prompt",
+};
+
+// A session folder laid out the way the app does, plus a projects folder for transcripts.
+function appFolder(files) {
+  const root = mkdtempSync(join(tmpdir(), "lane-map-"));
+  const dir = join(root, "sessions", "account", "org");
+  const projects = join(root, "projects");
+  mkdirSync(dir, { recursive: true });
+  for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, name), body);
+  return { root, dir, sessions: join(root, "sessions"), projects };
+}
+
+test("a session file gives only the fields the map uses, and nothing else leaves", () => {
+  const row = appSessionRow(JSON.stringify(APP_FILE));
+  assert.deepEqual(Object.keys(row).sort(), ["cliSessionId", "cwd", "isArchived", "lastActivityAt", "sessionId", "startedBy", "title"]);
+  assert.equal(row.startedBy, "local_parent");
+  assert.ok(!JSON.stringify(row).includes("connector-token"));
+  assert.equal(appSessionRow(JSON.stringify({ title: "no id" })), null);
+  assert.equal(appSessionRow(JSON.stringify({ ...APP_FILE, title: "" })).title, "Untitled session");
+});
+
+test("the app's files read in any folder depth; an empty or broken one is skipped; none readable is null", () => {
+  const { root, sessions, projects } = appFolder({
+    "local_walk-c.json": JSON.stringify(APP_FILE),
+    "local_empty.json": "",
+    "local_broken.json": "{ not json",
+    "other.json": JSON.stringify({ ...APP_FILE, sessionId: "local_not-a-session-file" }),
+  });
+  try {
+    const rows = readAppSessions({ dir: sessions, projects, cache: new Map() });
+    assert.deepEqual(rows.map((r) => r.sessionId), ["local_walk-c"]);
+    assert.equal(rows[0].title, "Release Walk C");
+    assert.equal(rows[0].lastActivityAt, "2026-11-04T18:00:00.000Z");
+    assert.equal(readAppSessions({ dir: join(root, "nothing-here"), projects, cache: new Map() }), null);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+  const onlyBroken = appFolder({ "local_broken.json": "{ not json" });
+  try {
+    assert.equal(readAppSessions({ dir: onlyBroken.sessions, projects: onlyBroken.projects, cache: new Map() }), null);
+  } finally { rmSync(onlyBroken.root, { recursive: true, force: true }); }
+});
+
+test("working means a session the app saw this hour wrote its transcript in the last 5 minutes", () => {
+  const now = Date.parse("2026-11-04T18:30:00Z");
+  const { root, sessions, projects } = appFolder({
+    "local_walk-c.json": JSON.stringify(APP_FILE),
+    "local_old.json": JSON.stringify({ ...APP_FILE, sessionId: "local_old", cliSessionId: "cli-old" }),
+    "local_gone.json": JSON.stringify({ ...APP_FILE, sessionId: "local_gone", cliSessionId: "cli-gone", isArchived: true, lastActivityAt: now }),
+    "local_touched.json": JSON.stringify({ ...APP_FILE, sessionId: "local_touched", cliSessionId: "cli-touched", lastActivityAt: now - 20 * 86400000 }),
+  });
+  const folder = join(projects, WT("hopeful-044721").replace(/[^a-zA-Z0-9]/g, "-"));
+  mkdirSync(folder, { recursive: true });
+  const touch = (name, at) => {
+    writeFileSync(join(folder, name), "");
+    utimesSync(join(folder, name), new Date(at), new Date(at));
+  };
+  touch("cli-c.jsonl", now - 60_000);
+  touch("cli-old.jsonl", now - 6 * 60_000);
+  touch("cli-gone.jsonl", now);
+  touch("cli-touched.jsonl", now);
+  try {
+    const rows = Object.fromEntries(readAppSessions({ dir: sessions, projects, now, cache: new Map() }).map((r) => [r.sessionId, r]));
+    assert.equal(rows["local_walk-c"].isRunning, true);
+    assert.equal(rows["local_walk-c"].lastActivityAt, new Date(now - 60_000).toISOString());
+    assert.equal(rows.local_old.isRunning, false);
+    assert.equal(rows.local_old.lastActivityAt, "2026-11-04T18:00:00.000Z", "not working: the app's own time stands");
+    assert.equal(rows.local_gone.isRunning, false);
+    assert.equal(rows.local_touched.isRunning, false, "an old transcript touched in bulk is not a working session");
+    assert.equal(rows.local_touched.lastActivityAt, new Date(now - 20 * 86400000).toISOString());
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("an unchanged file is not read twice, a changed one is, and a half-written one keeps its last good row", () => {
+  const { root, dir, sessions, projects } = appFolder({ "local_walk-c.json": JSON.stringify(APP_FILE) });
+  const file = join(dir, "local_walk-c.json");
+  const setTime = (at) => utimesSync(file, new Date(at), new Date(at));
+  const cache = new Map();
+  const title = () => readAppSessions({ dir: sessions, projects, cache })[0].title;
+  try {
+    setTime("2026-11-04T18:00:00Z");
+    assert.equal(title(), "Release Walk C");
+    writeFileSync(file, JSON.stringify({ ...APP_FILE, title: "Renamed" }));
+    setTime("2026-11-04T18:00:00Z");
+    assert.equal(title(), "Release Walk C", "same modified time, so the file was not read again");
+    setTime("2026-11-04T18:01:00Z");
+    assert.equal(title(), "Renamed");
+    writeFileSync(file, '{"sessionId":"local_walk-c","cwd":');
+    setTime("2026-11-04T18:02:00Z");
+    assert.equal(title(), "Renamed");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("a held lane with no session says what the map really knows", () => {
+  const claimed = (extra) => {
+    const facts = buildFacts(rawFixture({ sessions: [], ...extra }));
+    return { facts, body: renderBody(facts, { title: "Lane Map", jobs: [], lanes: {} }) };
+  };
+  const live = claimed({ sessionsLive: true });
+  assert.ok(live.body.includes("No open session in this folder"));
+  assert.ok(!live.body.includes("Not in the session list"));
+  assert.ok(summary(live.facts).startsWith("sessions: current"));
+
+  const old = claimed({ sessionsAt: "2026-10-29T23:36:00Z" });
+  assert.match(old.body, /Not in the session list from [^<]*29 Oct[^<]*/);
+  assert.ok(!old.body.includes("No open session"));
+  assert.ok(summary(old.facts).startsWith("sessions: NOT current"));
+
+  const none = claimed({ sessions: null });
+  assert.ok(none.body.includes("Session list not read"));
+  assert.ok(summary(none.facts).startsWith("sessions: NOT READ"));
+});
+
+test("the page carries recent sessions and the ones lanes name, not every session ever opened", () => {
+  const ancient = { sessionId: "local_ancient", title: "From last spring", cwd: WT("spring-111111"), isArchived: false, lastActivityAt: "2026-04-01T00:00:00Z" };
+  const holder = { sessionId: "local_holder", title: "Old holder", cwd: WT("epic-a630c7"), isArchived: false, lastActivityAt: "2026-04-02T00:00:00Z" };
+  const ids = buildFacts(rawFixture({ sessions: [ancient, holder, ...SESSIONS.filter((s) => s.sessionId !== "local_epic")] })).allSessions.map((s) => s.id);
+  assert.ok(!ids.includes("local_ancient"));
+  assert.ok(ids.includes("local_holder"), "a lane's holder stays however old");
+  assert.ok(ids.includes("local_bug"));
+});
+
 // --- facts --------------------------------------------------------------------
 
 test("facts: every product's stacks are lanes in port order, an unknown running stack too", () => {
@@ -347,7 +485,7 @@ const NOTES = {
 };
 
 test("render: notes are escaped, with links and code the only markup", () => {
-  assert.equal(rich("a <script>x</script> `b` [c](https://d.e/f)"), 'a &lt;script&gt;x&lt;/script&gt; <code>b</code> <a href="https://d.e/f">c</a>');
+  assert.equal(rich("a <script>x</script> `b` [c](https://d.e/f)"), 'a &lt;script&gt;x&lt;/script&gt; <code>b</code> <a href="https://d.e/f" target="_blank" rel="noopener">c</a>');
   assert.equal(rich("[x](javascript:alert(1))"), "[x](javascript:alert(1))");
   const html = render(buildFacts(rawFixture()), NOTES);
   assert.ok(html.includes("Building &lt;b&gt;tickets&lt;/b&gt;."));
@@ -413,13 +551,53 @@ test("a redraw from later facts drops the notes of a lane that changed, and its 
   assert.ok(!html.includes("Building &lt;b&gt;tickets"));
   assert.ok(!html.includes('<span class="job-name">Import Epic build</span>'));
   assert.ok(html.includes('<span class="job-name">Local release walk</span>'));
-  assert.match(html, /local_epic">Import Epic build<\/a> <span class="chip">working<\/span><br><span class="muted">lab-inventory</);
-  assert.match(html, /Since Claude's notes at [^,]+, 545xx changed, so its notes are left out\./);
-  assert.match(html, /Changed since Claude's notes at /);
+  assert.match(html, />Import Epic build<\/button> <span class="chip">working<\/span><br><span class="muted">lab-inventory</);
+  assert.match(html, /545xx changed since Claude's notes at [^,]+, so its Doing line is read from this Mac\./);
+  assert.ok(!html.includes("Changed since"));
   assert.match(html, /· notes from /);
   const same = renderBody(before, NOTES, ctx);
   assert.ok(same.includes("Two jobs hold three lanes."));
   assert.ok(!same.includes("notes from"));
+});
+
+test("no click can replace the page: session names are buttons and every link opens outside it", () => {
+  const notes = { ...NOTES, lede: "See [LAB-1](https://example.test/LAB-1) Title." };
+  const html = renderBody(buildFacts(rawFixture()), notes, {});
+  assert.ok(!html.includes("claude://"));
+  assert.ok(html.includes('<button type="button" class="session-open" data-session="local_epic" title="Open this session">Import Epic build</button>'));
+  const hostile = buildFacts(rawFixture());
+  hostile.allSessions.find((s) => s.id === "local_epic").title = '<img src=x onerror=alert(1)>';
+  hostile.lanes.find((l) => l.session?.id === "local_epic").session.title = '<img src=x onerror=alert(1)>';
+  assert.ok(!renderBody(hostile, notes, {}).includes("<img"));
+  const links = html.match(/<a [^>]*>/g);
+  assert.ok(links.length > 0);
+  for (const a of links) assert.ok(a.includes('target="_blank"') && a.includes('rel="noopener"'), a);
+});
+
+test("a Doing line read from the facts says what runs against the lane and what was committed today", () => {
+  const git = (commitsToday) => ({ commitsToday, last: { sha: "aecdfe90", at: "2026-11-03T16:10:30-08:00", subject: "Edna lets Juniors import" } });
+  const claimed = (commits, docker = { running: true, upSeconds: 3600 }) => ({ state: "claimed", docker, worktree: { folder: "w", exists: true, git: git(commits) } });
+  const vitest = (seconds) => ({ label: "Vitest run", seconds, ports: [] });
+
+  assert.equal(liveDoing(claimed(0), [vitest(840), vitest(33)]), "Running now: Vitest run × 2 (14 min). No commits today.");
+  assert.match(liveDoing(claimed(4), []), /^Nothing running against it\. 4 commits today, last at .+: Edna lets Juniors import$/);
+  assert.match(liveDoing(claimed(1), [{ label: "Vite dev server", seconds: 7200, ports: [8182] }]), /^Running now: Vite dev server \(2 h\)\. 1 commit today, /);
+  assert.equal(liveDoing(claimed(0, null), []), "Stack stopped, nothing running. No commits today.");
+  assert.equal(liveDoing({ state: "claimed", docker: null, worktree: { folder: "w", exists: false } }, []), "Its worktree folder is gone, so this claim looks abandoned.");
+  assert.equal(liveDoing({ state: "free", docker: { running: true, upSeconds: 259200 } }, []), "Free, but up 3 days, nothing points at it.");
+  assert.equal(liveDoing({ state: "unmanaged", docker: { running: true, upSeconds: 259200 } }, []), "Up 3 days, nothing points at it.");
+  assert.equal(liveDoing({ state: "free", docker: null }, []), "Nothing.");
+});
+
+test("a redraw from later facts leads with the live line and keeps Claude's sentence, with its time", () => {
+  const before = buildFacts(rawFixture());
+  const ctx = { notesAt: before.takenAt, basis: Object.fromEntries(before.lanes.map((l) => [l.key, `${l.state}|${l.claimedBy}|${l.docker?.running ? "up" : "down"}`])) };
+  const sameDay = renderBody(buildFacts(rawFixture({ takenAt: "2026-10-30T23:40:00Z" })), NOTES, ctx);
+  assert.match(sameDay, /Claude at \d+:\d+ [ap]m: Building &lt;b&gt;tickets/);
+  const days = renderBody(buildFacts(rawFixture({ takenAt: "2026-11-03T23:40:00Z" })), NOTES, ctx);
+  assert.match(days, /Claude at \w+,? 30 Oct, \d+:\d+ [ap]m: Building &lt;b&gt;tickets/);
+  const now = renderBody(before, NOTES, ctx);
+  assert.ok(!now.includes("Claude at "));
 });
 
 // --- the page: its data, its script, its Refresh button ---------------------------------
@@ -451,7 +629,8 @@ function runPage(html, { mcp, storage = "throws" } = {}) {
   };
   const listeners = {};
   const wrap = { dataset: {}, innerHTML: "", querySelectorAll: () => [], addEventListener: (type, fn) => { listeners[type] = fn; } };
-  const document = { getElementById: (id) => els[id] ?? null, querySelector: (sel) => (sel === ".wrap" ? wrap : null) };
+  const createElement = () => ({ className: "", textContent: "", setAttribute() {}, classList: { contains(c) { return c === "session-note"; } } });
+  const document = { getElementById: (id) => els[id] ?? null, querySelector: (sel) => (sel === ".wrap" ? wrap : null), createElement };
   const localStorage = storage === "throws" ? { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } } : storage;
   const window = { claude: { use: (name) => Promise.resolve(name === "mcp" ? mcp : null) } };
   new Function("window", "document", "localStorage", script)(window, document, localStorage);
@@ -459,7 +638,17 @@ function runPage(html, { mcp, storage = "throws" } = {}) {
     listeners.click({ target: { closest: (sel) => (sel === "#lane-refresh" ? {} : null) } });
     for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r));
   };
-  return { els, wrap, press };
+  // Click a session's name: a fake button that keeps the note the page puts beside it.
+  const clickSession = async (id) => {
+    const button = {
+      dataset: { session: id }, disabled: false, nextElementSibling: null,
+      after(el) { this.nextElementSibling = el; },
+    };
+    listeners.click({ target: { closest: (sel) => (sel === ".session-open" ? button : null) } });
+    for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r));
+    return button;
+  };
+  return { els, wrap, press, clickSession };
 }
 
 test("Refresh asks the lane-map server once and redraws the page from its facts", async () => {
@@ -496,15 +685,44 @@ test("Refresh says what to do when the page cannot reach the server", async () =
   }
 });
 
+test("a session's name asks the server to open it, once per click, and the page stays", async () => {
+  const calls = [];
+  const mcp = { callTool: async (...args) => { calls.push(args); return { payload: { opened: args[2].sessionId } }; } };
+  const page = runPage(render(buildFacts(rawFixture()), NOTES), { mcp });
+  const button = await page.clickSession(SESSION);
+  assert.deepEqual(calls, [["host:lane-map", "open_session", { sessionId: SESSION }, { cache: false }]]);
+  assert.equal(page.wrap.innerHTML, "");
+  assert.equal(button.disabled, false);
+  assert.equal(button.nextElementSibling, null);
+});
+
+test("a session's name says beside it what to do when it cannot open", async () => {
+  const html = render(buildFacts(rawFixture()), NOTES);
+  const outside = runPage(html, { mcp: null });
+  assert.match((await outside.clickSession(SESSION)).nextElementSibling.textContent, /only works with this page open in the Claude desktop app/);
+  for (const [code, words] of [
+    ["not_in_manifest", /Quit and reopen the Claude app/],
+    ["server_not_connected", /claude_desktop_config\.json/],
+    ["cancelled", /choose Allow/],
+    ["tool_error", /could not open it: no such app\./],
+    ["something_new", /Could not open this session \(something_new\)\. Find it by name in the sidebar/],
+  ]) {
+    const page = runPage(html, { mcp: { callTool: async () => { throw { code, message: "no such app" }; } } });
+    const button = await page.clickSession(SESSION);
+    assert.match(button.nextElementSibling.textContent, words, code);
+    assert.equal(button.disabled, false);
+  }
+});
+
 // --- serve: the MCP server --------------------------------------------------------------
 
-test("the server answers initialize, lists one read-only tool and returns the facts", () => {
+test("the server answers initialize, lists its tools and returns the facts", () => {
   const init = handleMessage({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t" } } }, () => ({}));
   assert.equal(init.result.protocolVersion, "2025-06-18");
   assert.deepEqual(init.result.capabilities, { tools: { listChanged: false } });
   assert.equal(handleMessage({ jsonrpc: "2.0", method: "notifications/initialized" }, () => ({})), null);
   const list = handleMessage({ jsonrpc: "2.0", id: 2, method: "tools/list" }, () => ({}));
-  assert.deepEqual(list.result.tools.map((t) => [t.name, t.annotations.readOnlyHint]), [["lane_facts", true]]);
+  assert.deepEqual(list.result.tools.map((t) => [t.name, t.annotations.readOnlyHint, t.annotations.destructiveHint]), [["lane_facts", true, false], ["open_session", false, false]]);
   const facts = { lanes: [], takenAt: "x" };
   const call = handleMessage({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "lane_facts", arguments: {} } }, () => facts);
   assert.deepEqual(call.result.structuredContent, facts);
@@ -513,6 +731,34 @@ test("the server answers initialize, lists one read-only tool and returns the fa
   assert.deepEqual(broken.result, { content: [{ type: "text", text: "docker is not running" }], isError: true });
   assert.equal(handleMessage({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "rm_rf" } }, () => facts).error.code, -32602);
   assert.equal(handleMessage({ jsonrpc: "2.0", id: 6, method: "resources/list" }, () => facts).error.code, -32601);
+});
+
+const SESSION = "local_c78b70b3-2328-4a52-a51a-e185c37ee254";
+
+test("only the exact shape of a session id makes a link", () => {
+  assert.equal(sessionLink(SESSION), `claude://claude.ai/epitaxy/${SESSION}`);
+  for (const bad of [
+    "", "local_", "local_epic", SESSION + "\n", SESSION + "/settings", SESSION + "?x=1", "../settings", SESSION.toUpperCase(),
+    "x" + SESSION, "local_c78b70b3-2328-4a52-a51a-e185c37ee25", null, undefined, 7, {}, [SESSION],
+  ]) assert.equal(sessionLink(bad), null, String(bad));
+});
+
+test("open_session hands only a session's link to macOS and reports a failure", () => {
+  const call = (sessionId, openLink) => handleMessage({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "open_session", arguments: { sessionId } } }, () => { throw new Error("read nothing"); }, openLink);
+  const opened = [];
+  const good = call(SESSION, (t) => opened.push(t));
+  assert.deepEqual(opened, [`claude://claude.ai/epitaxy/${SESSION}`]);
+  assert.deepEqual(good.result.structuredContent, { opened: SESSION });
+  assert.ok(!good.result.isError);
+  const refused = call("https://example.com", (t) => opened.push(t));
+  assert.equal(refused.result.isError, true);
+  assert.equal(refused.result.content[0].text, "That is not a session id.");
+  assert.equal(opened.length, 1);
+  const broken = call(SESSION, () => { throw new Error("no such app"); });
+  assert.deepEqual(broken.result, { content: [{ type: "text", text: "no such app" }], isError: true });
+  const noArguments = handleMessage({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "open_session" } }, () => ({}), (t) => opened.push(t));
+  assert.equal(noArguments.result.isError, true);
+  assert.equal(opened.length, 1);
 });
 
 test("node lane-map.mjs serve speaks newline-delimited JSON-RPC on stdio", async () => {

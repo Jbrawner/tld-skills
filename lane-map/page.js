@@ -5,16 +5,20 @@
 
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
+// Every link opens outside the page, so no click can replace the page itself.
+const link = (href, text) => `<a href="${href}" target="_blank" rel="noopener">${text}</a>`;
+
 // Escape, then turn [text](https://…) into a link and `x` into code.
 export function rich(s) {
   return esc(s)
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, text, href) => `<a href="${href}">${text}</a>`)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, text, href) => link(href, text))
     .replace(/`([^`]+)`/g, "<code>$1</code>");
 }
 
 export const portPrefix = (ports) => String(ports ?? "").replace(/x+$/i, "");
 export const clock = (t) => new Date(t).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).toLowerCase().replace(/\s/g, " ");
 const day = (t) => new Date(t).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+const listTime = (t) => `${day(t)}, ${clock(t)}`;
 const dayOnly = (ymd) => /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? new Date(ymd + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ymd;
 export function duration(seconds) {
   if (seconds === null || seconds === undefined) return "";
@@ -23,7 +27,10 @@ export function duration(seconds) {
   return `${Math.round(seconds / 86400)} days`;
 }
 const gb = (mib) => `${(mib / 1024).toFixed(1)} GB`;
-const sessionLink = (s) => s ? (s.link ? `<a href="${esc(s.link)}">${esc(s.title)}</a>` : esc(s.title)) : "";
+// A session's name is a button that asks the lane-map server to open it, never a link: the app
+// refuses a claude:// session link from a page, and followed in the page's own frame the link
+// leaves it blank.
+const sessionName = (s) => s ? `<button type="button" class="session-open" data-session="${esc(s.id)}" title="Open this session">${esc(s.title)}</button>` : "";
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "x";
 
 const ROLE = { kong: "API", db: "database", inbucket: "test inbox", mailpit: "test inbox", studio: "Studio", analytics: "logs" };
@@ -34,10 +41,42 @@ export function portRun(ports) {
   return sorted.map((p, i) => (i && String(p).slice(0, 3) === String(sorted[0]).slice(0, 3) ? String(p).slice(3) : String(p))).join(" / ");
 }
 
+// What the page can honestly say about a held lane with no session. Only a current read can say
+// there is none; an old list can only say the session is not on it.
+export function noSessionText(facts) {
+  if (facts.sessionsLive) return "No open session in this folder";
+  if (!facts.sessionsKnown) return "Session list not read";
+  return `Not in the session list from ${listTime(facts.sessionsAt)}`;
+}
+
 // What a lane's notes were written against. A refresh keeps a lane's notes only while this is
 // unchanged: a lane that changed hands, started or stopped since then gets no stale sentence.
 export const laneBasis = (l) => `${l.state}|${l.claimedBy}|${l.docker?.running ? "up" : "down"}`;
 export const notesBasis = (facts) => Object.fromEntries(facts.lanes.map((l) => [l.key, laneBasis(l)]));
+
+// What a lane is doing, read from the facts alone: what runs against it and what its worktree
+// committed today. A Refresh draws this, because it has no session to read and Claude's notes
+// have aged. Today's commits only: an older last commit is usually the default branch's.
+export function liveDoing(l, procs) {
+  const d = l.docker;
+  const kinds = [...new Set(procs.map((p) => p.label))].map((label) => {
+    const same = procs.filter((p) => p.label === label);
+    return `${label}${same.length > 1 ? ` × ${same.length}` : ""} (${duration(Math.max(...same.map((p) => p.seconds)))})`;
+  });
+  const running = kinds.length ? `Running now: ${kinds.join(", ")}.` : "";
+  const idle = d?.running ? `up ${duration(d.upSeconds)}, nothing points at it.` : d?.containers ? "partly up, nothing points at it." : "";
+  if (l.state !== "claimed") {
+    if (running) return running;
+    if (!idle) return "Nothing.";
+    return l.state === "free" ? `Free, but ${idle}` : idle[0].toUpperCase() + idle.slice(1);
+  }
+  if (l.worktree && !l.worktree.exists) return `${running} Its worktree folder is gone, so this claim looks abandoned.`.trim();
+  const g = l.worktree?.git;
+  const commits = !g ? "" : g.commitsToday && g.last
+    ? `${g.commitsToday} commit${g.commitsToday === 1 ? "" : "s"} today, last at ${clock(g.last.at)}: ${g.last.subject}`
+    : "No commits today.";
+  return [running || (d?.running ? "Nothing running against it." : "Stack stopped, nothing running."), commits].filter(Boolean).join(" ");
+}
 
 // Products worth a filter button: a lane in use, a process, or a session today.
 export function productsShown(facts) {
@@ -81,6 +120,7 @@ export function renderBody(facts, notes, ctx = {}) {
   const runningIn = (p) => facts.lanes.filter((l) => l.product === p && l.docker?.running).length;
   const notesAt = ctx.notesAt ?? facts.takenAt;
   const later = Date.parse(facts.takenAt) - Date.parse(notesAt) > 60000;
+  const notesTime = new Date(notesAt).toDateString() === new Date(facts.takenAt).toDateString() ? clock(notesAt) : `${day(notesAt)}, ${clock(notesAt)}`;
 
   const badge = (l) => {
     const j = jobOf(l.key);
@@ -96,7 +136,7 @@ export function renderBody(facts, notes, ctx = {}) {
         <div class="job-head"><span class="job-name">${esc(j.name)}</span><span class="job-lanes">${j.lanes.map((k) => badge(lanesByKey.get(k))).join("")}</span></div>
         <p class="eyebrow">${esc(pname(product))}</p>
         <p>${rich(j.summary)}</p>
-        ${s ? `<p class="muted">Session: ${sessionLink(s)}${s.running ? " (working now)" : ""}${parent ? `, started from ${sessionLink(parent)}` : ""}</p>` : ""}
+        ${s ? `<p class="muted">Session: ${sessionName(s)}${s.running ? " (working now)" : ""}${parent ? `, started from ${sessionName(parent)}` : ""}</p>` : ""}
       </article>`;
   });
   const idle = facts.lanes.filter((l) => !jobOf(l.key) && !l.docker?.running && l.state !== "claimed");
@@ -122,12 +162,12 @@ export function renderBody(facts, notes, ctx = {}) {
     const procs = procsFor(l.key);
     const held = [];
     if (l.state === "claimed") {
-      held.push(`<p class="session">${l.session ? sessionLink(l.session) : "No session found"}</p>`);
+      held.push(`<p class="session">${l.session ? sessionName(l.session) : esc(noSessionText(facts))}</p>`);
       held.push(`<p><code>${esc(l.claimedBy)}</code>${l.worktree && !l.worktree.exists ? ` <span class="chip">folder is gone</span>` : ""}</p>`);
     } else if (l.state === "unmanaged") {
       const users = [...new Set(procs.map((p) => p.session).filter(Boolean))].map((id) => byId.get(id)).filter(Boolean);
       held.push(users.length
-        ? users.map((s) => `<p class="session">${sessionLink(s)}</p>`).join("")
+        ? users.map((s) => `<p class="session">${sessionName(s)}</p>`).join("")
         : `<p class="session">${d?.running ? "Nobody it can name" : "Nobody"}</p>`);
       held.push(`<p class="muted">No lane registry: ${l.product === "unknown" ? "no repo defines this stack" : "the repo's own stack"}.</p>`);
     } else {
@@ -146,9 +186,10 @@ export function renderBody(facts, notes, ctx = {}) {
     }
     if (l.retired) held.push(`<p><span class="chip">Retired product, but its stack is up</span></p>`);
 
-    const fallback = !fresh(l) ? `Changed since Claude's notes at ${clock(notesAt)}.` : l.state === "claimed" ? "No notes for this run." : d?.running ? "Up, with no notes for this run." : "Nothing.";
-    const doing = [`<p>${n.doing ? rich(n.doing) : fallback}</p>`];
-    if (n.chip) doing.push(`<p><span class="chip">${esc(n.chip)}</span></p>`);
+    // Claude's sentence leads only while it is as new as the facts. Later, it keeps its time.
+    const doing = [`<p>${n.doing && !later ? rich(n.doing) : esc(liveDoing(l, procs))}</p>`];
+    if (n.doing && later) doing.push(`<p class="muted">Claude at ${notesTime}: ${rich(n.doing)}</p>`);
+    if (n.chip && !later) doing.push(`<p><span class="chip">${esc(n.chip)}</span></p>`);
     if (d?.running && d.dbUpSeconds !== null && d.upSeconds - d.dbUpSeconds > 600) {
       doing.push(`<p class="muted">Database restarted at ${clock(Date.parse(facts.takenAt) - d.dbUpSeconds * 1000)}, most likely a reset.</p>`);
     }
@@ -214,7 +255,7 @@ export function renderBody(facts, notes, ctx = {}) {
   // Servers and runs that point at no lane (a dev server on staging, a script).
   const looseBlock = looseProcs.length
     ? `<section aria-labelledby="loose-h"><h2 id="loose-h">Running outside any lane</h2>
-      <div class="table-wrap"><table><thead><tr><th>What</th><th>Product</th><th>Where</th><th>For</th></tr></thead><tbody>${looseProcs.map((p) => `<tr data-product="${esc(slug(p.product))}"><td>${esc(p.label)}${p.ports.length ? ` on <code>:${p.ports.join(", :")}</code>` : ""}</td><td>${esc(pname(p.product))}</td><td><code>${esc(p.folder)}</code></td><td>${p.session ? sessionLink(byId.get(p.session)) : `up ${duration(p.seconds)}`}</td></tr>`).join("")}</tbody></table></div></section>`
+      <div class="table-wrap"><table><thead><tr><th>What</th><th>Product</th><th>Where</th><th>For</th></tr></thead><tbody>${looseProcs.map((p) => `<tr data-product="${esc(slug(p.product))}"><td>${esc(p.label)}${p.ports.length ? ` on <code>:${p.ports.join(", :")}</code>` : ""}</td><td>${esc(pname(p.product))}</td><td><code>${esc(p.folder)}</code></td><td>${p.session ? sessionName(byId.get(p.session)) : `up ${duration(p.seconds)}`}</td></tr>`).join("")}</tbody></table></div></section>`
     : "";
 
   // Sessions active today that hold no lane.
@@ -223,14 +264,14 @@ export function renderBody(facts, notes, ctx = {}) {
   const sessionRows = others.map((s) => {
     const started = facts.allSessions.filter((x) => x.startedBy === s.id && jobBySession.has(x.id)).map((x) => `Started ${jobBySession.get(x.id)}`);
     const sub = [pname(s.product), ...started].filter(Boolean);
-    return `<tr${s.product ? ` data-product="${esc(slug(s.product))}"` : ""}><td>${sessionLink(s)}${s.running ? ` <span class="chip">working</span>` : ""}<br><span class="muted">${esc(sub.join(" · "))}</span></td><td class="mono">${clock(s.lastActivityAt)}</td></tr>`;
+    return `<tr${s.product ? ` data-product="${esc(slug(s.product))}"` : ""}><td>${sessionName(s)}${s.running ? ` <span class="chip">working</span>` : ""}<br><span class="muted">${esc(sub.join(" · "))}</span></td><td class="mono">${clock(s.lastActivityAt)}</td></tr>`;
   });
-  const sessionsAge = facts.sessionsAt && Date.parse(facts.takenAt) - Date.parse(facts.sessionsAt) > 120000 ? ` Session states are as of ${clock(facts.sessionsAt)}, the last <code>/lane-map</code> run.` : "";
+  const sessionsAge = facts.sessionsAt && Date.parse(facts.takenAt) - Date.parse(facts.sessionsAt) > 120000 ? ` Session states are from a saved list, ${listTime(facts.sessionsAt)}.` : "";
   const sessionsBlock = !facts.sessionsKnown
     ? `<p class="muted">The session list was not read this run.</p>`
     : sessionRows.length
       ? `<div class="table-wrap"><table><thead><tr><th>Session</th><th>Last active</th></tr></thead><tbody>${sessionRows.join("")}</tbody></table></div>
-      <p class="muted">${others.some((s) => s.running) ? "Sessions marked working are mid-turn." : "All idle."} None of them holds a lane.${sessionsAge}</p>`
+      <p class="muted">${others.some((s) => s.running) ? (facts.sessionsLive ? "Working means it wrote to its transcript in the last 5 minutes." : "Sessions marked working were mid-turn.") : "All idle."} None of them holds a lane.${sessionsAge}</p>`
       : `<p class="muted">No other session was active today.${sessionsAge}</p>`;
 
   const filterBar = shown.length > 1
@@ -241,7 +282,7 @@ export function renderBody(facts, notes, ctx = {}) {
     : "";
 
   const lede = changed.length
-    ? `Since Claude's notes at ${clock(notesAt)}, ${changed.map((l) => `${short(l)}xx`).join(", ")} changed, so ${changed.length === 1 ? "its notes are" : "their notes are"} left out. Run <code>/lane-map</code> for new notes.`
+    ? `${changed.map((l) => `${short(l)}xx`).join(", ")} changed since Claude's notes at ${notesTime}, so ${changed.length === 1 ? "its Doing line is" : "their Doing lines are"} read from this Mac. Run <code>/lane-map</code> for Claude's read of each session.`
     : notes.lede ? rich(notes.lede) : "";
   const busy = new Set([...facts.lanes.filter((l) => l.state === "claimed").map((l) => `${l.product}/${l.claimedBy}`), ...facts.processes.map((p) => `${p.product}/${p.folder}`)]);
   const worktreeLine = facts.products.filter((p) => p.worktreeCount > 1 && !p.retired).map((p) => `${pname(p.name)} ${p.worktreeCount}`).join(", ");
@@ -250,7 +291,7 @@ export function renderBody(facts, notes, ctx = {}) {
 
   return `
   <header>
-    <span class="stamp">This Mac · snapshot ${esc(day(facts.takenAt))}, ${clock(facts.takenAt)}${later ? ` · notes from ${clock(notesAt)}` : ""}</span>
+    <span class="stamp">This Mac · snapshot ${esc(day(facts.takenAt))}, ${clock(facts.takenAt)}${later ? ` · notes from ${notesTime}` : ""}</span>
     <h1>${esc(title)}</h1>
     ${lede ? `<p class="lede">${lede}</p>` : ""}
     <div class="toolbar">
@@ -258,7 +299,7 @@ export function renderBody(facts, notes, ctx = {}) {
       <div class="refresh-bar"><button type="button" class="refresh" id="lane-refresh">Refresh</button><span class="refresh-status" id="lane-refresh-status" role="status" aria-live="polite"></span></div>
     </div>
   </header>
-  <section aria-labelledby="jobs-h"><h2 id="jobs-h">Jobs</h2><div class="jobs">${jobCards.join("") || `<p class="muted">No job holds a lane.</p>`}</div></section>
+  <section aria-labelledby="jobs-h"><h2 id="jobs-h">Jobs</h2><div class="jobs">${jobCards.join("") || `<p class="muted">${facts.lanes.some((l) => l.state === "claimed") ? "Claude has no current notes on these jobs. Run <code>/lane-map</code> for them; the lanes below show what is running." : "No job holds a lane."}</p>`}</div></section>
   <section aria-labelledby="lanes-h"><h2 id="lanes-h">Lanes</h2><div class="board">${laneRows.join("")}</div></section>
   ${looseBlock}
   <section aria-labelledby="docker-h"><h2 id="docker-h">Docker memory</h2>${dockerBlock}</section>
@@ -270,7 +311,7 @@ export function renderBody(facts, notes, ctx = {}) {
     <section aria-labelledby="sessions-h"><h2 id="sessions-h">Active today, no lane</h2>${sessionsBlock}</section>
   </div>
   <footer>
-    <p>A lane is one local Supabase stack, named by its port range. Read from each repo's <code>.tld/stacks.md</code> or <code>supabase/config.toml</code>, Docker, git worktrees, running processes and the app's session list. Refresh reads this Mac again through the lane-map server when the page is open in the Claude desktop app; the Doing lines come from Claude's last <code>/lane-map</code> run.</p>
+    <p>A lane is one local Supabase stack, named by its port range. Read from each repo's <code>.tld/stacks.md</code> or <code>supabase/config.toml</code>, Docker, git worktrees, running processes and the app's session files. Refresh reads this Mac again through the lane-map server when the page is open in the Claude desktop app, and each Doing line then comes from what runs against the lane and its worktree's commits today; Claude's sentence from the last <code>/lane-map</code> run stays under it with its time. Clicking a session's name opens that session in the app, through the same server.</p>
     ${worktreeLine ? `<p>Worktrees on disk: ${esc(worktreeLine)}. ${busy.size} ${busy.size === 1 ? "is" : "are"} in a lane or running something right now.</p>` : ""}
     ${hidden.length ? `<p>Left out while stopped: ${esc(hidden.map(pname).join(", "))}, retired in <code>~/.claude/lane-map/config.json</code>. A retired product's stack shows up here again if it starts.</p>` : ""}
   </footer>

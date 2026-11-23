@@ -5,15 +5,16 @@
 //   node lane-map.mjs gather [--code-dir <dir>] [--repo <dir>]... [--sessions <file>] > facts.json
 //   node lane-map.mjs summary --facts <file>
 //   node lane-map.mjs render --facts <file> --notes <file> > page.html
-//   node lane-map.mjs serve        (an MCP server on stdio with one tool, lane_facts)
+//   node lane-map.mjs serve        (an MCP server on stdio: lane_facts reads, open_session switches the app)
 //
 // A lane is one local Supabase stack, named by its port range (546xx). gather finds them in each
 // product repo under --code-dir (default ~/Code) plus any --repo: a repo with a lane registry
 // (.tld/stacks.md) contributes its rows; any other repo contributes the stack its
 // supabase/config.toml defines. A Supabase stack running in Docker that no repo defines is a
-// lane too. gather also reads Docker, git worktrees, running processes, listening ports and
-// portless routes, and with --sessions (the JSON array list_sessions returned) matches each
-// claim and process to its session. It changes nothing. A process is described by a fixed
+// lane too. gather also reads Docker, git worktrees, running processes, listening ports,
+// portless routes and the app's own session files, and matches each claim and process to its
+// session (--sessions reads the JSON array list_sessions returned instead). It changes nothing.
+// A process is described by a fixed
 // label ("Vite dev server", "Script run-shards.mjs"), never by its command line, and from a
 // process's environment it keeps the local Supabase URL's port and nothing else, so no key
 // reaches its output.
@@ -21,11 +22,11 @@
 // render draws one self-contained HTML page from those facts and notes.json, the words Claude
 // writes for each run (SKILL.md § Notes). Every note is escaped; [text](https://…) and `code`
 // are the only markup it turns into HTML. The page body comes from page.js, which the page also
-// carries, so its Refresh button can ask `serve` for fresh facts and redraw in place.
+// carries, so its Refresh button can ask `serve` for fresh facts and redraw in place. A session's
+// name on the page asks `serve` to open that session in the app.
 //
-// State lives in ~/.claude/lane-map/: config.json ({"retired": [...]}) and sessions.json, the
-// session list the last /lane-map run saved, which `serve` reuses because it cannot list
-// sessions itself.
+// State lives in ~/.claude/lane-map/: config.json ({"retired": [...]}) and sessions.json, a
+// session list a /lane-map run saved, used only when the app's session files cannot be read.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -35,7 +36,7 @@ import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { clock, duration, esc, filterCss, notesBasis, portPrefix, renderBody } from "./page.js";
 
-export { rich, portRun, duration, renderBody } from "./page.js";
+export { rich, portRun, duration, liveDoing, renderBody } from "./page.js";
 
 const STATE = join(homedir(), ".claude", "lane-map");
 
@@ -305,27 +306,92 @@ export function laneOfPort(port, lanes, product) {
 // --- sessions ---------------------------------------------------------------
 
 // The session working in a folder of a product: its cwd is that worktree, or the folder is a
-// shard worktree named after it (<folder>-walk2). A running session wins, then an exact match,
-// then the latest.
+// shard worktree named after it (<folder>-walk2). A side session sharing its parent's folder
+// never counts: the parent is the one working there. A running session wins, then an exact
+// match, then the latest.
 export function sessionFor(product, folder, sessions, products) {
   if (!folder) return null;
   const hits = sessions
     .map((s) => ({ s, place: placeOf(s.cwd, products) }))
     .filter(({ s, place }) => !s.isArchived && place?.product === product && (place.folder === folder || folder.startsWith(place.folder + "-")));
-  hits.sort((a, b) =>
+  const isSideSession = ({ s, place }) => hits.some((h) => h.s.sessionId === s.startedBy && h.place.folder === place.folder);
+  const main = hits.filter((h) => !isSideSession(h));
+  main.sort((a, b) =>
     Number(Boolean(b.s.isRunning)) - Number(Boolean(a.s.isRunning)) ||
     Number(b.place.folder === folder) - Number(a.place.folder === folder) ||
     String(b.s.lastActivityAt).localeCompare(String(a.s.lastActivityAt)));
-  return hits[0]?.s ?? null;
+  return main[0]?.s ?? null;
+}
+
+// The app keeps one file per session, so the map reads them itself and a session started a minute
+// ago is on the next Refresh. Only these fields leave this function: the rest of each file
+// (prompts, tool lists, connector settings) stops here. A file that makes no sense is no session.
+export function appSessionRow(text) {
+  const j = JSON.parse(text);
+  if (typeof j.sessionId !== "string" || typeof j.cwd !== "string") return null;
+  return {
+    sessionId: j.sessionId,
+    title: j.title || "Untitled session",
+    cwd: j.cwd,
+    isArchived: Boolean(j.isArchived),
+    lastActivityAt: Number.isFinite(j.lastActivityAt) ? j.lastActivityAt : 0,
+    startedBy: j.spawnedFrom?.sessionId ?? null,
+    cliSessionId: j.cliSessionId ?? null,
+  };
+}
+
+const APP_SESSIONS = join(homedir(), "Library", "Application Support", "Claude", "claude-code-sessions");
+const WORKING_WINDOW_MS = 5 * 60 * 1000;
+const APP_TIME_LAG_MS = 60 * 60 * 1000;
+// There are hundreds of these files and most never change, so `serve` reads each one once.
+const sessionCache = new Map();
+
+// A file being rewritten at this moment keeps the row it last gave.
+function cachedSessionRow(path, cache) {
+  try {
+    const mtimeMs = statSync(path).mtimeMs;
+    if (cache.get(path)?.mtimeMs !== mtimeMs) cache.set(path, { mtimeMs, row: appSessionRow(readFileSync(path, "utf8")) });
+  } catch { /* unreadable or half written: the last good row stands */ }
+  return cache.get(path)?.row ?? null;
+}
+
+// When a session last wrote to its transcript. The app's "mid-turn" flag is not on disk and its
+// own activity time lags by minutes, so this is the closest thing to "working" a file can say.
+// Alone it misleads: old transcripts get touched in bulk, with no session behind the write. So it
+// counts only for a session the app itself saw in the last hour.
+function transcriptWrittenAt(row, projects) {
+  if (!row.cliSessionId) return 0;
+  try {
+    return statSync(join(projects, row.cwd.replace(/[^a-zA-Z0-9]/g, "-"), `${row.cliSessionId}.jsonl`)).mtimeMs;
+  } catch { return 0; }
+}
+
+// Every session the app knows, shaped like list_sessions' rows. null when none can be read (no
+// such folder, or the app changed its format), so gather can say it fell back to the saved list.
+export function readAppSessions({ dir = APP_SESSIONS, projects = join(homedir(), ".claude", "projects"), now = Date.now(), cache = sessionCache } = {}) {
+  let names;
+  try { names = readdirSync(dir, { recursive: true }); } catch { return null; }
+  const rows = names
+    .filter((name) => /(^|\/)local_[^/]*\.json$/.test(name))
+    .map((name) => cachedSessionRow(join(dir, name), cache))
+    .filter(Boolean)
+    .map((row) => {
+      const written = row.isArchived || now - row.lastActivityAt > APP_TIME_LAG_MS ? 0 : transcriptWrittenAt(row, projects);
+      const working = now - written < WORKING_WINDOW_MS;
+      const seen = working ? Math.max(row.lastActivityAt, written) : row.lastActivityAt;
+      return { ...row, lastActivityAt: seen ? new Date(seen).toISOString() : null, isRunning: working };
+    });
+  return rows.length ? rows : null;
 }
 
 const trimSession = (s, products) => s && {
-  id: s.sessionId, title: s.title, link: s.link ?? null, running: Boolean(s.isRunning),
+  id: s.sessionId, title: s.title, running: Boolean(s.isRunning),
   lastActivityAt: s.lastActivityAt ?? null, startedBy: s.startedBy ?? null,
   product: placeOf(s.cwd, products)?.product ?? (s.cwd ? basename(s.cwd.split("/.claude/worktrees/")[0]) : null),
 };
 
 const sameLocalDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+const RECENT_MS = 14 * 24 * 60 * 60 * 1000;
 
 // --- facts --------------------------------------------------------------------
 
@@ -386,11 +452,15 @@ export function buildFacts(raw) {
     portless: (raw.portlessRoutes ?? []).map((r) => ({ hostname: r.hostname, port: r.port, live: (raw.listeningPorts ?? []).includes(r.port) })),
     portlessProxy: raw.portlessProxy ?? null,
     sessionsKnown: Boolean(raw.sessions),
+    sessionsLive: Boolean(raw.sessions && raw.sessionsLive),
     sessionsAt: raw.sessions ? raw.sessionsAt ?? raw.takenAt : null,
     sessions: sessions
       .filter((s) => !s.isArchived && s.lastActivityAt && sameLocalDay(s.lastActivityAt, raw.takenAt))
       .map((s) => ({ ...trimSession(s, products), holdsLane: laneSessions.has(s.sessionId) })),
-    allSessions: sessions.filter((s) => !s.isArchived).map((s) => trimSession(s, products)),
+    // What the page can name, not every session ever opened: these titles travel with the page.
+    allSessions: sessions
+      .filter((s) => !s.isArchived && (laneSessions.has(s.sessionId) || Date.parse(raw.takenAt) - Date.parse(s.lastActivityAt) < RECENT_MS))
+      .map((s) => trimSession(s, products)),
   };
 }
 
@@ -462,13 +532,16 @@ function gather({ codeDir, repos, sessionsFile, configFile }) {
     }
   }
 
-  // With no --sessions, the list the last /lane-map run saved, dated by when it was saved.
+  // --sessions wins. Otherwise the app's own files, which are current; failing that, a list an
+  // earlier run saved, dated by when it was saved so the page can say how old it is.
   const saved = join(STATE, "sessions.json");
-  const sessionsPath = sessionsFile ?? (existsSync(saved) ? saved : null);
-  const sessions = sessionsPath ? JSON.parse(readFileSync(sessionsPath, "utf8")) : null;
+  const live = sessionsFile ? null : readAppSessions();
+  const sessionsPath = live ? null : sessionsFile ?? (existsSync(saved) ? saved : null);
+  const sessions = live ?? (sessionsPath ? JSON.parse(readFileSync(sessionsPath, "utf8")) : null);
   return buildFacts({
     takenAt: new Date().toISOString(), products, dockerPs, dockerStats, dockerMemTotal, processes,
     envPorts: envPortsByPid, listeningPorts, portlessRoutes, portlessProxy, git, sessions,
+    sessionsLive: Boolean(live),
     sessionsAt: sessionsPath ? statSync(sessionsPath).mtime.toISOString() : null,
     retired: Array.isArray(config.retired) ? config.retired : [],
   });
@@ -484,8 +557,32 @@ const LANE_FACTS_TOOL = {
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 };
 
-// One JSON-RPC message in, its reply out (null for a notification). provideFacts runs gather.
-export function handleMessage(msg, provideFacts) {
+const OPEN_SESSION_TOOL = {
+  name: "open_session",
+  title: "Open session",
+  description: "Show one Claude Code session in the Claude desktop app. Changes no data: it only switches what the app shows.",
+  inputSchema: {
+    type: "object",
+    properties: { sessionId: { type: "string", description: "The session's id: local_ followed by a UUID." } },
+    required: ["sessionId"],
+    additionalProperties: false,
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+};
+
+// The app refuses a session link from a page, so the server hands it to macOS, which delivers it
+// to the app. Only the exact shape of a session id gets through, so this opens nothing else.
+const SESSION_ID = /^local_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export const sessionLink = (id) => (typeof id === "string" && SESSION_ID.test(id) ? `claude://claude.ai/epitaxy/${id}` : null);
+
+const openInApp = (target) => {
+  const r = spawnSync("/usr/bin/open", [target], { encoding: "utf8" });
+  if (r.status !== 0) throw new Error(r.stderr?.trim() || "macOS could not open the link");
+};
+
+// One JSON-RPC message in, its reply out (null for a notification). provideFacts runs gather;
+// openLink hands a session link to macOS.
+export function handleMessage(msg, provideFacts, openLink) {
   const ok = (result) => ({ jsonrpc: "2.0", id: msg.id, result });
   const fail = (code, message) => ({ jsonrpc: "2.0", id: msg.id ?? null, error: { code, message } });
   const isRequest = msg && msg.id !== undefined && msg.id !== null;
@@ -498,15 +595,29 @@ export function handleMessage(msg, provideFacts) {
     });
   }
   if (msg.method === "ping") return ok({});
-  if (msg.method === "tools/list") return ok({ tools: [LANE_FACTS_TOOL] });
+  if (msg.method === "tools/list") return ok({ tools: [LANE_FACTS_TOOL, OPEN_SESSION_TOOL] });
   if (msg.method === "tools/call") {
-    if (msg.params?.name !== LANE_FACTS_TOOL.name) return fail(-32602, `Unknown tool: ${msg.params?.name}`);
-    try {
-      const facts = provideFacts();
-      return ok({ content: [{ type: "text", text: JSON.stringify(facts) }], structuredContent: facts });
-    } catch (e) {
-      return ok({ content: [{ type: "text", text: e.message }], isError: true });
+    const refused = (text) => ok({ content: [{ type: "text", text }], isError: true });
+    if (msg.params?.name === LANE_FACTS_TOOL.name) {
+      try {
+        const facts = provideFacts();
+        return ok({ content: [{ type: "text", text: JSON.stringify(facts) }], structuredContent: facts });
+      } catch (e) {
+        return refused(e.message);
+      }
     }
+    if (msg.params?.name === OPEN_SESSION_TOOL.name) {
+      const id = msg.params.arguments?.sessionId;
+      const target = sessionLink(id);
+      if (!target) return refused("That is not a session id.");
+      try {
+        openLink(target);
+        return ok({ content: [{ type: "text", text: `Asked the app to open ${id}.` }], structuredContent: { opened: id } });
+      } catch (e) {
+        return refused(e.message);
+      }
+    }
+    return fail(-32602, `Unknown tool: ${msg.params?.name}`);
   }
   return isRequest ? fail(-32601, `Method not found: ${msg.method}`) : null;
 }
@@ -520,7 +631,7 @@ function serve(options) {
     if (!line.trim()) return;
     let msg;
     try { msg = JSON.parse(line); } catch { send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }); return; }
-    const reply = handleMessage(msg, () => gather(options));
+    const reply = handleMessage(msg, () => gather(options), openInApp);
     if (reply) send(reply);
   });
 }
@@ -528,8 +639,12 @@ function serve(options) {
 // --- summary: the facts as short lines, for Claude to read before writing notes --------
 
 export function summary(facts) {
-  const lines = [];
-  const proc = (p) => `${p.label}${p.ports.length ? ` :${p.ports.join(",:")}` : ""} [${p.product}/${p.folder}${p.session ? ` session ${p.session}` : ""}]`;
+  const lines = [
+    facts.sessionsLive ? "sessions: current, from the app's own files"
+      : facts.sessionsKnown ? `sessions: NOT current, a saved list from ${facts.sessionsAt}`
+        : "sessions: NOT READ",
+  ];
+  const proc =(p) => `${p.label}${p.ports.length ? ` :${p.ports.join(",:")}` : ""} [${p.product}/${p.folder}${p.session ? ` session ${p.session}` : ""}]`;
   for (const l of facts.lanes) {
     const d = l.docker;
     const holder = l.state === "claimed" ? `claimed by ${l.claimedBy} since ${l.since}` : l.state;
@@ -556,12 +671,13 @@ const PAGE_JS = readFileSync(new URL("./page.js", import.meta.url), "utf8");
 // page.js as a classic script: the same functions, without the module's export keywords.
 export const browserSource = (source) => source.replace(/^export /gm, "");
 
-// The page's own script: the product filter, and the Refresh button, which asks the lane-map
-// server on this Mac for fresh facts and redraws with page.js. It calls only on a click, and
-// says what to do for each way the call can fail.
+// The page's own script: the product filter, the Refresh button, which asks the lane-map server
+// on this Mac for fresh facts and redraws with page.js, and session names, which ask it to open
+// that session. It calls only on a click, and says what to do for each way a call can fail.
 const CONTROLLER = `
 const SERVER = "host:lane-map";
 const TOOL = "lane_facts";
+const OPEN_TOOL = "open_session";
 const data = JSON.parse(document.getElementById("lane-data").textContent);
 const wrap = document.querySelector(".wrap");
 const filterStyle = document.getElementById("lane-filter-css");
@@ -622,10 +738,50 @@ async function refresh() {
     if (again) again.disabled = false;
   }
 }
+const OPEN_WHY = {
+  server_not_connected: "Can't reach the lane-map server. It has to be in the Claude app's claude_desktop_config.json, with the app restarted after.",
+  not_granted: "Opening a session only works with this page open in the Claude desktop app.",
+  capability_disabled: "Opening a session only works with this page open in the Claude desktop app.",
+  capability_removed: "Opening a session only works with this page open in the Claude desktop app.",
+  not_in_manifest: "The lane-map server can't open sessions yet. Quit and reopen the Claude app so it loads the new tool. If it still says this, allow the tool in the page's Permissions menu.",
+  approval_required: "Not opened. Click the name again and choose Allow.",
+  cancelled: "Not opened. Click the name again and choose Allow.",
+  server_unavailable: "The lane-map server did not answer. Click the name again.",
+};
+// A session name can be far down the page, so its failure is said right beside it.
+const noteBeside = (button, text) => {
+  let note = button.nextElementSibling;
+  if (!note || !note.classList.contains("session-note")) {
+    if (!text) return;
+    note = document.createElement("span");
+    note.className = "session-note";
+    note.setAttribute("role", "status");
+    button.after(note);
+  }
+  note.textContent = text;
+};
+async function openSession(button) {
+  if (button.disabled) return;
+  button.disabled = true;
+  noteBeside(button, "");
+  try {
+    await ready;
+    if (!mcp) { noteBeside(button, OPEN_WHY.not_granted); return; }
+    await mcp.callTool(SERVER, OPEN_TOOL, { sessionId: button.dataset.session }, { cache: false });
+  } catch (e) {
+    const code = e && e.code;
+    if (code === "tool_error") noteBeside(button, "The lane-map server could not open it: " + (e.message || "no reason given") + ".");
+    else noteBeside(button, OPEN_WHY[code] || "Could not open this session (" + (code || "unknown") + "). Find it by name in the sidebar.");
+  } finally {
+    button.disabled = false;
+  }
+}
 wrap.addEventListener("click", (e) => {
   const filter = e.target.closest(".filter");
   if (filter) pick(filter.dataset.pick);
   if (e.target.closest("#lane-refresh")) refresh();
+  const session = e.target.closest(".session-open");
+  if (session) openSession(session);
 });
 pick(current);
 `;
@@ -688,7 +844,7 @@ h2 { font-size: 1.15rem; letter-spacing: 0.02em; text-transform: uppercase; colo
 p { margin: 0; }
 a { color: inherit; text-decoration-color: var(--line); text-underline-offset: 3px; }
 a:hover { text-decoration-color: currentColor; }
-a:focus-visible, .filter:focus-visible { outline: 2px solid var(--job-1); outline-offset: 2px; border-radius: 4px; }
+a:focus-visible, .filter:focus-visible, .session-open:focus-visible { outline: 2px solid var(--job-1); outline-offset: 2px; border-radius: 4px; }
 code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
 .muted { color: var(--muted); }
 .num { font-variant-numeric: tabular-nums; }
@@ -753,6 +909,11 @@ header { display: flex; flex-direction: column; gap: 10px; }
 .col p, .col li { font-size: 0.92rem; overflow-wrap: anywhere; }
 .col ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .session { font-weight: 600; }
+.session-open { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left; overflow-wrap: anywhere; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.session-open:hover { text-decoration-color: currentColor; }
+.session-open:disabled { cursor: progress; opacity: 0.6; }
+.session-note { display: block; font-size: 0.84rem; font-weight: 400; color: var(--warn); }
+.session-note:empty { display: none; }
 .lane.idle .session { font-weight: 500; }
 .budget { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; }
 .bar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; background: color-mix(in srgb, var(--off) 18%, transparent); }
